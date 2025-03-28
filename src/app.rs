@@ -1,4 +1,4 @@
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::event::input::AppEvent;
@@ -40,9 +40,6 @@ impl App {
     pub async fn run(&mut self) {
         loop {
             let event = self.receiver.recv().await;
-            if self.quit == true {
-                return;
-            }
 
             if event.is_none() {
                 continue;
@@ -51,12 +48,11 @@ impl App {
             let event = event.unwrap();
 
             match event {
-                AppEvent::Input(inkey) => {
-                    if inkey.code == KeyCode::Char('c') && inkey.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
-                        self.quit = true;
-                    }
-                },
                 AppEvent::Tick => continue,
+                AppEvent::Input(_) => {}
+                AppEvent::Quit => {
+                    return;
+                }
             };
         }
     }
