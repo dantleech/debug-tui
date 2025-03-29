@@ -1,0 +1,35 @@
+use tokio::{io::{AsyncBufReadExt, AsyncReadExt, BufReader}, net::TcpStream};
+
+pub struct DbgpClient {
+    stream: TcpStream,
+}
+impl DbgpClient {
+    pub(crate) fn new(s: TcpStream) -> Self {
+        Self { stream: s }
+    }
+
+    pub(crate) async fn read(&mut self) -> Result<(), anyhow::Error> {
+        let mut xml: Vec<u8> = Vec::new();
+        let mut reader = BufReader::new(&mut self.stream);
+        reader.read_until(b'\0', &mut xml).await?;
+
+        println!("Received {}", String::from_utf8(xml).unwrap());
+        Ok(())
+    }
+}
+
+fn parse_xml(xml: String) {
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse_xml() {
+        parse_xml(r#"
+            <?xml version="1.0" encoding="iso-8859-1"?>
+            <init xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" fileuri="file:///application/vendor/bin/codecept" language="PHP" xdebug:language_version="7.1.33-53+ubuntu22.04.1+deb.sury.org+1" protocol_version="1.0" appid="37"><engine version="2.9.8"><![CDATA[Xdebug]]></engine><author><![CDATA[Derick Rethans]]></author><url><![CDATA[https://xdebug.org]]></url><copyright><![CDATA[Copyright (c) 2002-2020 by Derick Rethans]]></copyright></init>
+        "#.to_string());
+    }
+}

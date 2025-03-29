@@ -1,5 +1,6 @@
 pub mod app;
 pub mod event;
+pub mod dbgp;
 
 use std::{io, panic, process};
 

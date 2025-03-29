@@ -1,13 +1,14 @@
-use std::{time::Duration, thread};
+use std::{thread, time::Duration};
 
 use crossterm::event::{self, poll, Event, KeyCode, KeyEvent, KeyModifiers};
-use tokio::sync::mpsc::Sender;
+use tokio::{net::TcpStream, sync::mpsc::Sender};
 
 #[derive(Debug)]
 pub enum AppEvent {
     Input(KeyEvent),
     Tick,
     Quit,
+    ClientConnected(TcpStream),
 }
 
 pub type EventSender = Sender<AppEvent>;
