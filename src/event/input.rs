@@ -9,9 +9,17 @@ pub enum AppEvent {
     Tick,
     Quit,
     ClientConnected(TcpStream),
-    Disconnect,
+    UpdateStatus(ServerStatus),
     Run,
     StepInto,
+    Disconnect,
+}
+
+#[derive(Debug)]
+pub enum ServerStatus {
+    Break,
+    Stopping,
+    Unknown(String)
 }
 
 pub type EventSender = Sender<AppEvent>;

@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Sender;
 
-use crate::{dbgp::client::{DbgpClient, Init, Message, Response}, event::input::AppEvent};
+use crate::{dbgp::client::{DbgpClient, Init, Message, Response}, event::input::{AppEvent, ServerStatus}};
 
 pub struct Session {
     client: DbgpClient,
@@ -40,9 +40,12 @@ impl Session {
 
     async fn handle_response(&mut self, r: Response) -> Result<(), anyhow::Error> {
         if r.status == "stopping" {
-            self.sender.send(AppEvent::Disconnect).await?;
-            return Ok(());
+            self.sender.send(AppEvent::UpdateStatus(ServerStatus::Stopping)).await?;
         }
+        if r.status == "break" {
+            self.sender.send(AppEvent::UpdateStatus(ServerStatus::Break)).await?;
+        }
+        self.sender.send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status))).await?;
         Ok(())
     }
 }
