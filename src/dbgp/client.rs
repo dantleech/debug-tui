@@ -24,6 +24,7 @@ pub enum CommandResponse {
     Run(ContinuationResponse),
     Unknown,
     StackGet(StackGetResponse),
+    Source(String),
 }
 
 #[derive(Debug)]
@@ -94,6 +95,16 @@ impl DbgpClient {
         }
     }
 
+    pub(crate) async fn get_stack(&mut self) -> Result<StackGetResponse, anyhow::Error> {
+        match self.command("stack_get", &mut vec!["-n 0"]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::StackGet(s) => Ok(s),
+                _ => Err(anyhow::anyhow!("Unexpected response")),
+            },
+            _ => Err(anyhow::anyhow!("Unexpected response")),
+        }
+    }
+
     async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message, anyhow::Error> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
@@ -102,8 +113,8 @@ impl DbgpClient {
         self.read().await
     }
 
-    pub(crate) fn disonnect(&mut self) {
-        self.stream.shutdown();
+    pub(crate) async fn disonnect(&mut self) {
+        self.stream.shutdown().await.unwrap();
     }
 }
 
@@ -204,6 +215,34 @@ mod test {
                 match r.command {
                     CommandResponse::StackGet(s) => {
                         assert_eq!("file:///app/test.php", s.filename)
+                    }
+                    _ => panic!("Could not parse get_stack"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
+
+
+    #[test]
+    fn test_parse_source() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="source" transaction_id="11" encoding="base64"><![CDATA[PD9waHAKCmNhbGxfZnVuY3Rpb24oImhlbGxvIik7CgpmdW5jdGlvbiBjYWxsX2Z1bmN0aW9uKHN0cmluZyAkaGVsbG8pIHsKICAgIGVjaG8gJGhlbGxvOwp9Cg==]]></response>"#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::Source(source) => {
+                        let expected = r#"<?php
+
+                        call_function("hello");
+
+                        function call_function(string $hello) {
+                            echo $hello;
+                        }"#;
+                        assert_eq!(expected, source)
                     }
                     _ => panic!("Could not parse get_stack"),
                 };

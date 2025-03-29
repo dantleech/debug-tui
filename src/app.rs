@@ -115,7 +115,7 @@ impl App {
                         self.session
                             .as_mut()
                             .expect("Session not set but it should be")
-                            .disconnect();
+                            .disconnect().await;
                         self.session = None;
                         self.state = AppState::Listening;
                     }

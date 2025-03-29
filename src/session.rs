@@ -34,8 +34,9 @@ impl Session {
         }
     }
 
-    pub(crate) fn disconnect(&mut self) {
-        self.client.disonnect();
+    pub(crate) async fn disconnect(&mut self) {
+
+        self.client.disonnect().await
     }
 
     async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<(), anyhow::Error> {
@@ -46,6 +47,7 @@ impl Session {
             self.sender.send(AppEvent::UpdateStatus(ServerStatus::Break)).await?;
         }
         self.sender.send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status))).await?;
+
         Ok(())
     }
 }
