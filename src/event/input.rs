@@ -9,6 +9,7 @@ pub enum AppEvent {
     Tick,
     Quit,
     ClientConnected(TcpStream),
+    Run,
 }
 
 pub type EventSender = Sender<AppEvent>;
@@ -33,9 +34,6 @@ pub fn start(event_sender: EventSender) {
                     }
                 }
             }
-
-            // ignore errors from tick - it causes panics on shutdown
-            let _ = event_sender.blocking_send(AppEvent::Tick);
         }
     });
 }

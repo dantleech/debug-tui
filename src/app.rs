@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use tokio::{io::AsyncReadExt, net::{TcpListener, TcpStream}, sync::mpsc::{Receiver, Sender}, task};
 
-use crate::{dbgp::client::DbgpClient, event::input::AppEvent};
+use crate::{dbgp::client::{DbgpClient, Response}, event::input::AppEvent, session::Session};
 
 pub enum AppState {
     Listening,
@@ -23,7 +23,7 @@ pub struct App {
     config: Config,
     receiver: Receiver<AppEvent>,
     sender: Sender<AppEvent>,
-    client: Option<DbgpClient>,
+    session: Option<Session>,
     quit: bool,
 }
 
@@ -34,12 +34,12 @@ impl App {
             state: AppState::Listening,
             receiver,
             sender,
-            client: None,
+            session: None,
             quit: false,
         }
     }
 
-    pub async fn run(&mut self) -> ! {
+    pub async fn run(&mut self) -> Result<(), anyhow::Error> {
         let sender = self.sender.clone();
         task::spawn(async move {
             let listener = TcpListener::bind("0.0.0.0:9003").await.unwrap();
@@ -53,6 +53,7 @@ impl App {
 
         loop {
             let event = self.receiver.recv().await;
+            println!("Event: {:?}\n", event);
 
             if event.is_none() {
                 continue;
@@ -61,24 +62,29 @@ impl App {
             let event = event.unwrap();
 
             match self.state {
-                AppState::Listening => {
-                    match event {
-                        AppEvent::ClientConnected(s) => {
-                            self.client = Some(DbgpClient::new(s));
-                            self.state = AppState::Connected;
-
-                            self.client.as_mut().unwrap().read().await;
-
-                            continue;
-                        },
-                        _ => ()
-                    }
+                AppState::Listening => match event {
+                    AppEvent::ClientConnected(s) => {
+                        let mut session = Session::new(DbgpClient::new(s));
+                        session.init().await?;
+                        self.session = Some(session);
+                        self.state = AppState::Connected;
+                        ()
+                    },
+                    _ => ()
                 },
                 AppState::Connected => match event {
-                    AppEvent::Input(_) => todo!("input"),
-                    AppEvent::Tick => todo!("tick"),
-                    AppEvent::Quit => todo!("quit"),
-                    _ => (),
+                    AppEvent::Quit => return Ok(()),
+                    AppEvent::Input(e) => match e.code {
+                        KeyCode::Char(char) => match char {
+                            'r' => self.sender.send(AppEvent::Run).await?,
+                            _ => (),
+                        },
+                        _ => (),
+                    },
+                    _ => match &mut self.session {
+                        Some(s) => s.handle(event).await?,
+                        None => panic!("Expected session to be set, but it is not"),
+                    }
                 },
             }
         }

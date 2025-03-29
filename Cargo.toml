@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.97"
 crossterm = "0.28.1"
-quick-xml = { version = "0.37.3", features = ["serde"] }
 ratatui = "0.29.0"
+serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.44.1", features = ["full"] }
+xmltree = "0.11.0"
