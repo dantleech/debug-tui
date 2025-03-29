@@ -15,8 +15,17 @@ pub struct Init {
 }
 
 #[derive(Debug)]
-pub enum Response {
+pub struct Response {
+    pub transaction_id: String,
+    pub command: String,
+    pub status: String,
+    pub reason: String,
+}
+
+#[derive(Debug)]
+pub enum Message {
     Init(Init),
+    Response(Response),
 }
 
 pub struct DbgpClient {
@@ -28,7 +37,7 @@ impl DbgpClient {
         Self { stream: s, tid: 0 }
     }
 
-    pub(crate) async fn read(&mut self) -> Result<Response, anyhow::Error> {
+    pub(crate) async fn read(&mut self) -> Result<Message, anyhow::Error> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
         let mut reader = BufReader::new(&mut self.stream);
@@ -52,7 +61,7 @@ impl DbgpClient {
         return parse_xml(String::from_utf8(xml).unwrap().as_str());
     }
 
-    pub(crate) async fn run(&mut self) -> Result<Response, anyhow::Error> {
+    pub(crate) async fn run(&mut self) -> Result<Message, anyhow::Error> {
 
         let result = self.command("run", &mut vec![]).await?;
         println!("Response {:?}", result);
@@ -63,24 +72,32 @@ impl DbgpClient {
         &mut self,
         cmd: &str,
         args: &mut Vec<&str>,
-    ) -> Result<Response, anyhow::Error> {
+    ) -> Result<Message, anyhow::Error> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.stream.write(bytes.as_bytes()).await.unwrap();
         self.tid += 1;
         self.read().await
     }
+
+    pub(crate) fn disonnect(&mut self) -> () {
+        self.stream.shutdown();
+    }
 }
 
-fn parse_xml(xml: &str) -> Result<Response, anyhow::Error> {
+fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
+    println!("Response : {}", xml);
     let root = Element::parse(xml.as_bytes())?;
+    let attributes = root.attributes;
     match root.name.as_str() {
-        "init" => Ok(Response::Init(Init {
-            fileuri: root
-                .attributes
-                .get("fileuri")
-                .expect("Expected fileuri to be set")
-                .to_string(),
+        "init" => Ok(Message::Init(Init {
+            fileuri: attributes.get("fileuri").expect("Expected fileuri to be set").to_string(),
+        })),
+        "response" => Ok(Message::Response(Response {
+            transaction_id: attributes.get("transaction_id").expect("Expected transaction_id to be set").to_string(),
+            command: attributes.get("command").expect("Expected command to be set").to_string(),
+            status: attributes.get("status").expect("Expected status to be set").to_string(),
+            reason: attributes.get("reason").expect("Expected status to be set").to_string(),
         })),
         _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
     }
@@ -98,7 +115,7 @@ mod test {
         "#,
         )?;
         match result {
-            Response::Init(init) => {
+            Message::Init(init) => {
                 assert_eq!("file:///application/vendor/bin/codecept", init.fileuri);
             }
         }

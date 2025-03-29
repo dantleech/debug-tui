@@ -9,6 +9,7 @@ pub enum AppEvent {
     Tick,
     Quit,
     ClientConnected(TcpStream),
+    Disconnect,
     Run,
 }
 

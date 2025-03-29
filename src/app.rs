@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use tokio::{io::AsyncReadExt, net::{TcpListener, TcpStream}, sync::mpsc::{Receiver, Sender}, task};
 
-use crate::{dbgp::client::{DbgpClient, Response}, event::input::AppEvent, session::Session};
+use crate::{dbgp::client::{DbgpClient, Message}, event::input::AppEvent, session::Session};
 
 pub enum AppState {
     Listening,
@@ -43,11 +43,14 @@ impl App {
         let sender = self.sender.clone();
         task::spawn(async move {
             let listener = TcpListener::bind("0.0.0.0:9003").await.unwrap();
-            match listener.accept().await {
-                Ok(s) => {
-                    sender.send(AppEvent::ClientConnected(s.0)).await.unwrap();
-                },
-                Err(_) => panic!("Could not connect"),
+
+            loop {
+                match listener.accept().await {
+                    Ok(s) => {
+                        sender.send(AppEvent::ClientConnected(s.0)).await.unwrap();
+                    },
+                    Err(_) => panic!("Could not connect"),
+                }
             }
         });
 
@@ -64,7 +67,7 @@ impl App {
             match self.state {
                 AppState::Listening => match event {
                     AppEvent::ClientConnected(s) => {
-                        let mut session = Session::new(DbgpClient::new(s));
+                        let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
                         session.init().await?;
                         self.session = Some(session);
                         self.state = AppState::Connected;
@@ -74,6 +77,11 @@ impl App {
                 },
                 AppState::Connected => match event {
                     AppEvent::Quit => return Ok(()),
+                    AppEvent::Disconnect => {
+                        self.session.as_mut().unwrap().disconnect();
+                        self.session = None;
+                        self.state = AppState::Listening;
+                    },
                     AppEvent::Input(e) => match e.code {
                         KeyCode::Char(char) => match char {
                             'r' => self.sender.send(AppEvent::Run).await?,
