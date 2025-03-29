@@ -1,5 +1,6 @@
 use core::str;
 
+use crossterm::style::Attribute;
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -77,7 +78,7 @@ impl DbgpClient {
         match self.command("run", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::Run(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response"))
+                _ => Err(anyhow::anyhow!("Unexpected response")),
             },
             _ => Err(anyhow::anyhow!("Unexpected response")),
         }
@@ -87,7 +88,7 @@ impl DbgpClient {
         match self.command("step_into", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepInto(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response"))
+                _ => Err(anyhow::anyhow!("Unexpected response")),
             },
             _ => Err(anyhow::anyhow!("Unexpected response")),
         }
@@ -109,30 +110,50 @@ impl DbgpClient {
 fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
     println!("Response : {}", xml);
     let root = Element::parse(xml.as_bytes())?;
-    let attributes = root.attributes;
     match root.name.as_str() {
         "init" => Ok(Message::Init(Init {
-            fileuri: attributes
+            fileuri: root.attributes
                 .get("fileuri")
                 .expect("Expected fileuri to be set")
                 .to_string(),
         })),
         "response" => Ok(Message::Response(Response {
-            transaction_id: attributes
+            transaction_id: root.attributes
                 .get("transaction_id")
                 .expect("Expected transaction_id to be set")
                 .to_string(),
-            command: match attributes
+            command: match root.attributes
                 .get("command")
                 .expect("Expected command to be set")
                 .as_str()
             {
-                "step_into" => CommandResponse::StepInto(parse_continuation_response(&attributes)),
-                "run" => CommandResponse::Run(parse_continuation_response(&attributes)),
+                "step_into" => CommandResponse::StepInto(parse_continuation_response(&root.attributes)),
+                "run" => CommandResponse::Run(parse_continuation_response(&root.attributes)),
+                "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)?),
                 _ => CommandResponse::Unknown,
             },
         })),
         _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
+    }
+}
+
+fn parse_stack_get(element: &Element) -> Result<StackGetResponse, anyhow::Error> {
+    match element.get_child("stack") {
+        None => Err(anyhow::anyhow!(
+            "Expected stack response to have a child element"
+        )),
+        Some(s) => {
+            Ok(StackGetResponse {
+                filename: s.attributes
+                    .get("filename")
+                    .expect("Expected status to be set")
+                    .to_string(),
+                line: s.attributes
+                    .get("lineno")
+                    .expect("Expected lineno to be set")
+                    .parse()?
+            })
+        }
     }
 }
 
@@ -184,7 +205,7 @@ mod test {
                     CommandResponse::StackGet(s) => {
                         assert_eq!("file:///app/test.php", s.filename)
                     }
-                    _ => panic!("Could not parse step into"),
+                    _ => panic!("Could not parse get_stack"),
                 };
             }
             _ => panic!("Did not parse"),
