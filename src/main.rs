@@ -2,6 +2,7 @@ pub mod app;
 pub mod event;
 pub mod dbgp;
 pub mod session;
+pub mod ui;
 
 use std::{io, panic, process};
 
@@ -31,7 +32,7 @@ async fn main() -> Result<(), anyhow::Error> {
     input::start(event_sender.clone());
 
     let mut app = App::new(event_receiver, event_sender);
-    app.run().await?;
+    app.run(&mut terminal).await?;
 
     disable_raw_mode()?;
 

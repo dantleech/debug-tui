@@ -13,6 +13,7 @@ pub enum AppEvent {
     Run,
     StepInto,
     Disconnect,
+    Startup,
 }
 
 #[derive(Debug)]
@@ -26,6 +27,7 @@ pub type EventSender = Sender<AppEvent>;
 
 pub fn start(event_sender: EventSender) {
     thread::spawn(move || {
+        event_sender.blocking_send(AppEvent::Startup).unwrap();
         loop {
             if poll(Duration::from_millis(1000)).unwrap() {
                 // handle global keys

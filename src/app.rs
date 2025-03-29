@@ -1,6 +1,8 @@
+use std::{fmt::Display, io};
+
 use crossterm::event::{KeyCode, KeyModifiers};
+use ratatui::{prelude::CrosstermBackend, Terminal};
 use tokio::{
-    io::AsyncReadExt,
     net::{TcpListener, TcpStream},
     sync::mpsc::{Receiver, Sender},
     task,
@@ -9,12 +11,20 @@ use tokio::{
 use crate::{
     dbgp::client::{DbgpClient, Message},
     event::input::{AppEvent, ServerStatus},
-    session::Session,
+    session::Session, ui::render,
 };
 
 pub enum AppState {
     Listening,
     Connected,
+}
+impl Display for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            AppState::Listening => "Listening",
+            AppState::Connected => "Connected",
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -29,12 +39,11 @@ impl Config {
 }
 
 pub struct App {
-    state: AppState,
-    config: Config,
+    pub state: AppState,
+    pub config: Config,
     receiver: Receiver<AppEvent>,
     sender: Sender<AppEvent>,
     session: Option<Session>,
-    quit: bool,
 }
 
 impl App {
@@ -45,13 +54,17 @@ impl App {
             receiver,
             sender,
             session: None,
-            quit: false,
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn run(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    ) -> Result<(), anyhow::Error> {
         let sender = self.sender.clone();
         let config = self.config.clone();
+
+        // spawn connection listener co-routine
         task::spawn(async move {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", config.port))
                 .await
@@ -69,7 +82,6 @@ impl App {
 
         loop {
             let event = self.receiver.recv().await;
-            println!("Event: {:?}\n", event);
 
             if event.is_none() {
                 continue;
@@ -124,6 +136,11 @@ impl App {
                     }
                 },
             }
+
+            terminal.autoresize()?;
+            terminal.draw(|frame| {
+                render(self, frame);
+            })?;
         }
     }
 }

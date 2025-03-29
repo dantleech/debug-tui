@@ -94,7 +94,6 @@ impl DbgpClient {
 }
 
 fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
-    println!("Response : {}", xml);
     let root = Element::parse(xml.as_bytes())?;
     let attributes = root.attributes;
     match root.name.as_str() {
