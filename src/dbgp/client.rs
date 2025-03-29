@@ -5,7 +5,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
 };
-use xmltree::Element;
+use xmltree::{Element, XMLNode};
 
 #[derive(Debug)]
 pub struct Init {
@@ -123,28 +123,43 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
     let root = Element::parse(xml.as_bytes())?;
     match root.name.as_str() {
         "init" => Ok(Message::Init(Init {
-            fileuri: root.attributes
+            fileuri: root
+                .attributes
                 .get("fileuri")
                 .expect("Expected fileuri to be set")
                 .to_string(),
         })),
         "response" => Ok(Message::Response(Response {
-            transaction_id: root.attributes
+            transaction_id: root
+                .attributes
                 .get("transaction_id")
                 .expect("Expected transaction_id to be set")
                 .to_string(),
-            command: match root.attributes
+            command: match root
+                .attributes
                 .get("command")
                 .expect("Expected command to be set")
                 .as_str()
             {
-                "step_into" => CommandResponse::StepInto(parse_continuation_response(&root.attributes)),
+                "step_into" => {
+                    CommandResponse::StepInto(parse_continuation_response(&root.attributes))
+                }
                 "run" => CommandResponse::Run(parse_continuation_response(&root.attributes)),
                 "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)?),
+                "source" => CommandResponse::Source(parse_source(&root)?),
                 _ => CommandResponse::Unknown,
             },
         })),
         _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
+    }
+}
+fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
+    match element.children.get(0) {
+        Some(e) => match e {
+            XMLNode::CData(d) => Ok(String::from_utf8(base64::decode(d).unwrap()).unwrap()),
+            _ => Err(anyhow::anyhow!("Expected CDATA")),
+        },
+        None => Err(anyhow::anyhow!("Expected CDATA")),
     }
 }
 
@@ -153,18 +168,18 @@ fn parse_stack_get(element: &Element) -> Result<StackGetResponse, anyhow::Error>
         None => Err(anyhow::anyhow!(
             "Expected stack response to have a child element"
         )),
-        Some(s) => {
-            Ok(StackGetResponse {
-                filename: s.attributes
-                    .get("filename")
-                    .expect("Expected status to be set")
-                    .to_string(),
-                line: s.attributes
-                    .get("lineno")
-                    .expect("Expected lineno to be set")
-                    .parse()?
-            })
-        }
+        Some(s) => Ok(StackGetResponse {
+            filename: s
+                .attributes
+                .get("filename")
+                .expect("Expected status to be set")
+                .to_string(),
+            line: s
+                .attributes
+                .get("lineno")
+                .expect("Expected lineno to be set")
+                .parse()?,
+        }),
     }
 }
 
@@ -224,7 +239,6 @@ mod test {
         Ok(())
     }
 
-
     #[test]
     fn test_parse_source() -> Result<(), anyhow::Error> {
         let result = parse_xml(
@@ -237,11 +251,12 @@ mod test {
                     CommandResponse::Source(source) => {
                         let expected = r#"<?php
 
-                        call_function("hello");
+call_function("hello");
 
-                        function call_function(string $hello) {
-                            echo $hello;
-                        }"#;
+function call_function(string $hello) {
+    echo $hello;
+}
+"#;
                         assert_eq!(expected, source)
                     }
                     _ => panic!("Could not parse get_stack"),
