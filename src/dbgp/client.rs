@@ -17,9 +17,23 @@ pub struct Init {
 #[derive(Debug)]
 pub struct Response {
     pub transaction_id: String,
-    pub command: String,
+    pub command: CommandResponse,
     pub status: String,
     pub reason: String,
+}
+
+#[derive(Debug)]
+pub enum CommandResponse {
+    StepInto,
+    Run,
+    Unknown,
+    StackGet(StackGetResponse),
+}
+
+#[derive(Debug)]
+pub struct StackGetResponse {
+    pub filename: String,
+    pub line: u32,
 }
 
 #[derive(Debug)]
@@ -62,7 +76,6 @@ impl DbgpClient {
     }
 
     pub(crate) async fn run(&mut self) -> Result<Response, anyhow::Error> {
-
         match self.command("run", &mut vec![]).await? {
             Message::Response(r) => Ok(r),
             _ => Err(anyhow::anyhow!("Unexpected response")),
@@ -76,11 +89,7 @@ impl DbgpClient {
         }
     }
 
-    async fn command(
-        &mut self,
-        cmd: &str,
-        args: &mut Vec<&str>,
-    ) -> Result<Message, anyhow::Error> {
+    async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message, anyhow::Error> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.stream.write(bytes.as_bytes()).await.unwrap();
@@ -99,13 +108,33 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
     let attributes = root.attributes;
     match root.name.as_str() {
         "init" => Ok(Message::Init(Init {
-            fileuri: attributes.get("fileuri").expect("Expected fileuri to be set").to_string(),
+            fileuri: attributes
+                .get("fileuri")
+                .expect("Expected fileuri to be set")
+                .to_string(),
         })),
         "response" => Ok(Message::Response(Response {
-            transaction_id: attributes.get("transaction_id").expect("Expected transaction_id to be set").to_string(),
-            command: attributes.get("command").expect("Expected command to be set").to_string(),
-            status: attributes.get("status").expect("Expected status to be set").to_string(),
-            reason: attributes.get("reason").expect("Expected status to be set").to_string(),
+            transaction_id: attributes
+                .get("transaction_id")
+                .expect("Expected transaction_id to be set")
+                .to_string(),
+            command: match attributes
+                .get("command")
+                .expect("Expected command to be set")
+                .as_str()
+            {
+                "step_into" => CommandResponse::StepInto,
+                "run" => CommandResponse::Run,
+                _ => CommandResponse::Unknown,
+            },
+            status: attributes
+                .get("status")
+                .expect("Expected status to be set")
+                .to_string(),
+            reason: attributes
+                .get("reason")
+                .expect("Expected status to be set")
+                .to_string(),
         })),
         _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
     }
@@ -126,7 +155,29 @@ mod test {
             Message::Init(init) => {
                 assert_eq!("file:///application/vendor/bin/codecept", init.fileuri);
             }
+            _ => panic!("Did not parse"),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_get_stack() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"<?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="stack_get" transaction_id="10"><stack where="call_function" level="0" type="file" filename="file:///app/test.php" lineno="6"></stack></response>"#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::StackGet(s) => {
+                        assert_eq!("file:///app/test.php", s.filename)
+                    },
+                    _ => panic!("Could not parse step into"),
+                };
+            },
+            _ => panic!("Did not parse"),
+        };
         Ok(())
     }
 }
