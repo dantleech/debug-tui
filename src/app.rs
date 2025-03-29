@@ -38,12 +38,18 @@ impl Config {
     }
 }
 
+pub struct SourceContext {
+    pub source: String,
+    pub line_no: u32,
+}
+
 pub struct App {
     pub state: AppState,
     pub config: Config,
     receiver: Receiver<AppEvent>,
     sender: Sender<AppEvent>,
     session: Option<Session>,
+    pub source: Option<SourceContext>,
 }
 
 impl App {
@@ -54,6 +60,7 @@ impl App {
             receiver,
             sender,
             session: None,
+            source: None,
         }
     }
 
@@ -94,10 +101,10 @@ impl App {
                     AppEvent::Quit => return Ok(()),
                     AppEvent::ClientConnected(s) => {
                         let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
-                        session.init().await?;
+                        let init = session.init().await?;
                         self.session = Some(session);
                         self.state = AppState::Connected;
-                        
+                        self.sender.send(AppEvent::RefreshSource(init.fileuri, 1)).await?;
                     }
                     _ => (),
                 },
@@ -119,6 +126,12 @@ impl App {
                         self.session = None;
                         self.state = AppState::Listening;
                     }
+                    AppEvent::UpdateSourceContext(source, line_no) => {
+                        self.source = Some(SourceContext{
+                            source,
+                            line_no
+                        });
+                    },
                     AppEvent::Input(e) => if let KeyCode::Char(char) = e.code { match char {
                         'r' => self.sender.send(AppEvent::Run).await?,
                         'n' => self.sender.send(AppEvent::StepInto).await?,

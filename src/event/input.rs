@@ -14,6 +14,8 @@ pub enum AppEvent {
     StepInto,
     Disconnect,
     Startup,
+    UpdateSourceContext(String, u32),
+    RefreshSource(String, u32),
 }
 
 #[derive(Debug)]

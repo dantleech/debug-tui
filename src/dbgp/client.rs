@@ -23,7 +23,7 @@ pub enum CommandResponse {
     StepInto(ContinuationResponse),
     Run(ContinuationResponse),
     Unknown,
-    StackGet(StackGetResponse),
+    StackGet(Option<StackGetResponse>),
     Source(String),
 }
 
@@ -95,10 +95,20 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn get_stack(&mut self) -> Result<StackGetResponse, anyhow::Error> {
+    pub(crate) async fn get_stack(&mut self) -> Result<Option<StackGetResponse>, anyhow::Error> {
         match self.command("stack_get", &mut vec!["-n 0"]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StackGet(s) => Ok(s),
+                _ => Err(anyhow::anyhow!("Unexpected response")),
+            },
+            _ => Err(anyhow::anyhow!("Unexpected response")),
+        }
+    }
+
+    pub(crate) async fn source(&mut self, filename: String) -> Result<String, anyhow::Error> {
+        match self.command("source", &mut vec![format!("-f {}", filename).as_str()]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::Source(s) => Ok(s),
                 _ => Err(anyhow::anyhow!("Unexpected response")),
             },
             _ => Err(anyhow::anyhow!("Unexpected response")),
@@ -119,7 +129,6 @@ impl DbgpClient {
 }
 
 fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
-    println!("Response : {}", xml);
     let root = Element::parse(xml.as_bytes())?;
     match root.name.as_str() {
         "init" => Ok(Message::Init(Init {
@@ -145,7 +154,7 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                     CommandResponse::StepInto(parse_continuation_response(&root.attributes))
                 }
                 "run" => CommandResponse::Run(parse_continuation_response(&root.attributes)),
-                "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)?),
+                "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)),
                 "source" => CommandResponse::Source(parse_source(&root)?),
                 _ => CommandResponse::Unknown,
             },
@@ -163,12 +172,10 @@ fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     }
 }
 
-fn parse_stack_get(element: &Element) -> Result<StackGetResponse, anyhow::Error> {
+fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
     match element.get_child("stack") {
-        None => Err(anyhow::anyhow!(
-            "Expected stack response to have a child element"
-        )),
-        Some(s) => Ok(StackGetResponse {
+        None => None,
+        Some(s) => Some(StackGetResponse {
             filename: s
                 .attributes
                 .get("filename")
@@ -178,7 +185,7 @@ fn parse_stack_get(element: &Element) -> Result<StackGetResponse, anyhow::Error>
                 .attributes
                 .get("lineno")
                 .expect("Expected lineno to be set")
-                .parse()?,
+                .parse().unwrap(),
         }),
     }
 }

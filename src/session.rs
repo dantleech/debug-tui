@@ -22,6 +22,11 @@ impl Session {
     pub(crate) async fn handle(&mut self, event: AppEvent) -> Result<(), anyhow::Error> {
         let client = &mut self.client;
         match event {
+            AppEvent::RefreshSource(filename, line_no) => {
+                let source = self.client.source(filename).await?;
+                self.sender.send(AppEvent::UpdateSourceContext(source, line_no)).await?;
+                Ok(())
+            },
             AppEvent::StepInto => {
                 let response = client.step_into().await?;
                 self.handle_continuation_response(response).await
@@ -47,7 +52,14 @@ impl Session {
             self.sender.send(AppEvent::UpdateStatus(ServerStatus::Break)).await?;
         }
         self.sender.send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status))).await?;
-
+        // update the source code
+        let stack = self.client.get_stack().await?;
+        match stack {
+            Some(stack) => {
+                self.sender.send(AppEvent::RefreshSource(stack.filename,stack.line)).await?;
+            },
+            None => (),
+        };
         Ok(())
     }
 }
