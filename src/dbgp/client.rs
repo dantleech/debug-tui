@@ -18,16 +18,20 @@ pub struct Init {
 pub struct Response {
     pub transaction_id: String,
     pub command: CommandResponse,
-    pub status: String,
-    pub reason: String,
 }
 
 #[derive(Debug)]
 pub enum CommandResponse {
-    StepInto,
-    Run,
+    StepInto(ContinuationResponse),
+    Run(ContinuationResponse),
     Unknown,
     StackGet(StackGetResponse),
+}
+
+#[derive(Debug)]
+pub struct ContinuationResponse {
+    pub status: String,
+    pub reason: String,
 }
 
 #[derive(Debug)]
@@ -75,16 +79,22 @@ impl DbgpClient {
         return parse_xml(String::from_utf8(xml).unwrap().as_str());
     }
 
-    pub(crate) async fn run(&mut self) -> Result<Response, anyhow::Error> {
+    pub(crate) async fn run(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
         match self.command("run", &mut vec![]).await? {
-            Message::Response(r) => Ok(r),
+            Message::Response(r) => match r.command {
+                CommandResponse::Run(s) => Ok(s),
+                _ => Err(anyhow::anyhow!("Unexpected response"))
+            },
             _ => Err(anyhow::anyhow!("Unexpected response")),
         }
     }
 
-    pub(crate) async fn step_into(&mut self) -> Result<Response, anyhow::Error> {
+    pub(crate) async fn step_into(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
         match self.command("step_into", &mut vec![]).await? {
-            Message::Response(r) => Ok(r),
+            Message::Response(r) => match r.command {
+                CommandResponse::StepInto(s) => Ok(s),
+                _ => Err(anyhow::anyhow!("Unexpected response"))
+            },
             _ => Err(anyhow::anyhow!("Unexpected response")),
         }
     }
@@ -123,21 +133,28 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 .expect("Expected command to be set")
                 .as_str()
             {
-                "step_into" => CommandResponse::StepInto,
-                "run" => CommandResponse::Run,
+                "step_into" => CommandResponse::StepInto(parse_continuation_response(&attributes)),
+                "run" => CommandResponse::Run(parse_continuation_response(&attributes)),
                 _ => CommandResponse::Unknown,
             },
-            status: attributes
-                .get("status")
-                .expect("Expected status to be set")
-                .to_string(),
-            reason: attributes
-                .get("reason")
-                .expect("Expected status to be set")
-                .to_string(),
         })),
         _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
     }
+}
+
+fn parse_continuation_response(
+    attributes: &std::collections::HashMap<String, String>,
+) -> ContinuationResponse {
+    return ContinuationResponse {
+        status: attributes
+            .get("status")
+            .expect("Expected status to be set")
+            .to_string(),
+        reason: attributes
+            .get("reason")
+            .expect("Expected reason to be set")
+            .to_string(),
+    };
 }
 
 #[cfg(test)]
@@ -172,10 +189,10 @@ mod test {
                 match r.command {
                     CommandResponse::StackGet(s) => {
                         assert_eq!("file:///app/test.php", s.filename)
-                    },
+                    }
                     _ => panic!("Could not parse step into"),
                 };
-            },
+            }
             _ => panic!("Did not parse"),
         };
         Ok(())
