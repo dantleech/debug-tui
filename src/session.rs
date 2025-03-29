@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Sender;
 
-use crate::{dbgp::client::{ContinuationResponse, DbgpClient, Init, Message, Response}, event::input::{AppEvent, ServerStatus}};
+use crate::{dbgp::client::{ContinuationResponse, DbgpClient, Init}, event::input::{AppEvent, ServerStatus}};
 
 pub struct Session {
     client: DbgpClient,

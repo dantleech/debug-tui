@@ -1,15 +1,15 @@
 use std::{fmt::Display, io};
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::KeyCode;
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use tokio::{
-    net::{TcpListener, TcpStream},
+    net::TcpListener,
     sync::mpsc::{Receiver, Sender},
     task,
 };
 
 use crate::{
-    dbgp::client::{DbgpClient, Message},
+    dbgp::client::DbgpClient,
     event::input::{AppEvent, ServerStatus},
     session::Session, ui::render,
 };
@@ -97,7 +97,7 @@ impl App {
                         session.init().await?;
                         self.session = Some(session);
                         self.state = AppState::Connected;
-                        ()
+                        
                     }
                     _ => (),
                 },
@@ -107,7 +107,7 @@ impl App {
                         ServerStatus::Break => (),
                         ServerStatus::Stopping => {
                             self.sender.send(AppEvent::Disconnect).await?;
-                            ()
+                            
                         }
                         ServerStatus::Unknown(_) => (),
                     },
@@ -119,14 +119,11 @@ impl App {
                         self.session = None;
                         self.state = AppState::Listening;
                     }
-                    AppEvent::Input(e) => match e.code {
-                        KeyCode::Char(char) => match char {
-                            'r' => self.sender.send(AppEvent::Run).await?,
-                            'n' => self.sender.send(AppEvent::StepInto).await?,
-                            _ => (),
-                        },
+                    AppEvent::Input(e) => if let KeyCode::Char(char) = e.code { match char {
+                        'r' => self.sender.send(AppEvent::Run).await?,
+                        'n' => self.sender.send(AppEvent::StepInto).await?,
                         _ => (),
-                    },
+                    } },
                     _ => {
                         self.session
                             .as_mut()

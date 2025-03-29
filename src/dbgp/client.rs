@@ -1,8 +1,5 @@
 use core::str;
-use std::ascii::AsciiExt;
 
-use ratatui::symbols::block::THREE_EIGHTHS;
-use serde::{de::IntoDeserializer, Deserialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -67,13 +64,10 @@ impl DbgpClient {
         reader.read_until(b'\0', &mut xml).await?;
 
         // remove dangling null-byte
-        match xml.last() {
-            Some(e) => {
-                if *e == b'\0' {
-                    xml.pop();
-                }
+        if let Some(e) = xml.last() {
+            if *e == b'\0' {
+                xml.pop();
             }
-            None => (),
         }
 
         return parse_xml(String::from_utf8(xml).unwrap().as_str());
@@ -107,7 +101,7 @@ impl DbgpClient {
         self.read().await
     }
 
-    pub(crate) fn disonnect(&mut self) -> () {
+    pub(crate) fn disonnect(&mut self) {
         self.stream.shutdown();
     }
 }
