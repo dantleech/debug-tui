@@ -22,8 +22,8 @@ async fn main() -> Result<(), anyhow::Error> {
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal: Terminal<CrosstermBackend<io::Stdout>> = Terminal::new(backend)?;
-    // enable_raw_mode()?;
-    // set_panic_hook();
+    enable_raw_mode()?;
+    set_panic_hook();
     terminal.clear()?;
     let (event_sender, event_receiver) = mpsc::channel(32);
 
@@ -33,7 +33,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let mut app = App::new(event_receiver, event_sender);
     app.run().await?;
 
-    // disable_raw_mode()?;
+    disable_raw_mode()?;
 
     Ok(())
 }

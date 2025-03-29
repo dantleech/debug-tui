@@ -61,11 +61,19 @@ impl DbgpClient {
         return parse_xml(String::from_utf8(xml).unwrap().as_str());
     }
 
-    pub(crate) async fn run(&mut self) -> Result<Message, anyhow::Error> {
+    pub(crate) async fn run(&mut self) -> Result<Response, anyhow::Error> {
 
-        let result = self.command("run", &mut vec![]).await?;
-        println!("Response {:?}", result);
-        Ok(result)
+        match self.command("run", &mut vec![]).await? {
+            Message::Response(r) => Ok(r),
+            _ => Err(anyhow::anyhow!("Unexpected response")),
+        }
+    }
+
+    pub(crate) async fn step_into(&mut self) -> Result<Response, anyhow::Error> {
+        match self.command("step_into", &mut vec![]).await? {
+            Message::Response(r) => Ok(r),
+            _ => Err(anyhow::anyhow!("Unexpected response")),
+        }
     }
 
     async fn command(

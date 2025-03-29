@@ -11,6 +11,7 @@ pub enum AppEvent {
     ClientConnected(TcpStream),
     Disconnect,
     Run,
+    StepInto,
 }
 
 pub type EventSender = Sender<AppEvent>;

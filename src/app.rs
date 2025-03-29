@@ -78,21 +78,23 @@ impl App {
                 AppState::Connected => match event {
                     AppEvent::Quit => return Ok(()),
                     AppEvent::Disconnect => {
-                        self.session.as_mut().unwrap().disconnect();
+                        self.session.as_mut().expect(
+                            "Session not set but it should be"
+                        ).disconnect();
                         self.session = None;
                         self.state = AppState::Listening;
                     },
                     AppEvent::Input(e) => match e.code {
                         KeyCode::Char(char) => match char {
                             'r' => self.sender.send(AppEvent::Run).await?,
+                            'n' => self.sender.send(AppEvent::StepInto).await?,
                             _ => (),
                         },
                         _ => (),
                     },
-                    _ => match &mut self.session {
-                        Some(s) => s.handle(event).await?,
-                        None => panic!("Expected session to be set, but it is not"),
-                    }
+                    _ => self.session.as_mut().expect(
+                        "Session not set but it should be"
+                    ).handle(event).await?,
                 },
             }
         }
