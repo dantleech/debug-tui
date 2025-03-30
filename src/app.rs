@@ -63,6 +63,7 @@ pub struct App {
     pub state: AppState,
     pub config: Config,
     receiver: Receiver<AppEvent>,
+    quit: bool,
     sender: Sender<AppEvent>,
     session: Option<Session>,
     pub input_mode: InputMode,
@@ -79,6 +80,7 @@ impl App {
             state: AppState::Listening,
             receiver,
             sender,
+            quit: false,
             session: None,
             source: None,
             input_mode: InputMode::Normal,
@@ -120,99 +122,10 @@ impl App {
 
             let event = event.unwrap();
 
-            match event {
-                AppEvent::Quit => return Ok(()),
-                AppEvent::ExecCommandResponse(ref response) => {
-                    self.command_response = Some(response.to_string())
-                },
-                AppEvent::Input(e) => {
-                    match self.input_mode {
-                        InputMode::Normal => {
-                            if let KeyCode::Char(char) = e.code {
-                                match char {
-                                    ':' => {
-                                        self.input_mode = InputMode::Command
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        },
-                        InputMode::Command => {
-                            match e.code {
-                                KeyCode::Esc => {
-                                    self.input_mode = InputMode::Normal;
-                                    self.command_response = None;
-                                },
-                                KeyCode::Enter => {
-                                    self.sender.send(AppEvent::ExecCommand(self.command_input.value().to_string())).await?;
-                                },
-                                _ => {
-                                    self.command_input.handle_event(&Event::Key(e));
-                                }
-                            }
-                        },
-                    }
-                }
-                _ => (),
-            };
+            self.handle_event(event).await?;
 
-            match self.state {
-                AppState::Listening => match event {
-                    AppEvent::ClientConnected(s) => {
-                        let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
-                        let init = session.init().await?;
-                        self.session = Some(session);
-                        self.state = AppState::Connected;
-                        self.server_status = ServerStatus::Initial;
-                        self.sender
-                            .send(AppEvent::RefreshSource(init.fileuri, 1))
-                            .await?;
-                    }
-                    _ => (),
-                },
-                AppState::Connected => match event {
-                    AppEvent::UpdateStatus(s) => {
-                        self.server_status = s.clone();
-                        match s {
-                            ServerStatus::Break => (),
-                            ServerStatus::Stopping => {
-                                self.sender.send(AppEvent::Disconnect).await?;
-                            }
-                            _ => (),
-                        }
-                    }
-                    AppEvent::Disconnect => {
-                        self.session
-                            .as_mut()
-                            .expect("Session not set but it should be")
-                            .disconnect()
-                            .await;
-                        self.session = None;
-                        self.state = AppState::Listening;
-                    }
-                    AppEvent::UpdateSourceContext(source, filename, line_no) => {
-                        self.source = Some(SourceContext { source, filename, line_no });
-                    }
-                    AppEvent::Input(e) => {
-                        if self.input_mode != InputMode::Command {
-                            if let KeyCode::Char(char) = e.code {
-                                match char {
-                                    'r' => self.sender.send(AppEvent::Run).await?,
-                                    'n' => self.sender.send(AppEvent::StepInto).await?,
-                                    'N' => self.sender.send(AppEvent::StepOver).await?,
-                                    _ => (),
-                                }
-                            }
-                        }
-                    }
-                    _ => {
-                        self.session
-                            .as_mut()
-                            .expect("Session not set but it should be")
-                            .handle(event)
-                            .await?
-                    }
-                },
+            if self.quit {
+                return Ok(())
             }
 
             terminal.autoresize()?;
@@ -220,5 +133,121 @@ impl App {
                 render(self, frame);
             })?;
         }
+    }
+
+    async fn handle_event(&mut self, event: AppEvent) -> Result<(), anyhow::Error> {
+        match event {
+            AppEvent::Quit => self.quit = true,
+            AppEvent::ExecCommand(ref cmd) => {
+                match cmd.as_str() {
+                    "q" => {
+                        self.sender.send(AppEvent::Quit).await?;
+                    }
+                    // let the session handle it later
+                    _ => (),
+                }
+            }
+            AppEvent::ExecCommandResponse(ref response) => {
+                self.command_response = Some(response.to_string())
+            }
+            AppEvent::Input(e) => match self.input_mode {
+                InputMode::Normal => {
+                    if let KeyCode::Char(char) = e.code {
+                        match char {
+                            ':' => self.input_mode = InputMode::Command,
+                            _ => (),
+                        }
+                    }
+                }
+                InputMode::Command => match e.code {
+                    // escape back to normal mode
+                    KeyCode::Esc => {
+                        self.input_mode = InputMode::Normal;
+                        self.command_response = None;
+                        return Ok(())
+                    }
+                    // execute command
+                    KeyCode::Enter => {
+                        self.input_mode = InputMode::Normal;
+                        self.sender
+                            .send(AppEvent::ExecCommand(
+                                self.command_input.value().to_string(),
+                            ))
+                            .await?;
+                        return Ok(())
+                    }
+                    // delegate keys to command input
+                    _ => {
+                        self.command_input.handle_event(&Event::Key(e));
+                        return Ok(())
+                    }
+                },
+            },
+            _ => (),
+        };
+
+        match self.state {
+            AppState::Listening => match event {
+                AppEvent::ClientConnected(s) => {
+                    let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
+                    let init = session.init().await?;
+                    self.session = Some(session);
+                    self.state = AppState::Connected;
+                    self.server_status = ServerStatus::Initial;
+                    self.sender
+                        .send(AppEvent::RefreshSource(init.fileuri, 1))
+                        .await?;
+                }
+                _ => (),
+            },
+            AppState::Connected => match event {
+                AppEvent::UpdateStatus(s) => {
+                    self.server_status = s.clone();
+                    match s {
+                        ServerStatus::Break => (),
+                        ServerStatus::Stopping => {
+                            self.sender.send(AppEvent::Disconnect).await?;
+                        }
+                        _ => (),
+                    }
+                }
+                AppEvent::Disconnect => {
+                    self.session
+                        .as_mut()
+                        .expect("Session not set but it should be")
+                        .disconnect()
+                        .await;
+                    self.session = None;
+                    self.state = AppState::Listening;
+                }
+                AppEvent::UpdateSourceContext(source, filename, line_no) => {
+                    self.source = Some(SourceContext {
+                        source,
+                        filename,
+                        line_no,
+                    });
+                }
+                AppEvent::Input(e) => {
+                    if self.input_mode != InputMode::Command {
+                        if let KeyCode::Char(char) = e.code {
+                            match char {
+                                'r' => self.sender.send(AppEvent::Run).await?,
+                                'n' => self.sender.send(AppEvent::StepInto).await?,
+                                'N' => self.sender.send(AppEvent::StepOver).await?,
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    self.session
+                        .as_mut()
+                        .expect("Session not set but it should be")
+                        .handle(event)
+                        .await?
+                }
+            },
+        };
+        Ok(())
     }
 }

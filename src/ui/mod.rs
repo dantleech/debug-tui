@@ -1,5 +1,7 @@
+use std::ops::Div;
+
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Paragraph, Widget},
@@ -9,19 +11,18 @@ use ratatui::{
 use crate::app::{App, InputMode, SourceContext};
 
 pub fn render(app: &mut App, frame: &mut Frame) {
-    let mut constraints = vec![
+    let constraints = vec![
         Constraint::Length(3),
         Constraint::Length(1),
         Constraint::Min(4),
+        Constraint::Length(match app.input_mode {
+            InputMode::Normal => match app.command_response {
+                Some(ref response) => response.lines().count() as u16 + 1,
+                None => 1,
+            },
+            _ => 1,
+        }),
     ];
-
-    if app.input_mode == InputMode::Command {
-        constraints.push(Constraint::Length(match app.command_response {
-            Some(ref response) => response.lines().count() as u16,
-            None => 0,
-        }));
-        constraints.push(Constraint::Length(1));
-    }
 
     let rows = Layout::default()
         .margin(0)
@@ -47,20 +48,23 @@ pub fn render(app: &mut App, frame: &mut Frame) {
                 )])),
                 rows[1],
             );
-            frame.render_widget(source_widget(&c), rows[2]);
+            frame.render_widget(source_widget(&c, rows[2].clone()), rows[2]);
         }
         None => {}
     }
 
-    if app.input_mode == InputMode::Command {
-        frame.render_widget(Paragraph::new(app.command_response.clone().unwrap_or("".to_string())), rows[3]);
-        frame.render_widget(Paragraph::new(
-            Line::from(vec![Span::raw(":"), Span::raw(app.command_input.value())])
-        ), rows[4]);
+    match app.input_mode {
+        InputMode::Normal => {
+            frame.render_widget(Paragraph::new(app.command_response.clone().unwrap_or("".to_string())), rows[3]);
+        },
+        InputMode::Command => {
+            frame.render_widget(Paragraph::new( Line::from(vec![Span::raw(":"), Span::raw(app.command_input.value())])
+            ), rows[3]);
+        },
     }
 }
 
-fn source_widget(context: &SourceContext) -> Paragraph {
+fn source_widget(context: &SourceContext, area: Rect) -> Paragraph {
     let mut lines: Vec<Line> = Vec::new();
     let mut line_no = 1;
 
@@ -77,6 +81,10 @@ fn source_widget(context: &SourceContext) -> Paragraph {
         ]));
 
         line_no += 1;
+    }
+    if context.line_no as u16 > area.height {
+        let offset = (context.line_no as u16).saturating_sub(area.height.div(2));
+        lines = lines[offset as usize..].to_vec();
     }
     Paragraph::new(lines)
 }

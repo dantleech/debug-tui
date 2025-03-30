@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use tokio::sync::mpsc::Sender;
+use xmlem::Document;
 
 use crate::{dbgp::client::{ContinuationResponse, DbgpClient, Init}, event::input::{AppEvent, ServerStatus}};
 
@@ -23,9 +26,10 @@ impl Session {
         let client = &mut self.client;
         match event {
             AppEvent::ExecCommand(cmd) => {
-                let response = self.client.exec_raw(cmd).await;
-                self.sender.send(AppEvent::ExecCommandResponse(response?)).await?;
-                Ok(())
+                let response = self.client.exec_raw(cmd).await?;
+                let doc = Document::from_str(response.as_str())?;
+                self.sender.send(AppEvent::ExecCommandResponse(doc.to_string_pretty())).await?;
+                return Ok(())
             },
             AppEvent::RefreshSource(filename, line_no) => {
                 let source = self.client.source(filename.clone()).await?;
