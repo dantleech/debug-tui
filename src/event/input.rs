@@ -18,6 +18,8 @@ pub enum AppEvent {
     RefreshSource(String, u32),
     StepOver,
     SessionStarted,
+    ExecCommand(String),
+    ExecCommandResponse(String),
 }
 
 #[derive(Debug, Clone)]

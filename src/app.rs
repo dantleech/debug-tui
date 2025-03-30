@@ -1,15 +1,16 @@
 use std::{fmt::Display, io};
 
-use crossterm::event::KeyCode;
+use crossterm::event::{Event, KeyCode};
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use tokio::{
     net::TcpListener,
     sync::mpsc::{Receiver, Sender},
     task,
 };
+use tui_input::{backend::crossterm::EventHandler, Input};
 
 use crate::{
-    dbgp::client::DbgpClient,
+    dbgp::client::{DbgpClient, Response},
     event::input::{AppEvent, ServerStatus},
     session::Session,
     ui::render,
@@ -20,17 +21,24 @@ pub enum AppState {
     Connected,
 }
 
-#[derive(PartialEq, Eq)]
-pub enum InputMode {
-    Normal,
-    Command,
-}
 impl Display for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             AppState::Listening => "Listening",
             AppState::Connected => "Connected",
         })
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub enum InputMode {
+    Normal,
+    Command,
+}
+
+impl Display for InputMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -60,6 +68,8 @@ pub struct App {
     pub input_mode: InputMode,
     pub source: Option<SourceContext>,
     pub server_status: ServerStatus,
+    pub command_input: Input,
+    pub command_response: Option<String>,
 }
 
 impl App {
@@ -73,6 +83,8 @@ impl App {
             source: None,
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
+            command_input: Input::default(),
+            command_response: None,
         }
     }
 
@@ -110,6 +122,9 @@ impl App {
 
             match event {
                 AppEvent::Quit => return Ok(()),
+                AppEvent::ExecCommandResponse(ref response) => {
+                    self.command_response = Some(response.to_string())
+                },
                 AppEvent::Input(e) => {
                     match self.input_mode {
                         InputMode::Normal => {
@@ -123,8 +138,17 @@ impl App {
                             }
                         },
                         InputMode::Command => {
-                            if let KeyCode::Esc = e.code {
-                                self.input_mode = InputMode::Normal
+                            match e.code {
+                                KeyCode::Esc => {
+                                    self.input_mode = InputMode::Normal;
+                                    self.command_response = None;
+                                },
+                                KeyCode::Enter => {
+                                    self.sender.send(AppEvent::ExecCommand(self.command_input.value().to_string())).await?;
+                                },
+                                _ => {
+                                    self.command_input.handle_event(&Event::Key(e));
+                                }
                             }
                         },
                     }
@@ -170,15 +194,14 @@ impl App {
                         self.source = Some(SourceContext { source, filename, line_no });
                     }
                     AppEvent::Input(e) => {
-                        if self.input_mode == InputMode::Command {
-                            ()
-                        }
-                        if let KeyCode::Char(char) = e.code {
-                            match char {
-                                'r' => self.sender.send(AppEvent::Run).await?,
-                                'n' => self.sender.send(AppEvent::StepInto).await?,
-                                'N' => self.sender.send(AppEvent::StepOver).await?,
-                                _ => (),
+                        if self.input_mode != InputMode::Command {
+                            if let KeyCode::Char(char) = e.code {
+                                match char {
+                                    'r' => self.sender.send(AppEvent::Run).await?,
+                                    'n' => self.sender.send(AppEvent::StepInto).await?,
+                                    'N' => self.sender.send(AppEvent::StepOver).await?,
+                                    _ => (),
+                                }
                             }
                         }
                     }

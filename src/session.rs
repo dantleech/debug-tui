@@ -22,6 +22,11 @@ impl Session {
     pub(crate) async fn handle(&mut self, event: AppEvent) -> Result<(), anyhow::Error> {
         let client = &mut self.client;
         match event {
+            AppEvent::ExecCommand(cmd) => {
+                let response = self.client.exec_raw(cmd).await;
+                self.sender.send(AppEvent::ExecCommandResponse(response?)).await?;
+                Ok(())
+            },
             AppEvent::RefreshSource(filename, line_no) => {
                 let source = self.client.source(filename.clone()).await?;
                 self.sender.send(AppEvent::UpdateSourceContext(source, filename.clone(), line_no)).await?;

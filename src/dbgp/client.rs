@@ -1,24 +1,24 @@
-use core::str;
+use core::{slice, str};
 
 use crossterm::style::Attribute;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{split, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
 };
 use xmltree::{Element, XMLNode};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Init {
     pub fileuri: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Response {
     pub transaction_id: String,
     pub command: CommandResponse,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandResponse {
     StepInto(ContinuationResponse),
     StepOver(ContinuationResponse),
@@ -28,19 +28,19 @@ pub enum CommandResponse {
     Source(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContinuationResponse {
     pub status: String,
     pub reason: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StackGetResponse {
     pub filename: String,
     pub line: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Message {
     Init(Init),
     Response(Response),
@@ -56,6 +56,15 @@ impl DbgpClient {
     }
 
     pub(crate) async fn read(&mut self) -> Result<Message, anyhow::Error> {
+
+        let xml = self.read_raw().await?;
+        if xml.is_empty() {
+            return Err(anyhow::anyhow!("Empty XML response"));
+        }
+        return parse_xml(xml.as_str());
+    }
+
+    pub(crate) async fn read_raw(&mut self) -> Result<String, anyhow::Error> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
         let mut reader = BufReader::new(&mut self.stream);
@@ -72,8 +81,7 @@ impl DbgpClient {
                 xml.pop();
             }
         }
-
-        return parse_xml(String::from_utf8(xml).unwrap().as_str());
+        return Ok(String::from_utf8(xml)?);
     }
 
     pub(crate) async fn run(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
@@ -130,15 +138,35 @@ impl DbgpClient {
     }
 
     async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message, anyhow::Error> {
+        self.command_raw(cmd, args).await;
+        self.read().await
+    }
+
+    async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> () {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
-        self.stream.write(bytes.as_bytes()).await.unwrap();
         self.tid += 1;
-        self.read().await
+        self.stream.write(bytes.as_bytes()).await.unwrap();
     }
 
     pub(crate) async fn disonnect(&mut self) {
         self.stream.shutdown().await.unwrap();
+    }
+
+    pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
+        let mut cmd = cmd.split_whitespace();
+        let name = cmd.next();
+        if name.is_none() {
+            return Ok("<command was empty>".to_string());
+        }
+        let mut args: Vec<&str> = Vec::new();
+
+        for arg in cmd {
+            args.push(arg);
+        }
+
+        self.command_raw(name.unwrap(), &mut args).await;
+        self.read_raw().await
     }
 }
 

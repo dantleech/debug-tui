@@ -10,4 +10,5 @@ crossterm = "0.28.1"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }
 tokio = { version = "1.44.1", features = ["full"] }
+tui-input = "0.11.1"
 xmltree = "0.11.0"

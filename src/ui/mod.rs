@@ -16,6 +16,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     ];
 
     if app.input_mode == InputMode::Command {
+        constraints.push(Constraint::Length(match app.command_response {
+            Some(ref response) => response.lines().count() as u16,
+            None => 0,
+        }));
         constraints.push(Constraint::Length(1));
     }
 
@@ -26,7 +30,8 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     frame.render_widget(
         Paragraph::new(format!(
-            "Client: {:<10} Server: {}",
+            "Mode: {:<10} Client: {:<10} Server: {}",
+            app.input_mode.to_string(),
             app.state.to_string(),
             app.server_status.to_string()
         )),
@@ -48,7 +53,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
 
     if app.input_mode == InputMode::Command {
-        frame.render_widget(Paragraph::new("Command line!"), rows[3]);
+        frame.render_widget(Paragraph::new(app.command_response.clone().unwrap_or("".to_string())), rows[3]);
+        frame.render_widget(Paragraph::new(
+            Line::from(vec![Span::raw(":"), Span::raw(app.command_input.value())])
+        ), rows[4]);
     }
 }
 
