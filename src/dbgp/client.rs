@@ -21,6 +21,7 @@ pub struct Response {
 #[derive(Debug)]
 pub enum CommandResponse {
     StepInto(ContinuationResponse),
+    StepOver(ContinuationResponse),
     Run(ContinuationResponse),
     Unknown,
     StackGet(Option<StackGetResponse>),
@@ -95,6 +96,16 @@ impl DbgpClient {
         }
     }
 
+    pub(crate) async fn step_over(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
+        match self.command("step_over", &mut vec![]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::StepOver(s) => Ok(s),
+                _ => Err(anyhow::anyhow!("Unexpected response")),
+            },
+            _ => Err(anyhow::anyhow!("Unexpected response")),
+        }
+    }
+
     pub(crate) async fn get_stack(&mut self) -> Result<Option<StackGetResponse>, anyhow::Error> {
         match self.command("stack_get", &mut vec!["-n 0"]).await? {
             Message::Response(r) => match r.command {
@@ -106,7 +117,10 @@ impl DbgpClient {
     }
 
     pub(crate) async fn source(&mut self, filename: String) -> Result<String, anyhow::Error> {
-        match self.command("source", &mut vec![format!("-f {}", filename).as_str()]).await? {
+        match self
+            .command("source", &mut vec![format!("-f {}", filename).as_str()])
+            .await?
+        {
             Message::Response(r) => match r.command {
                 CommandResponse::Source(s) => Ok(s),
                 _ => Err(anyhow::anyhow!("Unexpected response")),
@@ -153,6 +167,9 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 "step_into" => {
                     CommandResponse::StepInto(parse_continuation_response(&root.attributes))
                 }
+                "step_over" => {
+                    CommandResponse::StepOver(parse_continuation_response(&root.attributes))
+                }
                 "run" => CommandResponse::Run(parse_continuation_response(&root.attributes)),
                 "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)),
                 "source" => CommandResponse::Source(parse_source(&root)?),
@@ -185,7 +202,8 @@ fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
                 .attributes
                 .get("lineno")
                 .expect("Expected lineno to be set")
-                .parse().unwrap(),
+                .parse()
+                .unwrap(),
         }),
     }
 }

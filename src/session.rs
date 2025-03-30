@@ -23,12 +23,16 @@ impl Session {
         let client = &mut self.client;
         match event {
             AppEvent::RefreshSource(filename, line_no) => {
-                let source = self.client.source(filename).await?;
-                self.sender.send(AppEvent::UpdateSourceContext(source, line_no)).await?;
+                let source = self.client.source(filename.clone()).await?;
+                self.sender.send(AppEvent::UpdateSourceContext(source, filename.clone(), line_no)).await?;
                 Ok(())
             },
             AppEvent::StepInto => {
                 let response = client.step_into().await?;
+                self.handle_continuation_response(response).await
+            }
+            AppEvent::StepOver => {
+                let response = client.step_over().await?;
                 self.handle_continuation_response(response).await
             }
             AppEvent::Run => {
@@ -45,13 +49,17 @@ impl Session {
     }
 
     async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<(), anyhow::Error> {
-        if r.status == "stopping" {
-            self.sender.send(AppEvent::UpdateStatus(ServerStatus::Stopping)).await?;
+        match r.status.as_str() {
+            "stopping" => {
+                self.sender.send(AppEvent::UpdateStatus(ServerStatus::Stopping)).await?;
+            },
+            "break" => {
+                self.sender.send(AppEvent::UpdateStatus(ServerStatus::Break)).await?;
+            },
+            _ => {
+                self.sender.send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status))).await?;
+            }
         }
-        if r.status == "break" {
-            self.sender.send(AppEvent::UpdateStatus(ServerStatus::Break)).await?;
-        }
-        self.sender.send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status))).await?;
         // update the source code
         let stack = self.client.get_stack().await?;
         match stack {

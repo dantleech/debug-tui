@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::{fmt::Display, thread, time::Duration};
 
 use crossterm::event::{self, poll, Event, KeyCode, KeyEvent, KeyModifiers};
 use tokio::{net::TcpStream, sync::mpsc::Sender};
@@ -14,15 +14,24 @@ pub enum AppEvent {
     StepInto,
     Disconnect,
     Startup,
-    UpdateSourceContext(String, u32),
+    UpdateSourceContext(String, String, u32),
     RefreshSource(String, u32),
+    StepOver,
+    SessionStarted,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ServerStatus {
     Break,
     Stopping,
-    Unknown(String)
+    Unknown(String),
+    Initial,
+}
+
+impl Display for ServerStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 pub type EventSender = Sender<AppEvent>;

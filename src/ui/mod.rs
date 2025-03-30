@@ -1,5 +1,5 @@
 
-use ratatui::{layout::{Constraint, Layout}, style::Style, text::Line, widgets::{Paragraph, Widget}, Frame};
+use ratatui::{layout::{Constraint, Layout}, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Widget}, Frame};
 
 use crate::app::{App, SourceContext};
 
@@ -9,17 +9,30 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .constraints(
             [
                 Constraint::Length(3),
+                Constraint::Length(1),
                 Constraint::Min(4),
             ]
             .as_ref(),
         )
         .split(frame.area());
 
-    frame.render_widget(Paragraph::new(app.state.to_string()), rows[0]);
+    frame.render_widget(Paragraph::new(
+        format!(
+            "Client: {:<10} Server: {}",
+            app.state.to_string(),
+            app.server_status.to_string()
+        )),
+        rows[0]
+    );
 
     match &app.source {
         Some(c) => {
-            frame.render_widget(source_widget(&c), rows[1])
+            frame.render_widget(Paragraph::new(
+                Line::from(vec![
+                    Span::styled(c.filename.clone(), Style::default().fg(Color::Green))
+                ]),
+            ), rows[1]);
+            frame.render_widget(source_widget(&c), rows[2]);
         },
         None => {
         },
@@ -31,11 +44,14 @@ fn source_widget(context: &SourceContext) -> Paragraph {
     let mut line_no = 1;
 
     for line in context.source.lines() {
-        if line_no == context.line_no {
-            lines.push(Line::styled(line.to_string(), Style::default().bg(ratatui::style::Color::Blue)));
-        } else {
-            lines.push(Line::raw(line.to_string()));
-        }
+        lines.push(Line::from(vec![
+            Span::styled(format!("{:<6}", line_no), Style::default().fg(Color::Yellow)),
+            match context.line_no == line_no {
+                true => Span::styled(line.to_string(), Style::default().bg(Color::Blue)),
+                false => Span::raw(line.to_string()),
+            }
+        ]));
+
         line_no += 1;
     }
     Paragraph::new(lines)

@@ -11,7 +11,8 @@ use tokio::{
 use crate::{
     dbgp::client::DbgpClient,
     event::input::{AppEvent, ServerStatus},
-    session::Session, ui::render,
+    session::Session,
+    ui::render,
 };
 
 pub enum AppState {
@@ -40,6 +41,7 @@ impl Config {
 
 pub struct SourceContext {
     pub source: String,
+    pub filename: String,
     pub line_no: u32,
 }
 
@@ -50,6 +52,7 @@ pub struct App {
     sender: Sender<AppEvent>,
     session: Option<Session>,
     pub source: Option<SourceContext>,
+    pub server_status: ServerStatus,
 }
 
 impl App {
@@ -61,6 +64,7 @@ impl App {
             sender,
             session: None,
             source: None,
+            server_status: ServerStatus::Initial,
         }
     }
 
@@ -104,39 +108,47 @@ impl App {
                         let init = session.init().await?;
                         self.session = Some(session);
                         self.state = AppState::Connected;
-                        self.sender.send(AppEvent::RefreshSource(init.fileuri, 1)).await?;
+                        self.server_status = ServerStatus::Initial;
+                        self.sender
+                            .send(AppEvent::RefreshSource(init.fileuri, 1))
+                            .await?;
                     }
                     _ => (),
                 },
                 AppState::Connected => match event {
                     AppEvent::Quit => return Ok(()),
-                    AppEvent::UpdateStatus(s) => match s {
-                        ServerStatus::Break => (),
-                        ServerStatus::Stopping => {
-                            self.sender.send(AppEvent::Disconnect).await?;
-                            
+                    AppEvent::UpdateStatus(s) => {
+                        self.server_status = s.clone();
+                        match s {
+                            ServerStatus::Break => (),
+                            ServerStatus::Stopping => {
+                                self.sender.send(AppEvent::Disconnect).await?;
+                            }
+                            _ => (),
                         }
-                        ServerStatus::Unknown(_) => (),
-                    },
+                    }
                     AppEvent::Disconnect => {
                         self.session
                             .as_mut()
                             .expect("Session not set but it should be")
-                            .disconnect().await;
+                            .disconnect()
+                            .await;
                         self.session = None;
                         self.state = AppState::Listening;
                     }
-                    AppEvent::UpdateSourceContext(source, line_no) => {
-                        self.source = Some(SourceContext{
-                            source,
-                            line_no
-                        });
-                    },
-                    AppEvent::Input(e) => if let KeyCode::Char(char) = e.code { match char {
-                        'r' => self.sender.send(AppEvent::Run).await?,
-                        'n' => self.sender.send(AppEvent::StepInto).await?,
-                        _ => (),
-                    } },
+                    AppEvent::UpdateSourceContext(source, filename, line_no) => {
+                        self.source = Some(SourceContext { source, filename, line_no });
+                    }
+                    AppEvent::Input(e) => {
+                        if let KeyCode::Char(char) = e.code {
+                            match char {
+                                'r' => self.sender.send(AppEvent::Run).await?,
+                                'n' => self.sender.send(AppEvent::StepInto).await?,
+                                'N' => self.sender.send(AppEvent::StepOver).await?,
+                                _ => (),
+                            }
+                        }
+                    }
                     _ => {
                         self.session
                             .as_mut()
