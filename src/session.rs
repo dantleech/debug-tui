@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use anyhow::Result;
 
 use tokio::sync::mpsc::Sender;
 use xmlem::Document;
@@ -15,14 +16,14 @@ impl Session {
         Self { client, sender }
     }
 
-    pub(crate) async fn init(&mut self) -> Result<Init, anyhow::Error> {
-        match self.client.read().await? {
+    pub(crate) async fn init(&mut self) -> Result<Init> {
+        match self.client.read_and_parse().await? {
             crate::dbgp::client::Message::Init(i) => Ok(i),
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
-    pub(crate) async fn handle(&mut self, event: AppEvent) -> Result<(), anyhow::Error> {
+    pub(crate) async fn handle(&mut self, event: AppEvent) -> Result<()> {
         let client = &mut self.client;
         match event {
             AppEvent::ExecCommand(cmd) => {
@@ -57,7 +58,7 @@ impl Session {
         self.client.disonnect().await
     }
 
-    async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<(), anyhow::Error> {
+    async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<()> {
         match r.status.as_str() {
             "stopping" => {
                 self.sender.send(AppEvent::UpdateStatus(ServerStatus::Stopping)).await?;

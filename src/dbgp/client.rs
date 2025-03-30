@@ -1,4 +1,5 @@
 use core::{slice, str};
+use anyhow::Result;
 
 use crossterm::style::Attribute;
 use tokio::{
@@ -55,16 +56,16 @@ impl DbgpClient {
         Self { stream: s, tid: 0 }
     }
 
-    pub(crate) async fn read(&mut self) -> Result<Message, anyhow::Error> {
+    pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
 
         let xml = self.read_raw().await?;
         if xml.is_empty() {
-            return Err(anyhow::anyhow!("Empty XML response"));
+            anyhow::bail!("Empty XML response");
         }
         return parse_xml(xml.as_str());
     }
 
-    pub(crate) async fn read_raw(&mut self) -> Result<String, anyhow::Error> {
+    pub(crate) async fn read_raw(&mut self) -> Result<String> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
         let mut reader = BufReader::new(&mut self.stream);
@@ -84,23 +85,23 @@ impl DbgpClient {
         return Ok(String::from_utf8(xml)?);
     }
 
-    pub(crate) async fn run(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
+    pub(crate) async fn run(&mut self) -> Result<ContinuationResponse> {
         match self.command("run", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::Run(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response")),
+                _ => anyhow::bail!("Unexpected response"),
             },
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
-    pub(crate) async fn step_into(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
+    pub(crate) async fn step_into(&mut self) -> Result<ContinuationResponse> {
         match self.command("step_into", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepInto(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response")),
+                _ => anyhow::bail!("Unexpected response"),
             },
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
@@ -108,9 +109,9 @@ impl DbgpClient {
         match self.command("step_over", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepOver(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response")),
+                _ => anyhow::bail!("Unexpected response"),
             },
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
@@ -118,9 +119,9 @@ impl DbgpClient {
         match self.command("stack_get", &mut vec!["-n 0"]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StackGet(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response")),
+                _ => anyhow::bail!("Unexpected response"),
             },
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
@@ -131,15 +132,15 @@ impl DbgpClient {
         {
             Message::Response(r) => match r.command {
                 CommandResponse::Source(s) => Ok(s),
-                _ => Err(anyhow::anyhow!("Unexpected response")),
+                _ => anyhow::bail!("Unexpected response"),
             },
-            _ => Err(anyhow::anyhow!("Unexpected response")),
+            _ => anyhow::bail!("Unexpected response"),
         }
     }
 
     async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message, anyhow::Error> {
         self.command_raw(cmd, args).await;
-        self.read().await
+        self.read_and_parse().await
     }
 
     async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> () {
@@ -204,16 +205,16 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 _ => CommandResponse::Unknown,
             },
         })),
-        _ => Err(anyhow::anyhow!("Unexpected element: {}", root.name)),
+        _ => anyhow::bail!("Unexpected element: {}", root.name),
     }
 }
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.get(0) {
         Some(e) => match e {
             XMLNode::CData(d) => Ok(String::from_utf8(base64::decode(d).unwrap()).unwrap()),
-            _ => Err(anyhow::anyhow!("Expected CDATA")),
+            _ => anyhow::bail!("Expected CDATA"),
         },
-        None => Err(anyhow::anyhow!("Expected CDATA")),
+        None => anyhow::bail!("Expected CDATA"),
     }
 }
 
