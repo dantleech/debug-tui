@@ -19,6 +19,12 @@ pub enum AppState {
     Listening,
     Connected,
 }
+
+#[derive(PartialEq, Eq)]
+pub enum InputMode {
+    Normal,
+    Command,
+}
 impl Display for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -51,6 +57,7 @@ pub struct App {
     receiver: Receiver<AppEvent>,
     sender: Sender<AppEvent>,
     session: Option<Session>,
+    pub input_mode: InputMode,
     pub source: Option<SourceContext>,
     pub server_status: ServerStatus,
 }
@@ -64,6 +71,7 @@ impl App {
             sender,
             session: None,
             source: None,
+            input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
         }
     }
@@ -100,9 +108,32 @@ impl App {
 
             let event = event.unwrap();
 
+            match event {
+                AppEvent::Quit => return Ok(()),
+                AppEvent::Input(e) => {
+                    match self.input_mode {
+                        InputMode::Normal => {
+                            if let KeyCode::Char(char) = e.code {
+                                match char {
+                                    ':' => {
+                                        self.input_mode = InputMode::Command
+                                    },
+                                    _ => (),
+                                }
+                            }
+                        },
+                        InputMode::Command => {
+                            if let KeyCode::Esc = e.code {
+                                self.input_mode = InputMode::Normal
+                            }
+                        },
+                    }
+                }
+                _ => (),
+            };
+
             match self.state {
                 AppState::Listening => match event {
-                    AppEvent::Quit => return Ok(()),
                     AppEvent::ClientConnected(s) => {
                         let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
                         let init = session.init().await?;
@@ -116,7 +147,6 @@ impl App {
                     _ => (),
                 },
                 AppState::Connected => match event {
-                    AppEvent::Quit => return Ok(()),
                     AppEvent::UpdateStatus(s) => {
                         self.server_status = s.clone();
                         match s {
@@ -140,6 +170,9 @@ impl App {
                         self.source = Some(SourceContext { source, filename, line_no });
                     }
                     AppEvent::Input(e) => {
+                        if self.input_mode == InputMode::Command {
+                            ()
+                        }
                         if let KeyCode::Char(char) = e.code {
                             match char {
                                 'r' => self.sender.send(AppEvent::Run).await?,
