@@ -1,6 +1,9 @@
+pub mod notification;
+
 use std::{fmt::Display, io};
 
 use crossterm::event::{Event, KeyCode};
+use notification::Notification;
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use tokio::{
     net::TcpListener,
@@ -43,7 +46,7 @@ impl Display for InputMode {
 }
 
 #[derive(Clone)]
-struct Config {
+pub struct Config {
     pub port: u16,
 }
 
@@ -62,6 +65,7 @@ pub struct SourceContext {
 pub struct App {
     pub state: AppState,
     pub config: Config,
+    pub notification: Notification,
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
@@ -78,6 +82,7 @@ impl App {
         App {
             config: Config::new(),
             state: AppState::Listening,
+            notification: Notification::none(),
             receiver,
             sender,
             quit: false,
@@ -233,21 +238,28 @@ impl App {
                             match char {
                                 'r' => self.sender.send(AppEvent::Run).await?,
                                 'n' => self.sender.send(AppEvent::StepInto).await?,
-                                'N' => self.sender.send(AppEvent::StepOver).await?,
+                                'o' => self.sender.send(AppEvent::StepOver).await?,
                                 _ => (),
                             }
                         }
                     }
                 }
                 _ => {
-                    self.session
+                    match self.session
                         .as_mut()
                         .expect("Session not set but it should be")
                         .handle(event)
-                        .await?
+                        .await {
+                            Ok(_) => (),
+                            Err(e) => {
+                                self.notification = Notification::error(e.to_string());
+                            }
+                        };
                 }
             },
         };
         Ok(())
     }
 }
+
+

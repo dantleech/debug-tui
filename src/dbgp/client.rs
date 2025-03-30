@@ -105,7 +105,7 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn step_over(&mut self) -> Result<ContinuationResponse, anyhow::Error> {
+    pub(crate) async fn step_over(&mut self) -> Result<ContinuationResponse> {
         match self.command("step_over", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepOver(s) => Ok(s),
@@ -115,7 +115,7 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn get_stack(&mut self) -> Result<Option<StackGetResponse>, anyhow::Error> {
+    pub(crate) async fn get_stack(&mut self) -> Result<Option<StackGetResponse>> {
         match self.command("stack_get", &mut vec!["-n 0"]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StackGet(s) => Ok(s),
@@ -125,7 +125,7 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn source(&mut self, filename: String) -> Result<String, anyhow::Error> {
+    pub(crate) async fn source(&mut self, filename: String) -> Result<String> {
         match self
             .command("source", &mut vec![format!("-f {}", filename).as_str()])
             .await?
@@ -138,16 +138,16 @@ impl DbgpClient {
         }
     }
 
-    async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message, anyhow::Error> {
-        self.command_raw(cmd, args).await;
+    async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message> {
+        self.command_raw(cmd, args).await?;
         self.read_and_parse().await
     }
 
-    async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> () {
+    async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<usize> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream.write(bytes.as_bytes()).await.unwrap();
+        self.stream.write(bytes.as_bytes()).await.map_err(anyhow::Error::from)
     }
 
     pub(crate) async fn disonnect(&mut self) {
@@ -166,7 +166,7 @@ impl DbgpClient {
             args.push(arg);
         }
 
-        self.command_raw(name.unwrap(), &mut args).await;
+        self.command_raw(name.unwrap(), &mut args).await?;
         self.read_raw().await
     }
 }
