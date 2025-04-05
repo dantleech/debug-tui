@@ -5,6 +5,12 @@ use crate::dbgp::client::Init;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use anyhow::Result;
+use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Widget;
 use std::str::FromStr;
 use tokio::sync::mpsc::Sender;
 use xmlem::Document;
@@ -59,7 +65,16 @@ impl View for SessionView {
         f: &mut ratatui::prelude::Buffer,
         area: ratatui::prelude::Rect,
     ) {
-        todo!()
+        match &app.source {
+            Some(source_context) => {
+                Paragraph::new(Line::from(vec![Span::styled(
+                    source_context.filename.clone(),
+                    Style::default().fg(Color::Green),
+                )]))
+                .render(area, f);
+            }
+            None => (),
+        };
     }
 }
 

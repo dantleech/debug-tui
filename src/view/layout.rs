@@ -1,6 +1,7 @@
 use super::View;
 use crate::app::App;
 use crate::app::InputMode;
+use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -23,67 +24,54 @@ impl View for LayoutView {
         f: &mut ratatui::prelude::Buffer,
         area: ratatui::prelude::Rect,
     ) {
+        let constraints = vec![
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(4),
+            Constraint::Length(match app.input_mode {
+                InputMode::Normal => match app.command_response {
+                    Some(ref response) => response.lines().count() as u16 + 1,
+                    None => 1,
+                },
+                _ => 1,
+            }),
+        ];
+
+        let rows = Layout::default()
+            .margin(0)
+            .constraints(constraints)
+            .split(area);
+
+        status_widget(&app).render(rows[0], f);
+
+        match app.views.current {
+            SelectedView::Listen => app.views.listen.draw(app, f, rows[1]),
+            SelectedView::Session => app.views.session.draw(app, f, rows[1]),
+        }
+
+
+        match app.input_mode {
+            InputMode::Normal => {
+                frame.render_widget(
+                    Paragraph::new(app.command_response.clone().unwrap_or("".to_string())),
+                    rows[3],
+                );
+            }
+            InputMode::Command => {
+                frame.render_widget(
+                    Paragraph::new(Line::from(vec![
+                        Span::raw(":"),
+                        Span::raw(app.command_input.value()),
+                    ])),
+                    rows[3],
+                );
+            }
+        }
         todo!()
     }
 }
 
-pub fn render(app: &mut App, frame: &mut Frame) {
-    let constraints = vec![
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(4),
-        Constraint::Length(match app.input_mode {
-            InputMode::Normal => match app.command_response {
-                Some(ref response) => response.lines().count() as u16 + 1,
-                None => 1,
-            },
-            _ => 1,
-        }),
-    ];
-
-    let rows = Layout::default()
-        .margin(0)
-        .constraints(constraints)
-        .split(frame.area());
-
-    frame.render_widget(status_widget(&app), rows[0]);
-
-    match app.views.current {
-        crate::app::SelectedView::Listen => todo!(),
-        crate::app::SelectedView::Session => todo!(),
-    }
-    match &app.source {
-        Some(c) => {
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![Span::styled(
-                    c.filename.clone(),
-                    Style::default().fg(Color::Green),
-                )])),
-                rows[1],
-            );
-            frame.render_widget(source_widget(&c, rows[2].clone()), rows[2]);
-        }
-        None => {}
-    }
-
-    match app.input_mode {
-        InputMode::Normal => {
-            frame.render_widget(
-                Paragraph::new(app.command_response.clone().unwrap_or("".to_string())),
-                rows[3],
-            );
-        }
-        InputMode::Command => {
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::raw(":"),
-                    Span::raw(app.command_input.value()),
-                ])),
-                rows[3],
-            );
-        }
-    }
-}
+pub fn handle(app: &mut App, frame: &mut Frame) {}
 
 fn status_widget(app: &App) -> Paragraph {
     Paragraph::new(vec![Line::from(vec![
