@@ -1,13 +1,12 @@
+use crate::dbgp::client::ContinuationResponse;
+use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::Init;
+use crate::event::input::AppEvent;
+use crate::event::input::ServerStatus;
 use anyhow::Result;
 use std::str::FromStr;
-
 use tokio::sync::mpsc::Sender;
 use xmlem::Document;
-
-use crate::{
-    dbgp::client::{ContinuationResponse, DbgpClient, Init},
-    event::input::{AppEvent, ServerStatus},
-};
 
 pub struct Session {
     client: DbgpClient,

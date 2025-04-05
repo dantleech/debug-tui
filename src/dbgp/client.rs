@@ -1,12 +1,15 @@
 use anyhow::Result;
-use core::{slice, str};
-
+use core::slice;
+use core::str;
 use crossterm::style::Attribute;
-use tokio::{
-    io::{split, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
-    net::TcpStream,
-};
-use xmltree::{Element, XMLNode};
+use tokio::io::split;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::io::BufReader;
+use tokio::net::TcpStream;
+use xmltree::Element;
+use xmltree::XMLNode;
 
 #[derive(Debug, Clone)]
 pub struct Init {

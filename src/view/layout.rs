@@ -1,14 +1,10 @@
-use ratatui::{
-    layout::{Constraint, Layout},
-    Frame,
-};
-
-use crate::{
-    app::{App, InputMode},
-    event::input::AppEvent,
-};
-
 use super::View;
+use crate::app::App;
+use crate::app::InputMode;
+use crate::event::input::AppEvent;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
+use ratatui::Frame;
 
 pub struct LayoutView {}
 

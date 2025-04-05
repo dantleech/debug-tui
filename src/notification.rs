@@ -1,4 +1,8 @@
-use std::time::{self, Duration, SystemTime};
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::{
+    self,
+};
 
 pub enum NotificationLevel {
     Error,

@@ -1,23 +1,24 @@
-use std::{fmt::Display, io};
-
+use crate::dbgp::client::DbgpClient;
+use crate::event::input::AppEvent;
+use crate::event::input::ServerStatus;
+use crate::notification::Notification;
+use crate::session::Session;
+use crate::ui::render;
+use crate::view::listen::ListenView;
+use crate::view::session::SessionView;
 use anyhow::Result;
-use crossterm::event::{Event, KeyCode};
-use ratatui::{prelude::CrosstermBackend, Terminal};
-use tokio::{
-    net::TcpListener,
-    sync::mpsc::{Receiver, Sender},
-    task,
-};
-use tui_input::{backend::crossterm::EventHandler, Input};
-
-use crate::{
-    dbgp::client::DbgpClient,
-    event::input::{AppEvent, ServerStatus},
-    notification::Notification,
-    session::Session,
-    ui::render,
-    view::{listen::ListenView, session::SessionView},
-};
+use crossterm::event::Event;
+use crossterm::event::KeyCode;
+use ratatui::prelude::CrosstermBackend;
+use ratatui::Terminal;
+use std::fmt::Display;
+use std::io;
+use tokio::net::TcpListener;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
+use tokio::task;
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 
 pub enum AppState {
     Listening,

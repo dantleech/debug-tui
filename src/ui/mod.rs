@@ -1,14 +1,16 @@
-use std::ops::Div;
-
-use ratatui::{
-    layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Paragraph, Widget},
-    Frame,
-};
-
 use crate::app::InputMode;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::style::Modifier;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Widget;
+use ratatui::Frame;
+use std::ops::Div;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let constraints = vec![

@@ -1,8 +1,6 @@
-use anyhow::Result;
-
-use crate::event::input::AppEvent;
-
 use super::View;
+use crate::event::input::AppEvent;
+use anyhow::Result;
 
 pub struct ListenView {}
 

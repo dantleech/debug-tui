@@ -1,7 +1,16 @@
-use std::{fmt::Display, thread, time::Duration};
-
-use crossterm::event::{self, poll, Event, KeyCode, KeyEvent, KeyModifiers};
-use tokio::{net::TcpStream, sync::mpsc::Sender};
+use crossterm::event::poll;
+use crossterm::event::Event;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
+use crossterm::event::{
+    self,
+};
+use std::fmt::Display;
+use std::thread;
+use std::time::Duration;
+use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug)]
 pub enum AppEvent {
