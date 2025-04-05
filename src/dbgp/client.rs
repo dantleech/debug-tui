@@ -1,4 +1,6 @@
 use anyhow::Result;
+use base64::engine::general_purpose;
+use base64::Engine;
 use core::str;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
@@ -226,7 +228,7 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.first() {
         Some(e) => match e {
-            XMLNode::CData(d) => Ok(String::from_utf8(base64::decode(d).unwrap()).unwrap()),
+            XMLNode::CData(d) => Ok(String::from_utf8(general_purpose::STANDARD.decode(d).unwrap()).unwrap()),
             _ => anyhow::bail!("Expected CDATA"),
         },
         None => anyhow::bail!("Expected CDATA"),
