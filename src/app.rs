@@ -67,7 +67,6 @@ pub struct App {
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
-    session: Option<Session>,
     pub input_mode: InputMode,
     pub source: Option<SourceContext>,
     pub server_status: ServerStatus,
@@ -98,7 +97,7 @@ impl App {
             command_response: None,
             view_current: SelectedView::Listen,
             view_listen: ListenView {},
-            view_session: SessionView::new(sender.clone()),
+            view_session: SessionView::new(),
         }
     }
 
@@ -118,10 +117,7 @@ impl App {
             loop {
                 match listener.accept().await {
                     Ok(s) => {
-                        sender
-                            .send(AppEvent::ClientConnected(s.0))
-                            .await
-                            .unwrap();
+                        sender.send(AppEvent::ClientConnected(s.0)).await.unwrap();
                     }
                     Err(_) => panic!("Could not connect"),
                 }
@@ -155,7 +151,12 @@ impl App {
             AppEvent::Quit => self.quit = true,
             AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
                 "q" => self.sender.send(AppEvent::Quit).await.unwrap(),
-                _ => (),
+                _ => {
+                    if !self.client.is_connected() {
+                        return Ok(());
+                    }
+                    self.command_response = Some(self.client.exec_raw(cmd.to_string()).await?);
+                }
             },
             AppEvent::ExecCommandResponse(ref response) => {
                 self.command_response = Some(response.to_string())
@@ -163,6 +164,7 @@ impl App {
             AppEvent::ClientConnected(s) => {
                 let response = self.client.connect(s).await?;
                 self.server_status = ServerStatus::Initial;
+                self.view_current = SelectedView::Session;
                 self.sender
                     .send(AppEvent::RefreshSource(response.fileuri, 1))
                     .await
@@ -193,7 +195,7 @@ impl App {
                     if let KeyCode::Char(char) = e.code {
                         match char {
                             ':' => self.input_mode = InputMode::Command,
-                            _ => (),
+                            _ => self.send_event_to_current_view(event).await,
                         }
                     }
                 }
@@ -225,13 +227,13 @@ impl App {
                 match server_status {
                     ServerStatus::Break => (),
                     ServerStatus::Stopping => {
-                        self.sender.send(AppEvent::Disconnect).await;
+                        self.sender.send(AppEvent::Disconnect).await.unwrap();
                     }
                     _ => (),
                 }
             }
             AppEvent::Disconnect => {
-                self.client.disonnect();
+                self.client.disonnect().await;
             }
             AppEvent::UpdateSourceContext(source, filename, line_no) => {
                 self.source = Some(SourceContext {
@@ -240,16 +242,7 @@ impl App {
                     line_no,
                 });
             }
-            _ => {
-                let subsequent_event = match self.view_current {
-                    SelectedView::Listen => ListenView::handle(self, event),
-                    SelectedView::Session => SessionView::handle(self, event),
-                };
-                match subsequent_event {
-                    Some(event) => self.sender.send(event).await.unwrap(),
-                    None => (),
-                };
-            }
+            _ => self.send_event_to_current_view(event).await,
         };
 
         Ok(())
@@ -260,17 +253,20 @@ impl App {
             "stopping" => {
                 self.sender
                     .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
-                    .await;
+                    .await
+                    .unwrap();
             }
             "break" => {
                 self.sender
                     .send(AppEvent::UpdateStatus(ServerStatus::Break))
-                    .await;
+                    .await
+                    .unwrap();
             }
             _ => {
                 self.sender
                     .send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status)))
-                    .await;
+                    .await
+                    .unwrap();
             }
         }
         // update the source code
@@ -279,10 +275,21 @@ impl App {
             Some(stack) => {
                 self.sender
                     .send(AppEvent::RefreshSource(stack.filename, stack.line))
-                    .await;
+                    .await
+                    .unwrap();
             }
             None => (),
         };
         Ok(())
+    }
+    async fn send_event_to_current_view(&mut self, event: AppEvent) {
+        let subsequent_event = match self.view_current {
+            SelectedView::Listen => ListenView::handle(self, event),
+            SelectedView::Session => SessionView::handle(self, event),
+        };
+        match subsequent_event {
+            Some(event) => self.sender.send(event).await.unwrap(),
+            None => (),
+        };
     }
 }

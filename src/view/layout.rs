@@ -49,8 +49,8 @@ impl View for LayoutView {
         f.render_widget(status_widget(&app), rows[1]);
 
         match app.view_current {
-            SelectedView::Listen => ListenView::draw(app, f, rows[1]),
-            SelectedView::Session => SessionView::draw(app, f, rows[1]),
+            SelectedView::Listen => ListenView::draw(app, f, rows[2]),
+            SelectedView::Session => SessionView::draw(app, f, rows[2]),
         }
 
         match app.input_mode {

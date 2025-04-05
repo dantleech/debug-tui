@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 
-fn source_widget(context: &SourceContext, area: Rect) -> Paragraph {
+pub fn source_widget(context: &SourceContext, area: Rect) -> Paragraph {
     let mut lines: Vec<Line> = Vec::new();
     let mut line_no = 1;
 

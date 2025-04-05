@@ -1,3 +1,4 @@
+use super::source::source_widget;
 use super::View;
 use crate::app::App;
 use crate::app::AppState;
@@ -7,6 +8,8 @@ use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use anyhow::Result;
 use crossterm::event::KeyCode;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::text::Line;
@@ -16,9 +19,7 @@ use ratatui::widgets::Widget;
 use ratatui::Frame;
 use tokio::sync::mpsc::Sender;
 
-pub struct SessionView {
-    sender: Sender<AppEvent>,
-}
+pub struct SessionView {}
 
 impl View for SessionView {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
@@ -31,49 +32,32 @@ impl View for SessionView {
                             'n' => Some(AppEvent::StepInto),
                             'o' => Some(AppEvent::StepOver),
                             _ => None,
-                        }
+                        };
                     }
                 }
             }
-            _ => ()
+            _ => (),
         }
-        //match event {
-        //    AppEvent::ExecCommand(cmd) => {
-        //        tokio::spawn(async move {
-        //            let response = app.client.exec_raw(cmd).await;
-        //            let doc = Document::from_str(response.unwrap().as_str());
-        //            self.sender.blocking_send(AppEvent::ExecCommandResponse(doc.unwrap().to_string_pretty()));
-        //        });
-        //        None
-        //    }
-        //    AppEvent::RefreshSource(filename, line_no) => {
-        //        tokio::spawn(async move {
-        //            let source = app.client.source(filename.clone()).await?;
-        //            self.sender
-        //                .send(AppEvent::UpdateSourceContext(
-        //                    source,
-        //                    filename.clone(),
-        //                    line_no,
-        //                ))
-        //                .await?;
-        //        });
-        //    }
-        //    _ => Ok(()),
-        //}
         None
     }
 
-    fn draw(
-        app: &mut App,
-        f: &mut Frame,
-        area: ratatui::prelude::Rect,
-    ) {
+    fn draw(app: &mut App, f: &mut Frame, area: ratatui::prelude::Rect) {
+        let constraints = vec![Constraint::Length(1), Constraint::Min(1)];
+        let rows = Layout::default()
+            .margin(0)
+            .constraints(constraints)
+            .split(area);
+
         match &app.source {
             Some(source_context) => {
-                f.render_widget(Paragraph::new(Line::from(vec![Span::styled(
-                    source_context.filename.clone(),
-                    Style::default().fg(Color::Green),
-                )])), area);
+                f.render_widget(
+                    Paragraph::new(Line::from(vec![Span::styled(
+                        source_context.filename.clone(),
+                        Style::default().fg(Color::Green),
+                    )])),
+                    rows[0],
+                );
+                f.render_widget(source_widget(&source_context, rows[1]), rows[1]);
             }
             None => (),
         };
@@ -81,7 +65,7 @@ impl View for SessionView {
 }
 
 impl SessionView {
-    pub(crate) fn new(sender: Sender<AppEvent>) -> Self {
-        Self { sender }
+    pub(crate) fn new() -> Self {
+        Self {}
     }
 }
