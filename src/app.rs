@@ -3,7 +3,6 @@ use crate::dbgp::client::DbgpClient;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use crate::notification::Notification;
-use crate::session::Session;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
 use crate::view::session::SessionView;
@@ -89,7 +88,6 @@ impl App {
             sender: sender.clone(),
             quit: false,
             client,
-            session: None,
             source: None,
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
