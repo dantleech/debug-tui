@@ -295,7 +295,7 @@ mod test {
             Message::Response(r) => {
                 match r.command {
                     CommandResponse::StackGet(s) => {
-                        assert_eq!("file:///app/test.php", s.filename)
+                        assert_eq!("file:///app/test.php", s.unwrap().filename)
                     }
                     _ => panic!("Could not parse get_stack"),
                 };
