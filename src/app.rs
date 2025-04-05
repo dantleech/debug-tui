@@ -15,7 +15,8 @@ use crate::{
     event::input::{AppEvent, ServerStatus},
     notification::Notification,
     session::Session,
-    ui::render, view::listen::ListenView,
+    ui::render,
+    view::{listen::ListenView, session::SessionView},
 };
 
 pub enum AppState {
@@ -61,11 +62,16 @@ pub struct SourceContext {
     pub line_no: u32,
 }
 
-pub struct Views {
-    listen: ListenView,
-    session: SessionView,
+pub enum SelectedView {
+    Listen,
+    Session,
 }
 
+pub struct Views {
+    pub current: SelectedView,
+    pub listen: ListenView,
+    pub session: SessionView,
+}
 pub struct App {
     pub state: AppState,
     pub config: Config,
@@ -80,18 +86,25 @@ pub struct App {
     pub command_input: Input,
     pub command_response: Option<String>,
 
-    pub views: Views
+    pub views: Views,
+    pub client: DbgpClient,
 }
 
 impl App {
     pub fn new(receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
+        let client = DbgpClient::new(None);
         App {
             config: Config::new(),
             state: AppState::Listening,
             notification: Notification::none(),
             receiver,
-            sender,
+            sender: sender.clone(),
             quit: false,
+            client,
+            views: Views {
+                listen: ListenView {},
+                session: SessionView::new(sender.clone()),
+            },
             session: None,
             source: None,
             input_mode: InputMode::Normal,

@@ -1,14 +1,35 @@
-use std::ops::Div;
-
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Paragraph, Widget},
+    layout::{Constraint, Layout},
     Frame,
 };
 
-use crate::app::InputMode;
+use crate::{
+    app::{App, InputMode},
+    event::input::AppEvent,
+};
+
+use super::View;
+
+pub struct LayoutView {}
+
+impl View for LayoutView {
+    fn handle(
+        &mut self,
+        app: &mut crate::app::App,
+        key: crate::event::input::AppEvent,
+    ) -> Option<AppEvent> {
+        None
+    }
+
+    fn draw(
+        &mut self,
+        app: &mut crate::app::App,
+        f: &mut ratatui::prelude::Buffer,
+        area: ratatui::prelude::Rect,
+    ) {
+        todo!()
+    }
+}
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let constraints = vec![
@@ -31,7 +52,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     frame.render_widget(status_widget(&app), rows[0]);
 
-    match app.views.selected {}
+    match app.views.current {
+        crate::app::SelectedView::Listen => todo!(),
+        crate::app::SelectedView::Session => todo!(),
+    }
     match &app.source {
         Some(c) => {
             frame.render_widget(

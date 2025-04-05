@@ -45,14 +45,14 @@ pub fn start(event_sender: EventSender) {
             if poll(Duration::from_millis(1000)).unwrap() {
                 // handle global keys
                 if let Event::Key(key) = event::read().unwrap() {
-                    let action:Option<AppEvent> = match key.modifiers {
+                    let action: Option<AppEvent> = match key.modifiers {
                         KeyModifiers::CONTROL => match key.code {
                             KeyCode::Char('c') => Some(AppEvent::Quit),
-                            _ => None
-                        }
-                        _ => None
+                            _ => None,
+                        },
+                        _ => None,
                     };
-                    
+
                     match action {
                         Some(a) => event_sender.blocking_send(a).unwrap(),
                         None => event_sender.blocking_send(AppEvent::Input(key)).unwrap(),
@@ -62,5 +62,3 @@ pub fn start(event_sender: EventSender) {
         }
     });
 }
-
-

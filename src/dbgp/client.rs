@@ -1,5 +1,5 @@
-use core::{slice, str};
 use anyhow::Result;
+use core::{slice, str};
 
 use crossterm::style::Attribute;
 use tokio::{
@@ -41,7 +41,7 @@ pub struct StackGetResponse {
     pub line: u32,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Message {
     Init(Init),
     Response(Response),
@@ -49,15 +49,14 @@ pub enum Message {
 
 pub struct DbgpClient {
     tid: u32,
-    stream: TcpStream,
+    stream: Option<TcpStream>,
 }
 impl DbgpClient {
-    pub(crate) fn new(s: TcpStream) -> Self {
+    pub(crate) fn new(s: Option<TcpStream>) -> Self {
         Self { stream: s, tid: 0 }
     }
 
     pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
-
         let xml = self.read_raw().await?;
         if xml.is_empty() {
             anyhow::bail!("Empty XML response");
@@ -147,7 +146,10 @@ impl DbgpClient {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream.write(bytes.as_bytes()).await.map_err(anyhow::Error::from)
+        self.stream
+            .write(bytes.as_bytes())
+            .await
+            .map_err(anyhow::Error::from)
     }
 
     pub(crate) async fn disonnect(&mut self) {
