@@ -1,0 +1,3 @@
+imports_layout = "Vertical"
+imports_granularity = "Item"
+group_imports = "One"

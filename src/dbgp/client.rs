@@ -1,12 +1,13 @@
-use core::{slice, str};
 use anyhow::Result;
-
-use crossterm::style::Attribute;
-use tokio::{
-    io::{split, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
-    net::TcpStream,
-};
-use xmltree::{Element, XMLNode};
+use base64::engine::general_purpose;
+use base64::Engine;
+use core::str;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::io::BufReader;
+use tokio::net::TcpStream;
+use xmltree::Element;
+use xmltree::XMLNode;
 
 #[derive(Debug, Clone)]
 pub struct Init {
@@ -41,7 +42,7 @@ pub struct StackGetResponse {
     pub line: u32,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Message {
     Init(Init),
     Response(Response),
@@ -49,26 +50,31 @@ pub enum Message {
 
 pub struct DbgpClient {
     tid: u32,
-    stream: TcpStream,
+    stream: Option<TcpStream>,
 }
 impl DbgpClient {
-    pub(crate) fn new(s: TcpStream) -> Self {
+    pub(crate) fn new(s: Option<TcpStream>) -> Self {
         Self { stream: s, tid: 0 }
     }
 
-    pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
+    pub fn is_connected(&self) -> bool {
+        self.stream.is_some()
+    }
 
+    pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
         let xml = self.read_raw().await?;
         if xml.is_empty() {
             anyhow::bail!("Empty XML response");
         }
-        return parse_xml(xml.as_str());
+        parse_xml(xml.as_str())
     }
 
     pub(crate) async fn read_raw(&mut self) -> Result<String> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
-        let mut reader = BufReader::new(&mut self.stream);
+        let mut reader = BufReader::new(
+            self.stream.as_mut().unwrap()
+        );
 
         // read length and subsequently ignore it
         reader.read_until(b'\0', &mut length).await?;
@@ -82,7 +88,7 @@ impl DbgpClient {
                 xml.pop();
             }
         }
-        return Ok(String::from_utf8(xml)?);
+        Ok(String::from_utf8(xml)?)
     }
 
     pub(crate) async fn run(&mut self) -> Result<ContinuationResponse> {
@@ -147,11 +153,14 @@ impl DbgpClient {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream.write(bytes.as_bytes()).await.map_err(anyhow::Error::from)
+        self.stream.as_mut().unwrap()
+            .write(bytes.as_bytes())
+            .await
+            .map_err(anyhow::Error::from)
     }
 
     pub(crate) async fn disonnect(&mut self) {
-        self.stream.shutdown().await.unwrap();
+        if let Some(s) = &mut self.stream { s.shutdown().await.unwrap() };
     }
 
     pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
@@ -168,6 +177,14 @@ impl DbgpClient {
 
         self.command_raw(name.unwrap(), &mut args).await?;
         self.read_raw().await
+    }
+
+    pub(crate) async fn connect(&mut self, s: TcpStream) -> Result<Init> {
+        self.stream = Some(s);
+        match self.read_and_parse().await? {
+            crate::dbgp::client::Message::Init(i) => Ok(i),
+            _ => anyhow::bail!("Unexpected response"),
+        }
     }
 }
 
@@ -209,9 +226,9 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
     }
 }
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
-    match element.children.get(0) {
+    match element.children.first() {
         Some(e) => match e {
-            XMLNode::CData(d) => Ok(String::from_utf8(base64::decode(d).unwrap()).unwrap()),
+            XMLNode::CData(d) => Ok(String::from_utf8(general_purpose::STANDARD.decode(d).unwrap()).unwrap()),
             _ => anyhow::bail!("Expected CDATA"),
         },
         None => anyhow::bail!("Expected CDATA"),
@@ -219,9 +236,7 @@ fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
 }
 
 fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
-    match element.get_child("stack") {
-        None => None,
-        Some(s) => Some(StackGetResponse {
+    element.get_child("stack").map(|s| StackGetResponse {
             filename: s
                 .attributes
                 .get("filename")
@@ -233,14 +248,13 @@ fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
                 .expect("Expected lineno to be set")
                 .parse()
                 .unwrap(),
-        }),
-    }
+        })
 }
 
 fn parse_continuation_response(
     attributes: &std::collections::HashMap<String, String>,
 ) -> ContinuationResponse {
-    return ContinuationResponse {
+    ContinuationResponse {
         status: attributes
             .get("status")
             .expect("Expected status to be set")
@@ -249,7 +263,7 @@ fn parse_continuation_response(
             .get("reason")
             .expect("Expected reason to be set")
             .to_string(),
-    };
+    }
 }
 
 #[cfg(test)]
@@ -283,7 +297,7 @@ mod test {
             Message::Response(r) => {
                 match r.command {
                     CommandResponse::StackGet(s) => {
-                        assert_eq!("file:///app/test.php", s.filename)
+                        assert_eq!("file:///app/test.php", s.unwrap().filename)
                     }
                     _ => panic!("Could not parse get_stack"),
                 };

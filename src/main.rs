@@ -1,15 +1,19 @@
 pub mod app;
-pub mod event;
 pub mod dbgp;
-pub mod session;
-pub mod ui;
-
-use std::{io, panic, process};
+pub mod event;
+pub mod notification;
+pub mod view;
 
 use app::App;
 use crossterm::terminal::disable_raw_mode;
 use event::input;
-use ratatui::{crossterm::terminal::enable_raw_mode, prelude::CrosstermBackend, restore, Terminal};
+use ratatui::crossterm::terminal::enable_raw_mode;
+use ratatui::prelude::CrosstermBackend;
+use ratatui::restore;
+use ratatui::Terminal;
+use std::io;
+use std::panic;
+use std::process;
 use tokio::sync::mpsc;
 
 #[tokio::main]
