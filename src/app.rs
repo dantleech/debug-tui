@@ -10,13 +10,10 @@ use crate::view::View;
 use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
-use ratatui::layout::Layout;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
 use std::fmt::Display;
 use std::io;
-use std::rc::Rc;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
@@ -39,6 +36,12 @@ impl Display for InputMode {
 #[derive(Clone)]
 pub struct Config {
     pub port: u16,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Config {
@@ -269,14 +272,11 @@ impl App {
         }
         // update the source code
         let stack = self.client.get_stack().await?;
-        match stack {
-            Some(stack) => {
-                self.sender
-                    .send(AppEvent::RefreshSource(stack.filename, stack.line))
-                    .await
-                    .unwrap();
-            }
-            None => (),
+        if let Some(stack) = stack {
+            self.sender
+                .send(AppEvent::RefreshSource(stack.filename, stack.line))
+                .await
+                .unwrap();
         };
         Ok(())
     }
@@ -285,9 +285,6 @@ impl App {
             SelectedView::Listen => ListenView::handle(self, event),
             SelectedView::Session => SessionView::handle(self, event),
         };
-        match subsequent_event {
-            Some(event) => self.sender.send(event).await.unwrap(),
-            None => (),
-        };
+        if let Some(event) = subsequent_event { self.sender.send(event).await.unwrap() };
     }
 }

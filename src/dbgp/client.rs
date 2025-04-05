@@ -1,12 +1,6 @@
 use anyhow::Result;
-use core::slice;
 use core::str;
-use std::rc::Rc;
-use std::sync::Arc;
-use crossterm::style::Attribute;
-use tokio::io::split;
 use tokio::io::AsyncBufReadExt;
-use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
@@ -70,7 +64,7 @@ impl DbgpClient {
         if xml.is_empty() {
             anyhow::bail!("Empty XML response");
         }
-        return parse_xml(xml.as_str());
+        parse_xml(xml.as_str())
     }
 
     pub(crate) async fn read_raw(&mut self) -> Result<String> {
@@ -92,7 +86,7 @@ impl DbgpClient {
                 xml.pop();
             }
         }
-        return Ok(String::from_utf8(xml)?);
+        Ok(String::from_utf8(xml)?)
     }
 
     pub(crate) async fn run(&mut self) -> Result<ContinuationResponse> {
@@ -164,10 +158,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn disonnect(&mut self) {
-        match &mut self.stream {
-            Some(s) => s.shutdown().await.unwrap(),
-            None => (),
-        };
+        if let Some(s) = &mut self.stream { s.shutdown().await.unwrap() };
     }
 
     pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
@@ -233,7 +224,7 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
     }
 }
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
-    match element.children.get(0) {
+    match element.children.first() {
         Some(e) => match e {
             XMLNode::CData(d) => Ok(String::from_utf8(base64::decode(d).unwrap()).unwrap()),
             _ => anyhow::bail!("Expected CDATA"),
@@ -243,9 +234,7 @@ fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
 }
 
 fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
-    match element.get_child("stack") {
-        None => None,
-        Some(s) => Some(StackGetResponse {
+    element.get_child("stack").map(|s| StackGetResponse {
             filename: s
                 .attributes
                 .get("filename")
@@ -257,14 +246,13 @@ fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
                 .expect("Expected lineno to be set")
                 .parse()
                 .unwrap(),
-        }),
-    }
+        })
 }
 
 fn parse_continuation_response(
     attributes: &std::collections::HashMap<String, String>,
 ) -> ContinuationResponse {
-    return ContinuationResponse {
+    ContinuationResponse {
         status: attributes
             .get("status")
             .expect("Expected status to be set")
@@ -273,7 +261,7 @@ fn parse_continuation_response(
             .get("reason")
             .expect("Expected reason to be set")
             .to_string(),
-    };
+    }
 }
 
 #[cfg(test)]

@@ -7,8 +7,6 @@ use crossterm::event::{
     self,
 };
 use std::fmt::Display;
-use std::rc::Rc;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tokio::net::TcpStream;

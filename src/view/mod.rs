@@ -6,7 +6,6 @@ pub mod source;
 
 use crate::app::App;
 use crate::event::input::AppEvent;
-use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 

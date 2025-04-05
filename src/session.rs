@@ -34,7 +34,7 @@ impl Session {
                 self.sender
                     .send(AppEvent::ExecCommandResponse(doc.to_string_pretty()))
                     .await?;
-                return Ok(());
+                Ok(())
             }
             AppEvent::RefreshSource(filename, line_no) => {
                 let source = self.client.source(filename.clone()).await?;
@@ -87,13 +87,10 @@ impl Session {
         }
         // update the source code
         let stack = self.client.get_stack().await?;
-        match stack {
-            Some(stack) => {
-                self.sender
-                    .send(AppEvent::RefreshSource(stack.filename, stack.line))
-                    .await?;
-            }
-            None => (),
+        if let Some(stack) = stack {
+            self.sender
+                .send(AppEvent::RefreshSource(stack.filename, stack.line))
+                .await?;
         };
         Ok(())
     }

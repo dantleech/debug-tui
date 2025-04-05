@@ -2,12 +2,10 @@ use super::listen::ListenView;
 use super::session::SessionView;
 use super::View;
 use crate::app::App;
-use crate::app::AppState;
 use crate::app::InputMode;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crate::notification::NotificationLevel;
-use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -17,7 +15,6 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
-use ratatui::widgets::Widget;
 use ratatui::Frame;
 
 pub struct LayoutView {}
@@ -46,7 +43,7 @@ impl View for LayoutView {
             .constraints(constraints)
             .split(area);
 
-        f.render_widget(status_widget(&app), rows[1]);
+        f.render_widget(status_widget(app), rows[1]);
 
         match app.view_current {
             SelectedView::Listen => ListenView::draw(app, f, rows[2]),
@@ -83,7 +80,7 @@ fn status_widget(app: &App) -> Paragraph {
                 .fg(Color::Black),
         ),
         Span::styled(
-            format!("  {} ", app.input_mode.to_string()),
+            format!("  {} ", app.input_mode),
             Style::default().bg(match app.input_mode {
                 InputMode::Normal => Color::Blue,
                 InputMode::Command => Color::Red,
@@ -92,10 +89,8 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                app.client
-                    .is_connected()
-                    .then(|| "connected".to_string())
-                    .unwrap_or_else(|| "listening".to_string())
+                if app.client
+                    .is_connected() { "connected".to_string() } else { "listening".to_string() }
             ),
             Style::default()
                 .add_modifier(Modifier::BOLD)
