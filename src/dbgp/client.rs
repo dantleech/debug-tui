@@ -1,6 +1,8 @@
 use anyhow::Result;
 use core::slice;
 use core::str;
+use std::rc::Rc;
+use std::sync::Arc;
 use crossterm::style::Attribute;
 use tokio::io::split;
 use tokio::io::AsyncBufReadExt;
@@ -59,6 +61,10 @@ impl DbgpClient {
         Self { stream: s, tid: 0 }
     }
 
+    pub fn is_connected(&self) -> bool {
+        self.stream.is_some()
+    }
+
     pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
         let xml = self.read_raw().await?;
         if xml.is_empty() {
@@ -70,10 +76,12 @@ impl DbgpClient {
     pub(crate) async fn read_raw(&mut self) -> Result<String> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
-        let mut reader = BufReader::new(&mut self.stream);
+        let mut reader = BufReader::new(
+            self.stream.as_mut().unwrap()
+        );
 
         // read length and subsequently ignore it
-        reader.read_until(b'\0', &mut length).await?;
+        reader.read_until(b'\0', &mut length).await;
 
         // read data
         reader.read_until(b'\0', &mut xml).await?;
@@ -149,14 +157,17 @@ impl DbgpClient {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream
+        self.stream.as_mut().unwrap()
             .write(bytes.as_bytes())
             .await
             .map_err(anyhow::Error::from)
     }
 
     pub(crate) async fn disonnect(&mut self) {
-        self.stream.shutdown().await.unwrap();
+        match &mut self.stream {
+            Some(s) => s.shutdown().await.unwrap(),
+            None => (),
+        };
     }
 
     pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
@@ -173,6 +184,14 @@ impl DbgpClient {
 
         self.command_raw(name.unwrap(), &mut args).await?;
         self.read_raw().await
+    }
+
+    pub(crate) async fn connect(&mut self, s: TcpStream) -> Result<Init> {
+        self.stream = Some(s);
+        match self.read_and_parse().await? {
+            crate::dbgp::client::Message::Init(i) => Ok(i),
+            _ => anyhow::bail!("Unexpected response"),
+        }
     }
 }
 

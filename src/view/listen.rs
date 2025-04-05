@@ -1,22 +1,18 @@
 use super::View;
-use crate::event::input::AppEvent;
+use crate::{app::{App, AppState}, event::input::AppEvent};
 use anyhow::Result;
+use ratatui::Frame;
 
 pub struct ListenView {}
 
 impl View for ListenView {
-    fn handle(
-        &mut self,
-        app: &mut crate::app::App,
-        key: crate::event::input::AppEvent,
-    ) -> Option<AppEvent> {
-        todo!()
+    fn handle(app: &App, key: AppEvent) -> Option<AppEvent> {
+        None
     }
 
     fn draw(
-        &mut self,
-        app: &mut crate::app::App,
-        f: &mut ratatui::prelude::Buffer,
+        app: &mut App,
+        f: &mut Frame,
         area: ratatui::prelude::Rect,
     ) {
         todo!()

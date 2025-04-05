@@ -1,38 +1,29 @@
+use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::DbgpClient;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use crate::notification::Notification;
 use crate::session::Session;
-use crate::ui::render;
+use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
 use crate::view::session::SessionView;
+use crate::view::View;
 use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use ratatui::layout::Layout;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
 use std::fmt::Display;
 use std::io;
+use std::rc::Rc;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::task;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
-
-pub enum AppState {
-    Listening,
-    Connected,
-}
-
-impl Display for AppState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            AppState::Listening => "Listening",
-            AppState::Connected => "Connected",
-        })
-    }
-}
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum InputMode {
@@ -68,15 +59,11 @@ pub enum SelectedView {
     Session,
 }
 
-pub struct Views {
-    pub current: SelectedView,
-    pub listen: ListenView,
-    pub session: SessionView,
-}
+pub struct Views {}
+pub struct AppState {}
 pub struct App {
-    pub state: AppState,
-    pub config: Config,
     pub notification: Notification,
+    pub config: Config,
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
@@ -86,9 +73,11 @@ pub struct App {
     pub server_status: ServerStatus,
     pub command_input: Input,
     pub command_response: Option<String>,
-
-    pub views: Views,
     pub client: DbgpClient,
+
+    pub view_current: SelectedView,
+    pub view_listen: ListenView,
+    pub view_session: SessionView,
 }
 
 impl App {
@@ -96,22 +85,20 @@ impl App {
         let client = DbgpClient::new(None);
         App {
             config: Config::new(),
-            state: AppState::Listening,
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
             quit: false,
             client,
-            views: Views {
-                listen: ListenView {},
-                session: SessionView::new(sender.clone()),
-            },
             session: None,
             source: None,
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
             command_input: Input::default(),
             command_response: None,
+            view_current: SelectedView::Listen,
+            view_listen: ListenView {},
+            view_session: SessionView::new(sender.clone()),
         }
     }
 
@@ -131,7 +118,10 @@ impl App {
             loop {
                 match listener.accept().await {
                     Ok(s) => {
-                        sender.send(AppEvent::ClientConnected(s.0)).await.unwrap();
+                        sender
+                            .send(AppEvent::ClientConnected(s.0))
+                            .await
+                            .unwrap();
                     }
                     Err(_) => panic!("Could not connect"),
                 }
@@ -155,7 +145,7 @@ impl App {
 
             terminal.autoresize()?;
             terminal.draw(|frame| {
-                render(self, frame);
+                LayoutView::draw(self, frame, frame.area());
             })?;
         }
     }
@@ -163,17 +153,40 @@ impl App {
     async fn handle_event(&mut self, event: AppEvent) -> Result<()> {
         match event {
             AppEvent::Quit => self.quit = true,
-            AppEvent::ExecCommand(ref cmd) => {
-                match cmd.as_str() {
-                    "q" => {
-                        self.sender.send(AppEvent::Quit).await?;
-                    }
-                    // let the session handle it later
-                    _ => (),
-                }
-            }
+            AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
+                "q" => self.sender.send(AppEvent::Quit).await.unwrap(),
+                _ => (),
+            },
             AppEvent::ExecCommandResponse(ref response) => {
                 self.command_response = Some(response.to_string())
+            }
+            AppEvent::ClientConnected(s) => {
+                let response = self.client.connect(s).await?;
+                self.server_status = ServerStatus::Initial;
+                self.sender
+                    .send(AppEvent::RefreshSource(response.fileuri, 1))
+                    .await
+                    .unwrap()
+            }
+            AppEvent::RefreshSource(ref filename, line_no) => {
+                let source = self.client.source(filename.clone()).await.unwrap();
+                self.source = Some(SourceContext {
+                    source,
+                    filename: filename.clone(),
+                    line_no,
+                });
+            }
+            AppEvent::StepInto => {
+                let response = self.client.step_into().await?;
+                self.handle_continuation_response(response).await?;
+            }
+            AppEvent::StepOver => {
+                let response = self.client.step_over().await?;
+                self.handle_continuation_response(response).await?;
+            }
+            AppEvent::Run => {
+                let response = self.client.run().await?;
+                self.handle_continuation_response(response).await?;
             }
             AppEvent::Input(e) => match self.input_mode {
                 InputMode::Normal => {
@@ -189,7 +202,6 @@ impl App {
                     KeyCode::Esc => {
                         self.input_mode = InputMode::Normal;
                         self.command_response = None;
-                        return Ok(());
                     }
                     // execute command
                     KeyCode::Enter => {
@@ -198,87 +210,78 @@ impl App {
                             .send(AppEvent::ExecCommand(
                                 self.command_input.value().to_string(),
                             ))
-                            .await?;
-                        return Ok(());
+                            .await
+                            .unwrap();
                     }
                     // delegate keys to command input
                     _ => {
                         self.command_input.handle_event(&Event::Key(e));
-                        return Ok(());
                     }
                 },
             },
-            _ => (),
+            // needed?
+            AppEvent::UpdateStatus(server_status) => {
+                self.server_status = server_status.clone();
+                match server_status {
+                    ServerStatus::Break => (),
+                    ServerStatus::Stopping => {
+                        self.sender.send(AppEvent::Disconnect).await;
+                    }
+                    _ => (),
+                }
+            }
+            AppEvent::Disconnect => {
+                self.client.disonnect();
+            }
+            AppEvent::UpdateSourceContext(source, filename, line_no) => {
+                self.source = Some(SourceContext {
+                    source,
+                    filename,
+                    line_no,
+                });
+            }
+            _ => {
+                let subsequent_event = match self.view_current {
+                    SelectedView::Listen => ListenView::handle(self, event),
+                    SelectedView::Session => SessionView::handle(self, event),
+                };
+                match subsequent_event {
+                    Some(event) => self.sender.send(event).await.unwrap(),
+                    None => (),
+                };
+            }
         };
 
-        match self.state {
-            AppState::Listening => match event {
-                AppEvent::ClientConnected(s) => {
-                    let mut session = Session::new(DbgpClient::new(s), self.sender.clone());
-                    let init = session.init().await?;
-                    self.session = Some(session);
-                    self.state = AppState::Connected;
-                    self.server_status = ServerStatus::Initial;
-                    self.sender
-                        .send(AppEvent::RefreshSource(init.fileuri, 1))
-                        .await?;
-                }
-                _ => (),
-            },
-            AppState::Connected => match event {
-                AppEvent::UpdateStatus(s) => {
-                    self.server_status = s.clone();
-                    match s {
-                        ServerStatus::Break => (),
-                        ServerStatus::Stopping => {
-                            self.sender.send(AppEvent::Disconnect).await?;
-                        }
-                        _ => (),
-                    }
-                }
-                AppEvent::Disconnect => {
-                    self.session
-                        .as_mut()
-                        .expect("Session not set but it should be")
-                        .disconnect()
-                        .await;
-                    self.session = None;
-                    self.state = AppState::Listening;
-                }
-                AppEvent::UpdateSourceContext(source, filename, line_no) => {
-                    self.source = Some(SourceContext {
-                        source,
-                        filename,
-                        line_no,
-                    });
-                }
-                AppEvent::Input(e) => {
-                    if self.input_mode != InputMode::Command {
-                        if let KeyCode::Char(char) = e.code {
-                            match char {
-                                'r' => self.sender.send(AppEvent::Run).await?,
-                                'n' => self.sender.send(AppEvent::StepInto).await?,
-                                'o' => self.sender.send(AppEvent::StepOver).await?,
-                                _ => (),
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    match self
-                        .session
-                        .as_mut()
-                        .expect("Session not set but it should be")
-                        .handle(event)
-                        .await
-                    {
-                        Ok(_) => (),
-                        Err(e) => {
-                            self.notification = Notification::error(e.to_string());
-                        }
-                    };
-                }
-            },
+        Ok(())
+    }
+
+    async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<()> {
+        match r.status.as_str() {
+            "stopping" => {
+                self.sender
+                    .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
+                    .await;
+            }
+            "break" => {
+                self.sender
+                    .send(AppEvent::UpdateStatus(ServerStatus::Break))
+                    .await;
+            }
+            _ => {
+                self.sender
+                    .send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status)))
+                    .await;
+            }
+        }
+        // update the source code
+        let stack = self.client.get_stack().await?;
+        match stack {
+            Some(stack) => {
+                self.sender
+                    .send(AppEvent::RefreshSource(stack.filename, stack.line))
+                    .await;
+            }
+            None => (),
         };
         Ok(())
     }
