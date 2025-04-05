@@ -2,7 +2,6 @@ pub mod app;
 pub mod dbgp;
 pub mod event;
 pub mod notification;
-pub mod session;
 pub mod view;
 
 use app::App;

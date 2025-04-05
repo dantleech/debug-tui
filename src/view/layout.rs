@@ -20,7 +20,7 @@ use ratatui::Frame;
 pub struct LayoutView {}
 
 impl View for LayoutView {
-    fn handle(app: &App, key: AppEvent) -> Option<AppEvent> {
+    fn handle(_app: &App, _key: AppEvent) -> Option<AppEvent> {
         None
     }
 

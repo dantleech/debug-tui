@@ -75,7 +75,7 @@ impl DbgpClient {
         );
 
         // read length and subsequently ignore it
-        reader.read_until(b'\0', &mut length).await;
+        reader.read_until(b'\0', &mut length).await?;
 
         // read data
         reader.read_until(b'\0', &mut xml).await?;

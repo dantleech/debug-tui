@@ -6,9 +6,9 @@ use ratatui::Frame;
 pub struct ListenView {}
 
 impl View for ListenView {
-    fn handle(app: &App, key: AppEvent) -> Option<AppEvent> {
+    fn handle(_app: &App, _key: AppEvent) -> Option<AppEvent> {
         None
     }
 
-    fn draw(app: &mut App, f: &mut Frame, area: ratatui::prelude::Rect) {}
+    fn draw(_app: &mut App, _f: &mut Frame, _area: ratatui::prelude::Rect) {}
 }
