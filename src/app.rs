@@ -1,3 +1,4 @@
+use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::DbgpClient;
 use crate::event::input::AppEvent;
@@ -75,6 +76,7 @@ pub struct App {
     sender: Sender<AppEvent>,
     pub input_mode: InputMode,
     pub source: Option<SourceContext>,
+    pub context: Option<ContextGetResponse>,
     pub server_status: ServerStatus,
     pub command_input: Input,
     pub command_response: Option<String>,
@@ -100,7 +102,10 @@ impl App {
             history: vec![],
             history_offset: 0,
             client,
+
             source: None,
+            context: None,
+
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
             command_input: Input::default(),
@@ -298,6 +303,9 @@ impl App {
                 .await
                 .unwrap();
         };
+        if let Ok(context_get) = self.client.context_get().await {
+            self.context = Some(context_get);
+        }
         Ok(())
     }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {

@@ -2,8 +2,10 @@ pub mod debug;
 pub mod layout;
 pub mod listen;
 pub mod session;
-pub mod source;
 pub mod history;
+
+pub mod source;
+pub mod context;
 
 use crate::app::App;
 use crate::event::input::AppEvent;
