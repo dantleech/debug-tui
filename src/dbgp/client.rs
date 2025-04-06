@@ -28,6 +28,28 @@ pub enum CommandResponse {
     Unknown,
     StackGet(Option<StackGetResponse>),
     Source(String),
+    ContextGet(ContextGetResponse),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextGetResponse {
+    pub properties: Vec<Property>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Property {
+    pub name: String,
+    pub fullname: String,
+    pub classname: Option<String>,
+    pub page: Option<u32>,
+    pub pagesize: Option<u32>,
+    pub property_type: String,
+    pub facet: Option<String>,
+    pub size: Option<u32>,
+    pub children: Vec<Property>,
+    pub key: Option<String>,
+    pub address: Option<String>,
+    pub encoding: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -72,9 +94,7 @@ impl DbgpClient {
     pub(crate) async fn read_raw(&mut self) -> Result<String> {
         let mut length: Vec<u8> = Vec::new();
         let mut xml: Vec<u8> = Vec::new();
-        let mut reader = BufReader::new(
-            self.stream.as_mut().unwrap()
-        );
+        let mut reader = BufReader::new(self.stream.as_mut().unwrap());
 
         // read length and subsequently ignore it
         reader.read_until(b'\0', &mut length).await?;
@@ -153,14 +173,18 @@ impl DbgpClient {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream.as_mut().unwrap()
+        self.stream
+            .as_mut()
+            .unwrap()
             .write(bytes.as_bytes())
             .await
             .map_err(anyhow::Error::from)
     }
 
     pub(crate) async fn disonnect(&mut self) {
-        if let Some(s) = &mut self.stream { s.shutdown().await.unwrap() };
+        if let Some(s) = &mut self.stream {
+            s.shutdown().await.unwrap()
+        };
     }
 
     pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
@@ -189,7 +213,7 @@ impl DbgpClient {
 }
 
 fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
-    let root = Element::parse(xml.as_bytes())?;
+    let mut root = Element::parse(xml.as_bytes())?;
     match root.name.as_str() {
         "init" => Ok(Message::Init(Init {
             fileuri: root
@@ -219,6 +243,7 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 "run" => CommandResponse::Run(parse_continuation_response(&root.attributes)),
                 "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)),
                 "source" => CommandResponse::Source(parse_source(&root)?),
+                "context_get" => CommandResponse::ContextGet(parse_context_get(&mut root)?),
                 _ => CommandResponse::Unknown,
             },
         })),
@@ -228,27 +253,62 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.first() {
         Some(e) => match e {
-            XMLNode::CData(d) => Ok(String::from_utf8(general_purpose::STANDARD.decode(d).unwrap()).unwrap()),
+            XMLNode::CData(d) => {
+                Ok(String::from_utf8(general_purpose::STANDARD.decode(d).unwrap()).unwrap())
+            }
             _ => anyhow::bail!("Expected CDATA"),
         },
         None => anyhow::bail!("Expected CDATA"),
     }
 }
 
+fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow::Error> {
+    let mut properties: Vec<Property> = vec![];
+    while let Some(mut child) = element.take_child("property") {
+        let p = Property {
+            name: child.attributes
+                .get("name")
+                .expect("Expected name to be set")
+                .to_string(),
+            fullname: child.attributes
+                .get("name")
+                .expect("Expected fullname to be set")
+                .to_string(),
+            classname: child.attributes.get("classname").map(|s| s.to_string()),
+            page: child.attributes.get("page").map(|s| s.parse::<u32>().unwrap()),
+            pagesize: child.attributes
+                .get("pagesize")
+                .map(|s| s.parse::<u32>().unwrap()),
+            property_type: child.attributes
+                .get("type")
+                .expect("Expected property_type to be set")
+                .to_string(),
+            facet: child.attributes.get("facet").map(|s| s.to_string()),
+            size: child.attributes.get("size").map(|s| s.parse::<u32>().unwrap()),
+            key: child.attributes.get("key").map(|name| name.to_string()),
+            address: child.attributes.get("address").map(|name| name.to_string()),
+            encoding: child.attributes.get("encoding").map(|s| s.to_string()),
+            children: parse_context_get(&mut child).unwrap().properties,
+        };
+        properties.push(p);
+    }
+    Ok(ContextGetResponse { properties })
+}
+
 fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
     element.get_child("stack").map(|s| StackGetResponse {
-            filename: s
-                .attributes
-                .get("filename")
-                .expect("Expected status to be set")
-                .to_string(),
-            line: s
-                .attributes
-                .get("lineno")
-                .expect("Expected lineno to be set")
-                .parse()
-                .unwrap(),
-        })
+        filename: s
+            .attributes
+            .get("filename")
+            .expect("Expected status to be set")
+            .to_string(),
+        line: s
+            .attributes
+            .get("lineno")
+            .expect("Expected lineno to be set")
+            .parse()
+            .unwrap(),
+    })
 }
 
 fn parse_continuation_response(
@@ -328,6 +388,101 @@ function call_function(string $hello) {
                         assert_eq!(expected, source)
                     }
                     _ => panic!("Could not parse get_stack"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_context_get() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="context_get" transaction_id="4" context="0"><property name="$bar" fullname="$bar" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property><property name="$true" fullname="$true" type="bool"><![CDATA[1]]></property><property name="$this" fullname="$this" type="object" classname="Foo" children="1" numchildren="2" page="0" pagesize="32"><property name="true" fullname="$this-&gt;true" facet="public" type="bool"><![CDATA[1]]></property><property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property></property></response>"#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::ContextGet(response) => {
+                        let expected = ContextGetResponse {
+                            properties: vec![
+                                Property {
+                                    name: "$bar".to_string(),
+                                    fullname: "$bar".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: "string".to_string(),
+                                    facet: None,
+                                    size: Some(3),
+                                    children: vec![],
+                                    key: None,
+                                    address: None,
+                                    encoding: Some("base64".to_string()),
+                                },
+                                Property {
+                                    name: "$true".to_string(),
+                                    fullname: "$true".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: "bool".to_string(),
+                                    facet: None,
+                                    size: None,
+                                    children: vec![],
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                },
+                                Property {
+                                    name: "$this".to_string(),
+                                    fullname: "$this".to_string(),
+                                    classname: Some("Foo".to_string()),
+                                    page: Some(0),
+                                    pagesize: Some(32),
+                                    property_type: "object".to_string(),
+                                    facet: None,
+                                    size: None,
+                                    children: vec![
+                                        Property {
+                                            name: "true".to_string(),
+                                            fullname: "true".to_string(),
+                                            classname: None,
+                                            page: None,
+                                            pagesize: None,
+                                            property_type: "bool".to_string(),
+                                            facet: Some("public".to_string()),
+                                            size: None,
+                                            children: vec![],
+                                            key: None,
+                                            address: None,
+                                            encoding: None
+                                        },
+                                        Property {
+                                            name: "bar".to_string(),
+                                            fullname: "bar".to_string(),
+                                            classname: None,
+                                            page: None,
+                                            pagesize: None,
+                                            property_type: "string".to_string(),
+                                            facet: Some("public".to_string()),
+                                            size: Some(3),
+                                            children: vec![],
+                                            key: None,
+                                            address: None,
+                                            encoding: Some("base64".to_string())
+                                        }
+                                    ],
+                                    key: None,
+                                    address: None,
+                                    encoding: None
+                                },
+                            ],
+                        };
+                        assert_eq!(expected, response)
+                    }
+                    _ => panic!("Could not parse context_get"),
                 };
             }
             _ => panic!("Did not parse"),
