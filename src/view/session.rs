@@ -1,16 +1,10 @@
-use super::source::source_widget;
+use super::source;
 use super::View;
 use crate::app::App;
+use crate::app::CurrentView;
 use crate::app::InputMode;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
-use ratatui::layout::Constraint;
-use ratatui::layout::Layout;
-use ratatui::style::Color;
-use ratatui::style::Style;
-use ratatui::text::Line;
-use ratatui::text::Span;
-use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub struct SessionView {}
@@ -24,6 +18,7 @@ impl View for SessionView {
                         'r' => Some(AppEvent::Run),
                         'n' => Some(AppEvent::StepInto),
                         'o' => Some(AppEvent::StepOver),
+                        'p' => Some(AppEvent::ChangeView(CurrentView::History)),
                         _ => None,
                     };
                 }
@@ -32,23 +27,10 @@ impl View for SessionView {
         None
     }
 
-    fn draw(app: &mut App, f: &mut Frame, area: ratatui::prelude::Rect) {
-        let constraints = vec![Constraint::Length(1), Constraint::Min(1)];
-        let rows = Layout::default()
-            .margin(0)
-            .constraints(constraints)
-            .split(area);
-
+    fn draw(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         if let Some(source_context) = &app.source {
-            f.render_widget(
-                Paragraph::new(Line::from(vec![Span::styled(
-                    source_context.filename.clone(),
-                    Style::default().fg(Color::Green),
-                )])),
-                rows[0],
-            );
-            f.render_widget(source_widget(source_context, rows[1]), rows[1]);
-        };
+            source::draw(&source_context, frame, area);
+        }
     }
 }
 

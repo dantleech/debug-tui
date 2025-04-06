@@ -12,6 +12,8 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 
+use crate::app::CurrentView;
+
 #[derive(Debug)]
 pub enum AppEvent {
     Input(KeyEvent),
@@ -24,11 +26,13 @@ pub enum AppEvent {
     Disconnect,
     Startup,
     UpdateSourceContext(String, String, u32),
-    RefreshSource(String, u32),
+    PushSource(String, u32),
     StepOver,
     SessionStarted,
     ExecCommand(String),
-    ExecCommandResponse(String),
+    ChangeView(CurrentView),
+    HistoryNext,
+    HistoryPrevious,
 }
 
 #[derive(Debug, Clone)]

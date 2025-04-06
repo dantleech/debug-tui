@@ -3,6 +3,7 @@ use crate::dbgp::client::DbgpClient;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use crate::notification::Notification;
+use crate::view::history::HistoryView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
 use crate::view::session::SessionView;
@@ -50,15 +51,18 @@ impl Config {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct SourceContext {
     pub source: String,
     pub filename: String,
     pub line_no: u32,
 }
 
-pub enum SelectedView {
+#[derive(Debug)]
+pub enum CurrentView {
     Listen,
     Session,
+    History,
 }
 
 pub struct Views {}
@@ -76,7 +80,10 @@ pub struct App {
     pub command_response: Option<String>,
     pub client: DbgpClient,
 
-    pub view_current: SelectedView,
+    pub history: Vec<SourceContext>,
+    pub history_offset: usize,
+
+    pub view_current: CurrentView,
     pub view_listen: ListenView,
     pub view_session: SessionView,
 }
@@ -90,13 +97,15 @@ impl App {
             receiver,
             sender: sender.clone(),
             quit: false,
+            history: vec![],
+            history_offset: 0,
             client,
             source: None,
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
             command_input: Input::default(),
             command_response: None,
-            view_current: SelectedView::Listen,
+            view_current: CurrentView::Listen,
             view_listen: ListenView {},
             view_session: SessionView::new(),
         }
@@ -159,25 +168,36 @@ impl App {
                     self.command_response = Some(self.client.exec_raw(cmd.to_string()).await?);
                 }
             },
-            AppEvent::ExecCommandResponse(ref response) => {
-                self.command_response = Some(response.to_string())
-            }
+            AppEvent::ChangeView(view) => {
+                self.view_current = view;
+            },
+            AppEvent::HistoryNext => {
+                let offset = self.history_offset + 1;
+                self.history_offset = offset.min(self.history.len() - 1);
+            },
+            AppEvent::HistoryPrevious => {
+                self.history_offset = self.history_offset.saturating_sub(1);
+            },
             AppEvent::ClientConnected(s) => {
                 let response = self.client.connect(s).await?;
                 self.server_status = ServerStatus::Initial;
-                self.view_current = SelectedView::Session;
+                self.view_current = CurrentView::Session;
+                self.history = vec![];
                 self.sender
-                    .send(AppEvent::RefreshSource(response.fileuri, 1))
+                    .send(AppEvent::PushSource(response.fileuri, 1))
                     .await
                     .unwrap()
             }
-            AppEvent::RefreshSource(ref filename, line_no) => {
+            AppEvent::PushSource(ref filename, line_no) => {
                 let source = self.client.source(filename.clone()).await.unwrap();
-                self.source = Some(SourceContext {
+                let source_context = SourceContext {
                     source,
                     filename: filename.clone(),
                     line_no,
-                });
+                };
+                self.history.push(source_context.clone());
+                self.history_offset = self.history.len() - 1;
+                self.source = Some(source_context);
             }
             AppEvent::StepInto => {
                 let response = self.client.step_into().await?;
@@ -274,7 +294,7 @@ impl App {
         let stack = self.client.get_stack().await?;
         if let Some(stack) = stack {
             self.sender
-                .send(AppEvent::RefreshSource(stack.filename, stack.line))
+                .send(AppEvent::PushSource(stack.filename, stack.line))
                 .await
                 .unwrap();
         };
@@ -282,8 +302,9 @@ impl App {
     }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
-            SelectedView::Listen => ListenView::handle(self, event),
-            SelectedView::Session => SessionView::handle(self, event),
+            CurrentView::Listen => ListenView::handle(self, event),
+            CurrentView::Session => SessionView::handle(self, event),
+            CurrentView::History => HistoryView::handle(self, event),
         };
         if let Some(event) = subsequent_event { self.sender.send(event).await.unwrap() };
     }

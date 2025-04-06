@@ -1,9 +1,10 @@
+use super::history::HistoryView;
 use super::listen::ListenView;
 use super::session::SessionView;
 use super::View;
 use crate::app::App;
 use crate::app::InputMode;
-use crate::app::SelectedView;
+use crate::app::CurrentView;
 use crate::event::input::AppEvent;
 use crate::notification::NotificationLevel;
 use ratatui::layout::Constraint;
@@ -46,8 +47,9 @@ impl View for LayoutView {
         f.render_widget(status_widget(app), rows[1]);
 
         match app.view_current {
-            SelectedView::Listen => ListenView::draw(app, f, rows[2]),
-            SelectedView::Session => SessionView::draw(app, f, rows[2]),
+            CurrentView::Listen => ListenView::draw(app, f, rows[2]),
+            CurrentView::Session => SessionView::draw(app, f, rows[2]),
+            CurrentView::History => HistoryView::draw(app, f, rows[2]),
         }
 
         match app.input_mode {

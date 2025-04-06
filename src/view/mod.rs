@@ -3,6 +3,7 @@ pub mod layout;
 pub mod listen;
 pub mod session;
 pub mod source;
+pub mod history;
 
 use crate::app::App;
 use crate::event::input::AppEvent;
