@@ -444,7 +444,7 @@ function call_function(string $hello) {
                                     key: None,
                                     address: None,
                                     encoding: Some("base64".to_string()),
-                                    value: Some("".to_string()),
+                                    value: Some("foo".to_string()),
                                 },
                                 Property {
                                     name: "$true".to_string(),
@@ -499,7 +499,7 @@ function call_function(string $hello) {
                                             key: None,
                                             address: None,
                                             encoding: Some("base64".to_string()),
-                                            value: Some("".to_string()),
+                                            value: Some("foo".to_string()),
                                         }
                                     ],
                                     key: None,
