@@ -32,8 +32,8 @@ impl View for SessionView {
 
     fn draw(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let layout = Layout::horizontal(vec![
-            Constraint::Percentage(75),
-            Constraint::Percentage(25),
+            Constraint::Percentage(70),
+            Constraint::Percentage(30),
         ]).split(area);
 
         if let Some(source_context) = &app.source {
