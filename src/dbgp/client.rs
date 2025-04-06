@@ -307,7 +307,7 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
                             general_purpose::STANDARD.decode(
                                 cdata
                             ).unwrap_or(vec![])
-                        ).unwrap())
+                        ).unwrap_or("".to_string()))
                     }
                     _ => None,
                 },
