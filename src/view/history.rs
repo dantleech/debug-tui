@@ -45,7 +45,7 @@ impl View for HistoryView {
         frame.render_widget(
             Paragraph::new(
                 format!(
-                    "{} / {} History mode - hit `b` to return to debugging, `p` to go back and `n` to go forwards",
+                    "{} / {} History [p] to go back [n] to go forwards",
                     app.history_offset + 1,
                     app.history.len()
                 )

@@ -4,6 +4,7 @@ use std::time::SystemTime;
 pub enum NotificationLevel {
     Error,
     None,
+    Info,
 }
 pub struct Notification {
     pub message: String,
@@ -31,5 +32,15 @@ impl Notification {
 
     pub fn is_visible(&self) -> bool {
         SystemTime::now() < self.expires
+    }
+
+    pub(crate) fn info(message: String) -> Notification {
+        Notification {
+            message,
+            level: NotificationLevel::Info,
+            expires: SystemTime::now()
+                .checked_add(Duration::from_secs(5))
+                .unwrap(),
+        }
     }
 }

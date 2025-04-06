@@ -113,7 +113,7 @@ fn status_widget(app: &App) -> Paragraph {
             },
             Style::default()
                 .fg(match app.notification.level {
-                    NotificationLevel::Error => Color::White,
+                    NotificationLevel::Info => Color::Green,
                     _ => Color::White,
                 })
                 .bg(match app.notification.level {
