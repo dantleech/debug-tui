@@ -34,6 +34,7 @@ impl Notification {
         SystemTime::now() < self.expires
     }
 
+    #[allow(dead_code)]
     pub(crate) fn info(message: String) -> Notification {
         Notification {
             message,

@@ -1,4 +1,3 @@
-use crossterm::terminal::EnableLineWrap;
 use ratatui::{layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Wrap}, Frame};
 
 use crate::dbgp::client::{ContextGetResponse, Property};
