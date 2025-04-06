@@ -13,6 +13,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
 use ratatui::style::Style;
+use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
@@ -27,7 +28,6 @@ impl View for LayoutView {
 
     fn draw(app: &mut App, f: &mut Frame, area: Rect) {
         let constraints = vec![
-            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Min(4),
             Constraint::Length(match app.input_mode {
@@ -44,19 +44,19 @@ impl View for LayoutView {
             .constraints(constraints)
             .split(area);
 
-        f.render_widget(status_widget(app), rows[1]);
+        f.render_widget(status_widget(app), rows[0]);
 
         match app.view_current {
-            CurrentView::Listen => ListenView::draw(app, f, rows[2]),
-            CurrentView::Session => SessionView::draw(app, f, rows[2]),
-            CurrentView::History => HistoryView::draw(app, f, rows[2]),
+            CurrentView::Listen => ListenView::draw(app, f, rows[1]),
+            CurrentView::Session => SessionView::draw(app, f, rows[1]),
+            CurrentView::History => HistoryView::draw(app, f, rows[1]),
         }
 
         match app.input_mode {
             InputMode::Normal => {
                 f.render_widget(
                     Paragraph::new(app.command_response.clone().unwrap_or("".to_string())),
-                    rows[3],
+                    rows[2],
                 );
             }
             InputMode::Command => {
@@ -65,7 +65,7 @@ impl View for LayoutView {
                         Span::raw(":"),
                         Span::raw(app.command_input.value()),
                     ])),
-                    rows[3],
+                    rows[2],
                 );
             }
         }
@@ -75,11 +75,12 @@ impl View for LayoutView {
 fn status_widget(app: &App) -> Paragraph {
     Paragraph::new(vec![Line::from(vec![
         Span::styled(
-            " 🐛 ",
+            " DBGTUI ",
             Style::default()
-                .fg(Color::Cyan)
-                .bg(Color::Rgb(20, 20, 20))
-                .fg(Color::Black),
+                .bg(Color::Magenta)
+                .bold()
+                .fg(Color::White),
+
         ),
         Span::styled(
             format!("  {} ", app.input_mode),

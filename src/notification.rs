@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::time::SystemTime;
 
 pub enum NotificationLevel {
@@ -15,6 +16,16 @@ impl Notification {
             message: "".to_string(),
             level: NotificationLevel::None,
             expires: SystemTime::now(),
+        }
+    }
+
+    pub(crate) fn error(message: String) -> Self {
+        Notification {
+            message,
+            level: NotificationLevel::Error,
+            expires: SystemTime::now()
+                .checked_add(Duration::from_secs(5))
+                .unwrap(),
         }
     }
 

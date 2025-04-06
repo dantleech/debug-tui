@@ -192,10 +192,13 @@ impl DbgpClient {
             .map_err(anyhow::Error::from)
     }
 
-    pub(crate) async fn disonnect(&mut self) {
+    pub(crate) async fn disonnect(&mut self) ->Result<(), anyhow::Error>{
         if let Some(s) = &mut self.stream {
-            s.shutdown().await.unwrap()
+            let res = s.shutdown().await.or_else(|e|anyhow::bail!(e.to_string()));
+            self.stream = None;
+            return res;
         };
+        Ok(())
     }
 
     pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {

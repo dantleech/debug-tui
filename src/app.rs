@@ -178,6 +178,11 @@ impl App {
             },
             AppEvent::HistoryNext => {
                 let offset = self.history_offset + 1;
+                if offset >= self.history.len() - 1 {
+                    self.sender.send(AppEvent::ChangeView(CurrentView::Session)).await?;
+                    self.history_offset = self.history.len() - 1;
+                    return Ok(());
+                }
                 self.history_offset = offset.min(self.history.len() - 1);
             },
             AppEvent::HistoryPrevious => {
@@ -205,15 +210,15 @@ impl App {
                 self.source = Some(source_context);
             }
             AppEvent::StepInto => {
-                let response = self.client.step_into().await?;
+                let response = self.client.step_into().await;
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::StepOver => {
-                let response = self.client.step_over().await?;
+                let response = self.client.step_over().await;
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::Run => {
-                let response = self.client.run().await?;
+                let response = self.client.run().await;
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::Input(e) => match self.input_mode {
@@ -259,7 +264,8 @@ impl App {
                 }
             }
             AppEvent::Disconnect => {
-                self.client.disonnect().await;
+                let _ = self.client.disonnect().await;
+                self.sender.send(AppEvent::ChangeView(CurrentView::Listen)).await?;
             }
             AppEvent::UpdateSourceContext(source, filename, line_no) => {
                 self.source = Some(SourceContext {
@@ -274,39 +280,47 @@ impl App {
         Ok(())
     }
 
-    async fn handle_continuation_response(&mut self, r: ContinuationResponse) -> Result<()> {
-        match r.status.as_str() {
-            "stopping" => {
-                self.sender
-                    .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
-                    .await
-                    .unwrap();
+    async fn handle_continuation_response(&mut self, r: Result<ContinuationResponse, anyhow::Error>) -> Result<()> {
+        match r {
+            Ok(continuation_response) => {
+                match continuation_response.status.as_str() {
+                    "stopping" => {
+                        self.sender
+                            .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
+                            .await
+                            .unwrap();
+                    }
+                    "break" => {
+                        self.sender
+                            .send(AppEvent::UpdateStatus(ServerStatus::Break))
+                            .await
+                            .unwrap();
+                    }
+                    _ => {
+                        self.sender
+                            .send(AppEvent::UpdateStatus(ServerStatus::Unknown(continuation_response.status)))
+                            .await
+                            .unwrap();
+                    }
+                }
+                // update the source code
+                let stack = self.client.get_stack().await?;
+                if let Some(stack) = stack {
+                    self.sender
+                        .send(AppEvent::PushSource(stack.filename, stack.line))
+                        .await
+                        .unwrap();
+                };
+                if let Ok(context_get) = self.client.context_get().await {
+                    self.context = Some(context_get);
+                }
+                Ok(())
             }
-            "break" => {
-                self.sender
-                    .send(AppEvent::UpdateStatus(ServerStatus::Break))
-                    .await
-                    .unwrap();
-            }
-            _ => {
-                self.sender
-                    .send(AppEvent::UpdateStatus(ServerStatus::Unknown(r.status)))
-                    .await
-                    .unwrap();
+            Err(e) => {
+                self.notification = Notification::error(e.to_string());
+                Ok(())
             }
         }
-        // update the source code
-        let stack = self.client.get_stack().await?;
-        if let Some(stack) = stack {
-            self.sender
-                .send(AppEvent::PushSource(stack.filename, stack.line))
-                .await
-                .unwrap();
-        };
-        if let Ok(context_get) = self.client.context_get().await {
-            self.context = Some(context_get);
-        }
-        Ok(())
     }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
