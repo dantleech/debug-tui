@@ -1,3 +1,4 @@
+use super::context;
 use super::source;
 use super::View;
 use crate::app::App;
@@ -5,6 +6,8 @@ use crate::app::CurrentView;
 use crate::app::InputMode;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
 use ratatui::Frame;
 
 pub struct SessionView {}
@@ -28,8 +31,16 @@ impl View for SessionView {
     }
 
     fn draw(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        let layout = Layout::horizontal(vec![
+            Constraint::Percentage(75),
+            Constraint::Percentage(25),
+        ]).split(area);
+
         if let Some(source_context) = &app.source {
-            source::draw(&source_context, frame, area);
+            source::draw(&source_context, frame, layout[0]);
+        }
+        if let Some(context_get) = &app.context {
+            context::draw(&context_get, frame, layout[1]);
         }
     }
 }

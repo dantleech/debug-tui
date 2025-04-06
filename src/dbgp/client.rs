@@ -50,6 +50,7 @@ pub struct Property {
     pub key: Option<String>,
     pub address: Option<String>,
     pub encoding: Option<String>,
+    pub value: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +116,16 @@ impl DbgpClient {
         match self.command("run", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::Run(s) => Ok(s),
+                _ => anyhow::bail!("Unexpected response"),
+            },
+            _ => anyhow::bail!("Unexpected response"),
+        }
+    }
+
+    pub(crate) async fn context_get(&mut self) -> Result<ContextGetResponse> {
+        match self.command("context_get", &mut vec![]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::ContextGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
             },
             _ => anyhow::bail!("Unexpected response"),
@@ -289,6 +300,19 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: child.attributes.get("encoding").map(|s| s.to_string()),
             children: parse_context_get(&mut child).unwrap().properties,
+            value: match child.children.first() {
+                Some(element) => match element {
+                    XMLNode::CData(cdata) => {
+                        Some(String::from_utf8(
+                            general_purpose::STANDARD.decode(
+                                cdata
+                            ).unwrap_or(vec![])
+                        ).unwrap())
+                    }
+                    _ => None,
+                },
+                None => None,
+            }
         };
         properties.push(p);
     }
@@ -420,6 +444,7 @@ function call_function(string $hello) {
                                     key: None,
                                     address: None,
                                     encoding: Some("base64".to_string()),
+                                    value: Some("".to_string()),
                                 },
                                 Property {
                                     name: "$true".to_string(),
@@ -434,6 +459,7 @@ function call_function(string $hello) {
                                     key: None,
                                     address: None,
                                     encoding: None,
+                                    value: Some("".to_string()),
                                 },
                                 Property {
                                     name: "$this".to_string(),
@@ -457,7 +483,8 @@ function call_function(string $hello) {
                                             children: vec![],
                                             key: None,
                                             address: None,
-                                            encoding: None
+                                            encoding: None,
+                                            value: Some("".to_string()),
                                         },
                                         Property {
                                             name: "bar".to_string(),
@@ -471,12 +498,14 @@ function call_function(string $hello) {
                                             children: vec![],
                                             key: None,
                                             address: None,
-                                            encoding: Some("base64".to_string())
+                                            encoding: Some("base64".to_string()),
+                                            value: Some("".to_string()),
                                         }
                                     ],
                                     key: None,
                                     address: None,
-                                    encoding: None
+                                    encoding: None,
+                                    value: None,
                                 },
                             ],
                         };
