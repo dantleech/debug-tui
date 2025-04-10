@@ -34,6 +34,7 @@ pub enum AppEvent {
     ChangeView(CurrentView),
     HistoryNext,
     HistoryPrevious,
+    Panic(String),
 }
 
 #[derive(Debug, Clone)]

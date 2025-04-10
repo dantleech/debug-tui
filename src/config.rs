@@ -1,4 +1,3 @@
-use crate::view::listen;
 use clap::Parser;
 
 #[derive(Parser, Debug)]

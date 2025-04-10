@@ -13,7 +13,13 @@ use crate::view::View;
 use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
+use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::widgets::Block;
+use ratatui::widgets::Padding;
+use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use std::fmt::Display;
 use std::io;
@@ -113,9 +119,15 @@ impl App {
 
         // spawn connection listener co-routine
         task::spawn(async move {
-            let listener = TcpListener::bind(config.listen)
-                .await
-                .unwrap();
+            let listener = match TcpListener::bind(config.listen.clone()).await {
+                Ok(l) => l,
+                Err(_) => {
+                    sender.send(AppEvent::Panic(
+                        format!("Could not listen on {}", config.listen.clone())
+                    )).await.unwrap();
+                    return;
+                },
+            };
 
             loop {
                 match listener.accept().await {
@@ -136,7 +148,7 @@ impl App {
 
             let event = event.unwrap();
 
-            self.handle_event(event).await?;
+            self.handle_event(terminal, event).await?;
 
             if self.quit {
                 return Ok(());
@@ -149,7 +161,11 @@ impl App {
         }
     }
 
-    async fn handle_event(&mut self, event: AppEvent) -> Result<()> {
+    async fn handle_event(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        event: AppEvent
+    ) -> Result<()> {
         match event {
             AppEvent::Quit => self.quit = true,
             AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
@@ -164,6 +180,18 @@ impl App {
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
             },
+            AppEvent::Panic(message) => {
+                terminal.clear().unwrap();
+                terminal.draw(|frame|{
+                    frame.render_widget(
+                        Paragraph::new(
+                            message
+                        ).style(Style::default().bg(Color::Red)).block(Block::default().padding(Padding::uniform(1))),
+                        Rect::new(0, 0, frame.area().width, 3)
+                    )
+                }).unwrap();
+                self.quit = true;
+            }
             AppEvent::HistoryNext => {
                 let offset = self.history_offset + 1;
                 if offset >= self.history.len() - 1 {

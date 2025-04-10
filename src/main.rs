@@ -12,7 +12,6 @@ use crossterm::terminal::disable_raw_mode;
 use event::input;
 use ratatui::crossterm::terminal::enable_raw_mode;
 use ratatui::prelude::CrosstermBackend;
-use ratatui::restore;
 use ratatui::Terminal;
 use std::io;
 use std::panic;
