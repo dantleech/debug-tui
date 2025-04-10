@@ -23,6 +23,7 @@ pub enum AppEvent {
     UpdateStatus(ServerStatus),
     Run,
     StepInto,
+    StepOut,
     Disconnect,
     Startup,
     UpdateSourceContext(String, String, u32),

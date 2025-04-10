@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::DbgpClient;
@@ -32,23 +33,6 @@ pub enum InputMode {
 impl Display for InputMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Clone)]
-pub struct Config {
-    pub port: u16,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Config {
-    pub fn new() -> Config {
-        Config { port: 9003 }
     }
 }
 
@@ -91,10 +75,14 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
+    pub fn new(
+        config: Config,
+        receiver: Receiver<AppEvent>,
+        sender: Sender<AppEvent>
+    ) -> App {
         let client = DbgpClient::new(None);
         App {
-            config: Config::new(),
+            config,
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
@@ -125,7 +113,7 @@ impl App {
 
         // spawn connection listener co-routine
         task::spawn(async move {
-            let listener = TcpListener::bind(format!("0.0.0.0:{}", config.port))
+            let listener = TcpListener::bind(config.listen)
                 .await
                 .unwrap();
 
@@ -208,6 +196,10 @@ impl App {
                 self.history.push(source_context.clone());
                 self.history_offset = self.history.len() - 1;
                 self.source = Some(source_context);
+            }
+            AppEvent::StepOut => {
+                let response = self.client.step_out().await;
+                self.handle_continuation_response(response).await?;
             }
             AppEvent::StepInto => {
                 let response = self.client.step_into().await;

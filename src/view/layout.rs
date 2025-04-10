@@ -75,7 +75,7 @@ impl View for LayoutView {
 fn status_widget(app: &App) -> Paragraph {
     Paragraph::new(vec![Line::from(vec![
         Span::styled(
-            " DBGTUI ",
+            " °🐛 ",
             Style::default()
                 .bg(Color::Magenta)
                 .bold()
@@ -93,7 +93,7 @@ fn status_widget(app: &App) -> Paragraph {
             format!(
                 " 󱘖 {} ",
                 if app.client
-                    .is_connected() { "connected".to_string() } else { "listening".to_string() }
+                    .is_connected() { "connected".to_string() } else { format!("listening {}", app.config.listen) }
             ),
             Style::default()
                 .add_modifier(Modifier::BOLD)

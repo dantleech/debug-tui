@@ -21,6 +21,7 @@ impl View for SessionView {
                         'r' => Some(AppEvent::Run),
                         'n' => Some(AppEvent::StepInto),
                         'o' => Some(AppEvent::StepOver),
+                        'b' => Some(AppEvent::StepOut),
                         'p' => Some(AppEvent::ChangeView(CurrentView::History)),
                         _ => None,
                     };

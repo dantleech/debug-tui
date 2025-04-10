@@ -142,6 +142,16 @@ impl DbgpClient {
         }
     }
 
+    pub(crate) async fn step_out(&mut self) -> std::result::Result<ContinuationResponse, anyhow::Error> {
+        match self.command("step_out", &mut vec![]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::StepInto(s) => Ok(s),
+                _ => anyhow::bail!("Unexpected response"),
+            },
+            _ => anyhow::bail!("Unexpected response"),
+        }
+    }
+
     pub(crate) async fn step_over(&mut self) -> Result<ContinuationResponse> {
         match self.command("step_over", &mut vec![]).await? {
             Message::Response(r) => match r.command {
@@ -249,6 +259,9 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 .as_str()
             {
                 "step_into" => {
+                    CommandResponse::StepInto(parse_continuation_response(&root.attributes))
+                }
+                "step_out" => {
                     CommandResponse::StepInto(parse_continuation_response(&root.attributes))
                 }
                 "step_over" => {

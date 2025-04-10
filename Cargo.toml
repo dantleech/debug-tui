@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.97"
 base64 = "0.22.1"
+better-panic = "0.3.0"
+clap = { version = "4.5.35", features = ["derive"] }
 crossterm = "0.28.1"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }
