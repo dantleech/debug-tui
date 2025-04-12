@@ -13,6 +13,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::CurrentView;
+use crate::view::session::SessionViewMode;
 
 #[derive(Debug)]
 pub enum AppEvent {
@@ -35,6 +36,7 @@ pub enum AppEvent {
     HistoryNext,
     HistoryPrevious,
     Panic(String),
+    ChangeSessionViewMode(SessionViewMode),
 }
 
 #[derive(Debug, Clone)]

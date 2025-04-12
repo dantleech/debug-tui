@@ -1,6 +1,6 @@
-use super::history::HistoryView;
 use super::listen::ListenView;
 use super::session::SessionView;
+use super::session::SessionViewMode;
 use super::View;
 use crate::app::App;
 use crate::app::InputMode;
@@ -49,7 +49,6 @@ impl View for LayoutView {
         match app.view_current {
             CurrentView::Listen => ListenView::draw(app, f, rows[1]),
             CurrentView::Session => SessionView::draw(app, f, rows[1]),
-            CurrentView::History => HistoryView::draw(app, f, rows[1]),
         }
 
         match app.input_mode {
@@ -105,6 +104,20 @@ fn status_widget(app: &App) -> Paragraph {
                     false => Color::Black,
                     true => Color::Black,
                 }),
+        ),
+        Span::styled(
+            format!(
+                "{}",
+                match app.session_view.mode {
+                    SessionViewMode::Current => "".to_string(),
+                    SessionViewMode::History => format!(
+                    " {} / {} history [p] to go back [n] to go forwards [b] to return",
+                    app.history.offset + 1,
+                    app.history.len()
+                ),
+                }
+            ),
+            Style::default().bg(Color::Red),
         ),
         Span::styled(
             match app.notification.is_visible() {

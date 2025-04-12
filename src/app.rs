@@ -5,10 +5,11 @@ use crate::dbgp::client::DbgpClient;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use crate::notification::Notification;
-use crate::view::history::HistoryView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
 use crate::view::session::SessionView;
+use crate::view::session::SessionViewMode;
+use crate::view::session::SessionViewState;
 use crate::view::View;
 use anyhow::Result;
 use crossterm::event::Event;
@@ -113,7 +114,6 @@ pub struct SourceContext {
 pub enum CurrentView {
     Listen,
     Session,
-    History,
 }
 
 pub struct Views {}
@@ -133,6 +133,7 @@ pub struct App {
     pub history: History,
 
     pub view_current: CurrentView,
+    pub session_view: SessionViewState,
 }
 
 impl App {
@@ -152,6 +153,7 @@ impl App {
             command_input: Input::default(),
             command_response: None,
             view_current: CurrentView::Listen,
+            session_view: SessionViewState::new(),
         }
     }
 
@@ -229,6 +231,9 @@ impl App {
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
             }
+            AppEvent::ChangeSessionViewMode(mode) => {
+                self.session_view.mode = mode;
+            }
             AppEvent::Panic(message) => {
                 terminal.clear().unwrap();
                 terminal
@@ -247,7 +252,7 @@ impl App {
                 self.history.next();
                 if self.history.is_current() && self.client.is_connected() {
                     self.sender
-                        .send(AppEvent::ChangeView(CurrentView::Session))
+                        .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
                         .await?;
                 }
             }
@@ -342,7 +347,7 @@ impl App {
             AppEvent::Disconnect => {
                 let _ = self.client.disonnect().await;
                 self.sender
-                    .send(AppEvent::ChangeView(CurrentView::History))
+                    .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
             }
             _ => self.send_event_to_current_view(event).await,
@@ -393,7 +398,6 @@ impl App {
         let subsequent_event = match self.view_current {
             CurrentView::Listen => ListenView::handle(self, event),
             CurrentView::Session => SessionView::handle(self, event),
-            CurrentView::History => HistoryView::handle(self, event),
         };
         if let Some(event) = subsequent_event {
             self.sender.send(event).await.unwrap()

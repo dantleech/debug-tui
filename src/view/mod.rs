@@ -2,7 +2,6 @@ pub mod debug;
 pub mod layout;
 pub mod listen;
 pub mod session;
-pub mod history;
 
 pub mod source;
 pub mod context;
