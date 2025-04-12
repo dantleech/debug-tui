@@ -64,6 +64,10 @@ impl History {
         self.entries.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entries.len() == 0
+    }
+
     fn next(&mut self) {
         let offset = self.offset + 1;
         if offset >= self.entries.len() - 1 {
