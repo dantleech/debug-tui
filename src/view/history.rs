@@ -49,12 +49,9 @@ impl View for HistoryView {
         ]).split(rows[1]);
 
 
-        match app.history.current() {
-            Some(entry) => {
-                source::draw(&entry.source, frame, cols[0]);
-                context::draw(&entry.context, frame, cols[1]);
-            },
-            None => (),
+        if let Some(entry) = app.history.current() {
+            source::draw(&entry.source, frame, cols[0]);
+            context::draw(&entry.context, frame, cols[1]);
         }
 
         frame.render_widget(

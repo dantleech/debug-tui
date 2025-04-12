@@ -74,7 +74,7 @@ impl History {
     }
 
     fn is_current(&self) -> bool {
-        return self.offset == self.entries.len() - 1;
+        self.offset == self.entries.len() - 1
     }
 
     fn previous(&mut self) {
