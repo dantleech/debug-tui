@@ -49,7 +49,7 @@ impl View for HistoryView {
         ]).split(rows[1]);
 
 
-        match app.history.get(app.history_offset) {
+        match app.history.current() {
             Some(entry) => {
                 source::draw(&entry.source, frame, cols[0]);
                 context::draw(&entry.context, frame, cols[1]);
@@ -61,7 +61,7 @@ impl View for HistoryView {
             Paragraph::new(
                 format!(
                     "{} / {} History [p] to go back [n] to go forwards",
-                    app.history_offset + 1,
+                    app.history.offset + 1,
                     app.history.len()
                 )
             ).style(Style::default().bg(Color::Red)), rows[0]

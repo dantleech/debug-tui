@@ -48,6 +48,56 @@ pub struct HistoryEntry {
     pub context: ContextGetResponse,
 }
 
+pub struct History {
+    pub entries: Vec<HistoryEntry>,
+    pub offset: usize,
+}
+impl History {
+    fn default() -> History {
+        Self {
+            entries: vec![],
+            offset: 0,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    fn next(&mut self) {
+        let offset = self.offset + 1;
+        if offset >= self.entries.len() - 1 {
+            self.offset = self.entries.len() - 1;
+            return;
+        }
+        self.offset = offset.min(self.entries.len() - 1);
+    }
+
+    fn is_current(&self) -> bool {
+        return self.offset == self.entries.len() - 1;
+    }
+
+    fn previous(&mut self) {
+        self.offset = self.offset.saturating_sub(1);
+    }
+
+    pub(crate) fn current(&self) -> Option<&HistoryEntry> {
+        self.entries.get(self.offset)
+    }
+
+    fn push(&mut self, entry: HistoryEntry) {
+        self.entries.push(entry);
+        self.offset = self.entries.len() - 1;
+    }
+
+    fn push_source(&mut self, filename: String, source: String) {
+        self.push(HistoryEntry {
+            source: SourceContext { source, filename, line_no: 1 },
+            context: ContextGetResponse { properties: vec![] }
+        });
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SourceContext {
     pub source: String,
@@ -76,8 +126,7 @@ pub struct App {
     pub command_response: Option<String>,
     pub client: DbgpClient,
 
-    pub history: Vec<HistoryEntry>,
-    pub history_offset: usize,
+    pub history: History,
 
     pub view_current: CurrentView,
     pub view_listen: ListenView,
@@ -85,11 +134,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        config: Config,
-        receiver: Receiver<AppEvent>,
-        sender: Sender<AppEvent>
-    ) -> App {
+    pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = DbgpClient::new(None);
         App {
             config,
@@ -97,8 +142,7 @@ impl App {
             receiver,
             sender: sender.clone(),
             quit: false,
-            history: vec![],
-            history_offset: 0,
+            history: History::default(),
             client,
 
             input_mode: InputMode::Normal,
@@ -123,11 +167,15 @@ impl App {
             let listener = match TcpListener::bind(config.listen.clone()).await {
                 Ok(l) => l,
                 Err(_) => {
-                    sender.send(AppEvent::Panic(
-                        format!("Could not listen on {}", config.listen.clone())
-                    )).await.unwrap();
+                    sender
+                        .send(AppEvent::Panic(format!(
+                            "Could not listen on {}",
+                            config.listen.clone()
+                        )))
+                        .await
+                        .unwrap();
                     return;
-                },
+                }
             };
 
             loop {
@@ -165,7 +213,7 @@ impl App {
     async fn handle_event(
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-        event: AppEvent
+        event: AppEvent,
     ) -> Result<()> {
         match event {
             AppEvent::Quit => self.quit = true,
@@ -180,36 +228,39 @@ impl App {
             },
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
-            },
+            }
             AppEvent::Panic(message) => {
                 terminal.clear().unwrap();
-                terminal.draw(|frame|{
-                    frame.render_widget(
-                        Paragraph::new(
-                            message
-                        ).style(Style::default().bg(Color::Red)).block(Block::default().padding(Padding::uniform(1))),
-                        Rect::new(0, 0, frame.area().width, 3)
-                    )
-                }).unwrap();
+                terminal
+                    .draw(|frame| {
+                        frame.render_widget(
+                            Paragraph::new(message)
+                                .style(Style::default().bg(Color::Red))
+                                .block(Block::default().padding(Padding::uniform(1))),
+                            Rect::new(0, 0, frame.area().width, 3),
+                        )
+                    })
+                    .unwrap();
                 self.quit = true;
             }
             AppEvent::HistoryNext => {
-                let offset = self.history_offset + 1;
-                if offset >= self.history.len() - 1 {
-                    self.sender.send(AppEvent::ChangeView(CurrentView::Session)).await?;
-                    self.history_offset = self.history.len() - 1;
-                    return Ok(());
+                self.history.next();
+                if self.history.is_current() {
+                    self.sender
+                        .send(AppEvent::ChangeView(CurrentView::Session))
+                        .await?;
                 }
-                self.history_offset = offset.min(self.history.len() - 1);
-            },
+            }
             AppEvent::HistoryPrevious => {
-                self.history_offset = self.history_offset.saturating_sub(1);
-            },
+                self.history.previous();
+            }
             AppEvent::ClientConnected(s) => {
                 let response = self.client.connect(s).await?;
                 self.server_status = ServerStatus::Initial;
                 self.view_current = CurrentView::Session;
-                self.history = vec![];
+                let source = self.client.source(response.fileuri.clone()).await.unwrap();
+                self.history = History::default();
+                self.history.push_source(response.fileuri.clone(),source);
             }
             AppEvent::Snapshot() => {
                 let stack = self.client.get_stack().await?;
@@ -223,12 +274,11 @@ impl App {
                         line_no,
                     };
                     let context = self.client.context_get().await.unwrap();
-                    let entry = HistoryEntry{
+                    let entry = HistoryEntry {
                         source: source_context,
                         context,
                     };
                     self.history.push(entry);
-                    self.history_offset = self.history.len() - 1;
                 }
             }
             AppEvent::StepOut => {
@@ -291,7 +341,9 @@ impl App {
             }
             AppEvent::Disconnect => {
                 let _ = self.client.disonnect().await;
-                self.sender.send(AppEvent::ChangeView(CurrentView::Listen)).await?;
+                self.sender
+                    .send(AppEvent::ChangeView(CurrentView::Listen))
+                    .await?;
             }
             _ => self.send_event_to_current_view(event).await,
         };
@@ -299,7 +351,10 @@ impl App {
         Ok(())
     }
 
-    async fn handle_continuation_response(&mut self, r: Result<ContinuationResponse, anyhow::Error>) -> Result<()> {
+    async fn handle_continuation_response(
+        &mut self,
+        r: Result<ContinuationResponse, anyhow::Error>,
+    ) -> Result<()> {
         match r {
             Ok(continuation_response) => {
                 match continuation_response.status.as_str() {
@@ -317,16 +372,15 @@ impl App {
                     }
                     _ => {
                         self.sender
-                            .send(AppEvent::UpdateStatus(ServerStatus::Unknown(continuation_response.status)))
+                            .send(AppEvent::UpdateStatus(ServerStatus::Unknown(
+                                continuation_response.status,
+                            )))
                             .await
                             .unwrap();
                     }
                 }
                 // update the source code
-                self.sender
-                    .send(AppEvent::Snapshot())
-                    .await
-                    .unwrap();
+                self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 Ok(())
             }
             Err(e) => {
@@ -341,6 +395,8 @@ impl App {
             CurrentView::Session => SessionView::handle(self, event),
             CurrentView::History => HistoryView::handle(self, event),
         };
-        if let Some(event) = subsequent_event { self.sender.send(event).await.unwrap() };
+        if let Some(event) = subsequent_event {
+            self.sender.send(event).await.unwrap()
+        };
     }
 }

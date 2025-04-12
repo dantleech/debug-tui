@@ -37,7 +37,7 @@ impl View for SessionView {
             Constraint::Percentage(30),
         ]).split(area);
 
-        if let Some(entry) = app.history.last() {
+        if let Some(entry) = app.history.current() {
             source::draw(&entry.source, frame, layout[0]);
             context::draw(&entry.context, frame, layout[1]);
         }
