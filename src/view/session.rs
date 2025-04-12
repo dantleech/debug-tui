@@ -20,8 +20,8 @@ impl View for SessionView {
                     return match char {
                         'r' => Some(AppEvent::Run),
                         'n' => Some(AppEvent::StepInto),
-                        'o' => Some(AppEvent::StepOver),
-                        'b' => Some(AppEvent::StepOut),
+                        'N' => Some(AppEvent::StepOver),
+                        'o' => Some(AppEvent::StepOut),
                         'p' => Some(AppEvent::ChangeView(CurrentView::History)),
                         _ => None,
                     };
@@ -37,11 +37,9 @@ impl View for SessionView {
             Constraint::Percentage(30),
         ]).split(area);
 
-        if let Some(source_context) = &app.source {
-            source::draw(&source_context, frame, layout[0]);
-        }
-        if let Some(context_get) = &app.context {
-            context::draw(&context_get, frame, layout[1]);
+        if let Some(entry) = app.history.current() {
+            source::draw(&entry.source, frame, layout[0]);
+            context::draw(&entry.context, frame, layout[1]);
         }
     }
 }

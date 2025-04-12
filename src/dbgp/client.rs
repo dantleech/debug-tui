@@ -279,13 +279,10 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
 }
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.first() {
-        Some(e) => match e {
-            XMLNode::CData(d) => {
-                Ok(String::from_utf8(general_purpose::STANDARD.decode(d).unwrap()).unwrap())
-            }
-            _ => anyhow::bail!("Expected CDATA"),
-        },
-        None => anyhow::bail!("Expected CDATA"),
+        Some(XMLNode::CData(e)) => {
+            Ok(String::from_utf8(general_purpose::STANDARD.decode(e).unwrap()).unwrap())
+        }
+        _ => anyhow::bail!("Expected CDATA"),
     }
 }
 
@@ -317,17 +314,12 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             encoding: child.attributes.get("encoding").map(|s| s.to_string()),
             children: parse_context_get(&mut child).unwrap().properties,
             value: match child.children.first() {
-                Some(element) => match element {
-                    XMLNode::CData(cdata) => {
-                        Some(String::from_utf8(
-                            general_purpose::STANDARD.decode(
-                                cdata
-                            ).unwrap_or(vec![])
-                        ).unwrap_or("".to_string()))
-                    }
-                    _ => None,
-                },
-                None => None,
+                Some(XMLNode::CData(cdata)) => Some(String::from_utf8(
+                    general_purpose::STANDARD.decode(
+                        cdata
+                    ).unwrap_or(vec![])
+                ).unwrap_or("".to_string())),
+                _ => None,
             }
         };
         properties.push(p);

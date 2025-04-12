@@ -35,7 +35,7 @@ pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level:
             },
         ]));
 
-        if property.children.len() > 0 {
+        if !property.children.is_empty() {
             draw_properties(&property.children, lines, level + 1);
         }
     }
