@@ -133,8 +133,6 @@ pub struct App {
     pub history: History,
 
     pub view_current: CurrentView,
-    pub view_listen: ListenView,
-    pub view_session: SessionView,
 }
 
 impl App {
@@ -154,8 +152,6 @@ impl App {
             command_input: Input::default(),
             command_response: None,
             view_current: CurrentView::Listen,
-            view_listen: ListenView {},
-            view_session: SessionView::new(),
         }
     }
 

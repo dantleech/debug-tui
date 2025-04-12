@@ -12,10 +12,11 @@ use ratatui::Frame;
 
 pub struct SessionView {}
 
+
 impl View for SessionView {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
         if let AppEvent::Input(e) = event {
-            if app.input_mode != InputMode::Command {
+            if app.input_mode == InputMode::Normal {
                 if let KeyCode::Char(char) = e.code {
                     return match char {
                         'r' => Some(AppEvent::Run),
@@ -41,11 +42,5 @@ impl View for SessionView {
             source::draw(&entry.source, frame, layout[0]);
             context::draw(&entry.context, frame, layout[1]);
         }
-    }
-}
-
-impl SessionView {
-    pub(crate) fn new() -> Self {
-        Self {}
     }
 }
