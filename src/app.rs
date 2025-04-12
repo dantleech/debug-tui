@@ -43,6 +43,12 @@ impl Display for InputMode {
 }
 
 #[derive(Clone, Debug)]
+pub struct HistoryEntry {
+    pub source: SourceContext,
+    pub context: ContextGetResponse,
+}
+
+#[derive(Clone, Debug)]
 pub struct SourceContext {
     pub source: String,
     pub filename: String,
@@ -65,14 +71,12 @@ pub struct App {
     quit: bool,
     sender: Sender<AppEvent>,
     pub input_mode: InputMode,
-    pub source: Option<SourceContext>,
-    pub context: Option<ContextGetResponse>,
     pub server_status: ServerStatus,
     pub command_input: Input,
     pub command_response: Option<String>,
     pub client: DbgpClient,
 
-    pub history: Vec<SourceContext>,
+    pub history: Vec<HistoryEntry>,
     pub history_offset: usize,
 
     pub view_current: CurrentView,
@@ -96,9 +100,6 @@ impl App {
             history: vec![],
             history_offset: 0,
             client,
-
-            source: None,
-            context: None,
 
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
@@ -209,21 +210,26 @@ impl App {
                 self.server_status = ServerStatus::Initial;
                 self.view_current = CurrentView::Session;
                 self.history = vec![];
-                self.sender
-                    .send(AppEvent::PushSource(response.fileuri, 1))
-                    .await
-                    .unwrap()
             }
-            AppEvent::PushSource(ref filename, line_no) => {
-                let source = self.client.source(filename.clone()).await.unwrap();
-                let source_context = SourceContext {
-                    source,
-                    filename: filename.clone(),
-                    line_no,
-                };
-                self.history.push(source_context.clone());
-                self.history_offset = self.history.len() - 1;
-                self.source = Some(source_context);
+            AppEvent::Snapshot() => {
+                let stack = self.client.get_stack().await?;
+                if let Some(stack) = stack {
+                    let filename = stack.filename;
+                    let line_no = stack.line;
+                    let source = self.client.source(filename.clone()).await.unwrap();
+                    let source_context = SourceContext {
+                        source,
+                        filename: filename.clone(),
+                        line_no,
+                    };
+                    let context = self.client.context_get().await.unwrap();
+                    let entry = HistoryEntry{
+                        source: source_context,
+                        context,
+                    };
+                    self.history.push(entry);
+                    self.history_offset = self.history.len() - 1;
+                }
             }
             AppEvent::StepOut => {
                 let response = self.client.step_out().await;
@@ -287,13 +293,6 @@ impl App {
                 let _ = self.client.disonnect().await;
                 self.sender.send(AppEvent::ChangeView(CurrentView::Listen)).await?;
             }
-            AppEvent::UpdateSourceContext(source, filename, line_no) => {
-                self.source = Some(SourceContext {
-                    source,
-                    filename,
-                    line_no,
-                });
-            }
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -324,16 +323,10 @@ impl App {
                     }
                 }
                 // update the source code
-                let stack = self.client.get_stack().await?;
-                if let Some(stack) = stack {
-                    self.sender
-                        .send(AppEvent::PushSource(stack.filename, stack.line))
-                        .await
-                        .unwrap();
-                };
-                if let Ok(context_get) = self.client.context_get().await {
-                    self.context = Some(context_get);
-                }
+                self.sender
+                    .send(AppEvent::Snapshot())
+                    .await
+                    .unwrap();
                 Ok(())
             }
             Err(e) => {

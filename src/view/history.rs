@@ -1,3 +1,4 @@
+use super::context;
 use super::source;
 use super::View;
 use crate::app::CurrentView;
@@ -42,6 +43,20 @@ impl View for HistoryView {
             .constraints(constraints)
             .split(area);
 
+        let cols = Layout::horizontal(vec![
+            Constraint::Percentage(70),
+            Constraint::Percentage(30),
+        ]).split(rows[1]);
+
+
+        match app.history.get(app.history_offset) {
+            Some(entry) => {
+                source::draw(&entry.source, frame, cols[0]);
+                context::draw(&entry.context, frame, cols[1]);
+            },
+            None => (),
+        }
+
         frame.render_widget(
             Paragraph::new(
                 format!(
@@ -51,10 +66,5 @@ impl View for HistoryView {
                 )
             ).style(Style::default().bg(Color::Red)), rows[0]
         );
-
-        match app.history.get(app.history_offset) {
-            Some(source_context) => source::draw(source_context, frame, rows[1]),
-            None => (),
-        }
     }
 }

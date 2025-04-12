@@ -27,7 +27,7 @@ pub enum AppEvent {
     Disconnect,
     Startup,
     UpdateSourceContext(String, String, u32),
-    PushSource(String, u32),
+    Snapshot(),
     StepOver,
     SessionStarted,
     ExecCommand(String),
