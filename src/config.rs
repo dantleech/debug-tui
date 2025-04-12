@@ -10,7 +10,7 @@ struct Args {
 pub fn load_config() -> Config {
     let args = Args::parse();
     return Config {
-        listen: args.listen.unwrap_or("0.0.0.0:9000".to_string()),
+        listen: args.listen.unwrap_or("0.0.0.0:9003".to_string()),
     };
 }
 

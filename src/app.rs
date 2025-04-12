@@ -245,7 +245,7 @@ impl App {
             }
             AppEvent::HistoryNext => {
                 self.history.next();
-                if self.history.is_current() {
+                if self.history.is_current() && self.client.is_connected() {
                     self.sender
                         .send(AppEvent::ChangeView(CurrentView::Session))
                         .await?;
@@ -342,7 +342,7 @@ impl App {
             AppEvent::Disconnect => {
                 let _ = self.client.disonnect().await;
                 self.sender
-                    .send(AppEvent::ChangeView(CurrentView::Listen))
+                    .send(AppEvent::ChangeView(CurrentView::History))
                     .await?;
             }
             _ => self.send_event_to_current_view(event).await,
