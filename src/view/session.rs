@@ -20,8 +20,8 @@ impl View for SessionView {
                     return match char {
                         'r' => Some(AppEvent::Run),
                         'n' => Some(AppEvent::StepInto),
-                        'o' => Some(AppEvent::StepOver),
-                        'b' => Some(AppEvent::StepOut),
+                        'N' => Some(AppEvent::StepOver),
+                        'o' => Some(AppEvent::StepOut),
                         'p' => Some(AppEvent::ChangeView(CurrentView::History)),
                         _ => None,
                     };
