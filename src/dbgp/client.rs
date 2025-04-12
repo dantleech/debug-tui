@@ -314,17 +314,12 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             encoding: child.attributes.get("encoding").map(|s| s.to_string()),
             children: parse_context_get(&mut child).unwrap().properties,
             value: match child.children.first() {
-                Some(element) => match element {
-                    XMLNode::CData(cdata) => {
-                        Some(String::from_utf8(
-                            general_purpose::STANDARD.decode(
-                                cdata
-                            ).unwrap_or(vec![])
-                        ).unwrap_or("".to_string()))
-                    }
-                    _ => None,
-                },
-                None => None,
+                Some(XMLNode::CData(cdata)) => Some(String::from_utf8(
+                    general_purpose::STANDARD.decode(
+                        cdata
+                    ).unwrap_or(vec![])
+                ).unwrap_or("".to_string())),
+                _ => None,
             }
         };
         properties.push(p);
