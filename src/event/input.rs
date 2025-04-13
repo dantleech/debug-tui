@@ -37,6 +37,7 @@ pub enum AppEvent {
     Tick,
     UpdateSourceContext(String, String, u32),
     UpdateStatus(ServerStatus),
+    NextPane,
 }
 
 #[derive(Debug, Clone)]

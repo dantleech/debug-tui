@@ -35,6 +35,7 @@ impl View for SessionView {
 
         let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => match input_event.code {
+                KeyCode::Tab => Some(AppEvent::NextPane),
                 KeyCode::Char(char) => match char {
                     'r' => Some(AppEvent::Run),
                     'n' => Some(AppEvent::StepInto),
@@ -68,9 +69,9 @@ impl View for SessionView {
 
         let cols = Layout::horizontal(vec![main_pane.constraint, Constraint::Min(1)]).split(area);
 
-        build_pane_widget(frame, app, main_pane, cols[0]);
+        build_pane_widget(frame, app, main_pane, cols[0], 0);
 
-        let mut vertical_constraints = Vec::new(); 
+        let mut vertical_constraints = Vec::new();
 
         for pane in &app.session_view.panes[1..] {
             vertical_constraints.push(pane.constraint);
@@ -80,14 +81,22 @@ impl View for SessionView {
 
         let mut row_index = 0;
         for pane in &app.session_view.panes[1..] {
-            build_pane_widget(frame, app, &pane, rows[row_index]);
+            build_pane_widget(frame, app, &pane, rows[row_index], row_index + 1);
             row_index += 1;
         }
     }
 }
 
-fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect) -> () {
-    let block = Block::default().borders(Borders::all());
+fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
+    let block = Block::default().borders(Borders::all()).style(Style::default().fg(
+        if index == app.session_view.current_pane {
+            Color::Green
+        } else {
+            Color::Gray
+        }
+    ));
+
+
     frame.render_widget(&block, area);
     if let Some(entry) = app.history.current() {
         match pane.component_type {
@@ -104,11 +113,13 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect) -> (
 pub struct SessionViewState {
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
+    pub current_pane: usize,
 }
 
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
+            current_pane: 0,
             mode: SessionViewMode::Current,
             panes: vec![
                 Pane {
@@ -121,6 +132,11 @@ impl SessionViewState {
                 },
             ],
         }
+    }
+
+    pub fn next_pane(&mut self) {
+        let next = self.current_pane + 1;
+        self.current_pane = next % self.panes.len();
     }
 }
 

@@ -235,6 +235,9 @@ impl App {
             AppEvent::ChangeSessionViewMode(mode) => {
                 self.session_view.mode = mode;
             }
+            AppEvent::NextPane => {
+                self.session_view.next_pane();
+            },
             AppEvent::Panic(message) => {
                 terminal.clear().unwrap();
                 terminal
