@@ -18,8 +18,8 @@ pub struct SourceComponent {
 impl View for SourceComponent {
     fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown => Some(AppEvent::ScrollSource(1)),
-            AppEvent::ScrollUp => Some(AppEvent::ScrollSource(-1)),
+            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollSource(amount)),
+            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollSource(-amount)),
             _ => None,
         }
     }

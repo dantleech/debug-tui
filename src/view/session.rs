@@ -36,8 +36,10 @@ impl View for SessionView {
             KeyCode::Tab => return Some(AppEvent::NextPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
-                'j' => return Some(AppEvent::ScrollDown),
-                'k' => return Some(AppEvent::ScrollUp),
+                'j' => return Some(AppEvent::ScrollDown(1)),
+                'k' => return Some(AppEvent::ScrollUp(1)),
+                'J' => return Some(AppEvent::ScrollDown(10)),
+                'K' => return Some(AppEvent::ScrollUp(10)),
                 _ => (),
             },
             _ => (),

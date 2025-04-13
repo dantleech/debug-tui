@@ -10,8 +10,8 @@ pub struct ContextComponent {
 impl View for ContextComponent {
     fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown => Some(AppEvent::ScrollContext(1)),
-            AppEvent::ScrollUp => Some(AppEvent::ScrollContext(-1)),
+            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollContext(amount)),
+            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollContext(-amount)),
             _ => None,
         }
     }
