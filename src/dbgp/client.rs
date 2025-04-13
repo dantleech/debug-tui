@@ -404,7 +404,28 @@ mod test {
             Message::Response(r) => {
                 match r.command {
                     CommandResponse::StackGet(s) => {
-                        assert_eq!("file:///app/test.php", s.unwrap().filename)
+                        assert_eq!("file:///app/test.php", s.unwrap().top().filename)
+                    }
+                    _ => panic!("Could not parse get_stack"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_get_multiple_stack_entries() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"<?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="stack_get" transaction_id="16"><stack where="another_function" level="0" type="file" filename="file:///home/daniel/www/dantleech/debug-tui/php/test.php" lineno="21"></stack><stack where="call_function" level="1" type="file" filename="file:///home/daniel/www/dantleech/debug-tui/php/test.php" lineno="11"></stack><stack where="{main}" level="2" type="file" filename="file:///home/daniel/www/dantleech/debug-tui/php/test.php" lineno="4"></stack></response>"#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::StackGet(s) => {
+                        assert_eq!(3, s.unwrap().entries.len())
                     }
                     _ => panic!("Could not parse get_stack"),
                 };
