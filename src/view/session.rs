@@ -1,5 +1,6 @@
 use super::context::ContextComponent;
 use super::source::SourceComponent;
+use super::stack::StackComponent;
 use super::ComponentType;
 use super::Pane;
 use super::View;
@@ -78,7 +79,7 @@ impl View for SessionView {
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         if app.session_view.full_screen {
-            build_pane_widget(frame, app, app.session_view.current_pane(), area, 0);
+            build_pane_widget(frame, app, app.session_view.current_pane(), area, app.session_view.current_pane);
             return;
         }
 
@@ -113,6 +114,7 @@ fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
     match focused_pane.component_type {
         ComponentType::Source => SourceComponent::handle(app, event),
         ComponentType::Context => ContextComponent::handle(app, event),
+        ComponentType::Stack => StackComponent::handle(app, event),
     }
 }
 
@@ -125,12 +127,13 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 None => "".to_string(),
             },
             ComponentType::Context => "Context".to_string(),
+            ComponentType::Stack => "Stack".to_string(),
         })
         .style(
             Style::default().fg(if index == app.session_view.current_pane {
                 Color::Green
             } else {
-                Color::Gray
+                Color::DarkGray
             }),
         );
 
@@ -143,6 +146,9 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         ComponentType::Context => {
             ContextComponent::draw(app, frame, block.inner(area));
         }
+        ComponentType::Stack => {
+            StackComponent::draw(app, frame, block.inner(area));
+        }
     };
 }
 
@@ -150,6 +156,7 @@ pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: u16,
     pub context_scroll: u16,
+    pub stack_scroll: u16,
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
     pub current_pane: usize,
@@ -167,6 +174,7 @@ impl SessionViewState {
             full_screen: false,
             source_scroll: 0,
             context_scroll: 0,
+            stack_scroll: 0,
             current_pane: 0,
             mode: SessionViewMode::Current,
             panes: vec![
@@ -176,6 +184,10 @@ impl SessionViewState {
                 },
                 Pane {
                     component_type: ComponentType::Context,
+                    constraint: ratatui::layout::Constraint::Percentage(70),
+                },
+                Pane {
+                    component_type: ComponentType::Stack,
                     constraint: ratatui::layout::Constraint::Min(1),
                 },
             ],

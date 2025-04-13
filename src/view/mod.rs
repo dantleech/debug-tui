@@ -2,6 +2,7 @@ pub mod debug;
 pub mod layout;
 pub mod listen;
 pub mod session;
+pub mod stack;
 
 pub mod source;
 pub mod context;
@@ -20,6 +21,7 @@ pub trait View {
 pub enum ComponentType {
     Source,
     Context,
+    Stack,
 }
 
 #[derive(Debug)]

@@ -310,11 +310,14 @@ impl App {
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = self.session_view.source_scroll.saturating_add_signed(amount);
             },
-            AppEvent::ToggleFullscreen => {
-                self.session_view.full_screen = !self.session_view.full_screen;
-            },
             AppEvent::ScrollContext(amount) => {
                 self.session_view.context_scroll = self.session_view.context_scroll.saturating_add_signed(amount);
+            },
+            AppEvent::ScrollStack(amount) => {
+                self.session_view.stack_scroll = self.session_view.stack_scroll.saturating_add_signed(amount);
+            },
+            AppEvent::ToggleFullscreen => {
+                self.session_view.full_screen = !self.session_view.full_screen;
             },
             AppEvent::Input(e) => match self.input_mode {
                 InputMode::Normal => {
