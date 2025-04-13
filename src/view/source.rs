@@ -17,10 +17,10 @@ pub struct SourceComponent {
 }
 
 impl View for SourceComponent {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown => None,
-            AppEvent::ScrollUp => None,
+            AppEvent::ScrollDown => Some(AppEvent::ScrollSource(1)),
+            AppEvent::ScrollUp => Some(AppEvent::ScrollSource(-1)),
             _ => None,
         }
     }
@@ -59,6 +59,6 @@ impl View for SourceComponent {
             lines = lines[offset as usize..].to_vec();
         }
 
-        frame.render_widget(Paragraph::new(lines), rows[0]);
+        frame.render_widget(Paragraph::new(lines).scroll((app.session_view.source_scroll, 0)), rows[0]);
     }
 }

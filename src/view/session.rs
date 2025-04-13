@@ -15,8 +15,6 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Style;
-use ratatui::style::Stylize;
-use ratatui::widgets::block::Title;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::Frame;
@@ -27,7 +25,7 @@ impl View for SessionView {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
-            _ => return None,
+            _ => return delegate_event_to_pane(app, event),
         };
 
         match app.input_mode {
@@ -70,12 +68,11 @@ impl View for SessionView {
             },
         };
 
-        let focused_pane = app.session_view.current_pane();
-
-        match focused_pane.component_type {
-            ComponentType::Source => SourceComponent::handle(app, event),
-            ComponentType::Context => ContextComponent::handle(app, event),
+        if next_event.is_some() {
+            return next_event;
         }
+
+        delegate_event_to_pane(app, event)
     }
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
@@ -104,14 +101,25 @@ impl View for SessionView {
     }
 }
 
+fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
+    let focused_pane = app.session_view.current_pane();
+
+    match focused_pane.component_type {
+        ComponentType::Source => SourceComponent::handle(app, event),
+        ComponentType::Context => ContextComponent::handle(app, event),
+    }
+}
+
 fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
-    let block = Block::default().borders(Borders::all()).style(Style::default().fg(
-        if index == app.session_view.current_pane {
-            Color::Green
-        } else {
-            Color::Gray
-        }
-    ));
+    let block = Block::default()
+        .borders(Borders::all())
+        .style(
+            Style::default().fg(if index == app.session_view.current_pane {
+                Color::Green
+            } else {
+                Color::Gray
+            }),
+        );
 
     frame.render_widget(&block, area);
 
@@ -126,6 +134,8 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 }
 
 pub struct SessionViewState {
+    pub source_scroll: u16,
+    pub context_scroll: u16,
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
     pub current_pane: usize,
@@ -134,6 +144,8 @@ pub struct SessionViewState {
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
+            source_scroll: 0,
+            context_scroll: 0,
             current_pane: 0,
             mode: SessionViewMode::Current,
             panes: vec![
@@ -156,6 +168,11 @@ impl SessionViewState {
 
     fn current_pane(&self) -> &Pane {
         return self.panes.get(self.current_pane).unwrap();
+    }
+
+    pub(crate) fn reset(&mut self) -> () {
+        self.context_scroll = 0;
+        self.source_scroll = 0;
     }
 }
 

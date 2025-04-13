@@ -9,7 +9,11 @@ pub struct ContextComponent {
 
 impl View for ContextComponent {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
-        None
+        match event {
+            AppEvent::ScrollDown => Some(AppEvent::ScrollContext(1)),
+            AppEvent::ScrollUp => Some(AppEvent::ScrollContext(-1)),
+            _ => None,
+        }
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
@@ -20,7 +24,7 @@ impl View for ContextComponent {
         let mut lines: Vec<Line> = vec![];
         draw_properties(&context.properties, &mut lines, 0);
 
-        frame.render_widget(Paragraph::new(lines).wrap(Wrap{trim: false}), area);
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap{trim: false}).scroll((app.session_view.context_scroll, 0)), area);
     }
 }
 
@@ -55,9 +59,3 @@ pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level:
         }
     }
 }
-
-pub(crate) fn handle(event: AppEvent) -> AppEvent {
-    todo!()
-}
-
-

@@ -288,6 +288,7 @@ impl App {
                         context,
                     };
                     self.history.push(entry);
+                    self.session_view.reset();
                 }
             }
             AppEvent::StepOut => {
@@ -306,6 +307,12 @@ impl App {
                 let response = self.client.run().await;
                 self.handle_continuation_response(response).await?;
             }
+            AppEvent::ScrollSource(amount) => {
+                self.session_view.source_scroll = self.session_view.source_scroll.saturating_add_signed(amount);
+            },
+            AppEvent::ScrollContext(amount) => {
+                self.session_view.context_scroll = self.session_view.context_scroll.saturating_add_signed(amount);
+            },
             AppEvent::Input(e) => match self.input_mode {
                 InputMode::Normal => {
                     match e.code {

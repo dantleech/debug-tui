@@ -16,11 +16,13 @@ pub trait View {
     fn draw(app: &App, frame: &mut Frame, area: Rect);
 }
 
+#[derive(Debug)]
 pub enum ComponentType {
     Source,
     Context,
 }
 
+#[derive(Debug)]
 pub struct Pane {
     pub component_type: ComponentType,
     pub constraint: Constraint,

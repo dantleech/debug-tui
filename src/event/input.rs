@@ -40,6 +40,8 @@ pub enum AppEvent {
     NextPane,
     ScrollDown,
     ScrollUp,
+    ScrollSource(i16),
+    ScrollContext(i16),
 }
 
 #[derive(Debug, Clone)]
