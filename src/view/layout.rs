@@ -26,7 +26,7 @@ impl View for LayoutView {
         None
     }
 
-    fn draw(app: &mut App, f: &mut Frame, area: Rect) {
+    fn draw(app: &App, f: &mut Frame, area: Rect) {
         let constraints = vec![
             Constraint::Length(1),
             Constraint::Min(4),

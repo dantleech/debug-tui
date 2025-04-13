@@ -21,7 +21,7 @@ impl View for SourceComponent {
         None
     }
 
-    fn draw(app: &mut App, frame: &mut Frame, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, area: Rect) {
         let source_context = match app.history.current() {
             Some(s) => &s.source,
             None => return,

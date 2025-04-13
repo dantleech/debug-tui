@@ -10,5 +10,5 @@ impl View for ListenView {
         None
     }
 
-    fn draw(_app: &mut App, _f: &mut Frame, _area: ratatui::prelude::Rect) {}
+    fn draw(_app: &App, _f: &mut Frame, _area: ratatui::prelude::Rect) {}
 }

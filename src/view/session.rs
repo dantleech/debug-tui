@@ -62,7 +62,7 @@ impl View for SessionView {
         next_event
     }
 
-    fn draw(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
+    fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let main_pane = match app.session_view.panes.get(0) {
             Some(pane) => pane,
             None => return,
@@ -88,7 +88,7 @@ impl View for SessionView {
     }
 }
 
-fn build_pane_widget(frame: &mut Frame, app: &mut App, pane: &Pane, area: Rect, index: usize) -> () {
+fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
     let block = Block::default().borders(Borders::all()).style(Style::default().fg(
         if index == app.session_view.current_pane {
             Color::Green
