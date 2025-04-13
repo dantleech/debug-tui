@@ -1,5 +1,6 @@
 use super::context;
 use super::source;
+use super::source::SourceComponent;
 use super::ComponentType;
 use super::Pane;
 use super::View;
@@ -87,7 +88,7 @@ impl View for SessionView {
     }
 }
 
-fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
+fn build_pane_widget(frame: &mut Frame, app: &mut App, pane: &Pane, area: Rect, index: usize) -> () {
     let block = Block::default().borders(Borders::all()).style(Style::default().fg(
         if index == app.session_view.current_pane {
             Color::Green
@@ -96,12 +97,12 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         }
     ));
 
-
     frame.render_widget(&block, area);
+
     if let Some(entry) = app.history.current() {
         match pane.component_type {
             ComponentType::Source => {
-                source::draw(&entry.source, frame, block.inner(area));
+                SourceComponent::draw(app, frame, block.inner(area));
             }
             ComponentType::Context => {
                 context::draw(&entry.context, frame, block.inner(area));
