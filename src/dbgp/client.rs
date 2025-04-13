@@ -61,6 +61,17 @@ pub struct ContinuationResponse {
 
 #[derive(Debug, Clone)]
 pub struct StackGetResponse {
+    pub entries: Vec<StackEntry>
+}
+
+impl StackGetResponse {
+    pub fn top(&self) -> &StackEntry {
+        self.entries.get(0).expect("Expected at least one stack entry")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StackEntry {
     pub filename: String,
     pub line: u32,
 }
@@ -329,17 +340,21 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
 
 fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
     element.get_child("stack").map(|s| StackGetResponse {
-        filename: s
-            .attributes
-            .get("filename")
-            .expect("Expected status to be set")
-            .to_string(),
-        line: s
-            .attributes
-            .get("lineno")
-            .expect("Expected lineno to be set")
-            .parse()
-            .unwrap(),
+        entries: vec![
+            StackEntry {
+                filename: s
+                    .attributes
+                    .get("filename")
+                    .expect("Expected status to be set")
+                    .to_string(),
+                line: s
+                    .attributes
+                    .get("lineno")
+                    .expect("Expected lineno to be set")
+                    .parse()
+                    .unwrap(),
+            }
+        ]
     })
 }
 

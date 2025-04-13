@@ -274,12 +274,12 @@ impl App {
             AppEvent::Snapshot() => {
                 let stack = self.client.get_stack().await?;
                 if let Some(stack) = stack {
-                    let filename = stack.filename;
-                    let line_no = stack.line;
-                    let source = self.client.source(filename.clone()).await.unwrap();
+                    let filename = &stack.top().filename;
+                    let line_no = stack.top().line;
+                    let source = self.client.source(filename.to_string()).await.unwrap();
                     let source_context = SourceContext {
                         source,
-                        filename: filename.clone(),
+                        filename: filename.to_string(),
                         line_no,
                     };
                     let context = self.client.context_get().await.unwrap();
