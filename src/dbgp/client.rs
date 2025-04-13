@@ -73,11 +73,11 @@ impl StackGetResponse {
 
 impl StackGetResponse {
     pub fn top(&self) -> &StackEntry {
-        self.entries.get(0).expect("Expected at least one stack entry")
+        self.entries.first().expect("Expected at least one stack entry")
     }
 
     pub(crate) fn top_or_none(&self) -> Option<&StackEntry> {
-        self.entries.get(0)
+        self.entries.first()
     }
 }
 
@@ -372,7 +372,7 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
         entries.push(entry);
     }
 
-    return StackGetResponse { entries}
+    StackGetResponse { entries}
 }
 
 fn parse_continuation_response(
