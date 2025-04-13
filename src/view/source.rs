@@ -1,5 +1,4 @@
 use crate::app::App;
-use crate::app::SourceContext;
 use crate::event::input::AppEvent;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;

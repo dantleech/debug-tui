@@ -1,6 +1,4 @@
-use super::context;
 use super::context::ContextComponent;
-use super::source;
 use super::source::SourceComponent;
 use super::ComponentType;
 use super::Pane;
@@ -78,11 +76,11 @@ impl View for SessionView {
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         if app.session_view.full_screen {
-            build_pane_widget(frame, app, &app.session_view.current_pane(), area, 0);
+            build_pane_widget(frame, app, app.session_view.current_pane(), area, 0);
             return;
         }
 
-        let main_pane = match app.session_view.panes.get(0) {
+        let main_pane = match app.session_view.panes.first() {
             Some(pane) => pane,
             None => return,
         };
@@ -101,7 +99,7 @@ impl View for SessionView {
 
         let mut row_index = 0;
         for pane in &app.session_view.panes[1..] {
-            build_pane_widget(frame, app, &pane, rows[row_index], row_index + 1);
+            build_pane_widget(frame, app, pane, rows[row_index], row_index + 1);
             row_index += 1;
         }
     }
@@ -116,7 +114,7 @@ fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
     }
 }
 
-fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
+fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) {
     let block = Block::default()
         .borders(Borders::all())
         .title(match pane.component_type {
@@ -155,6 +153,12 @@ pub struct SessionViewState {
     pub current_pane: usize,
 }
 
+impl Default for SessionViewState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
@@ -182,10 +186,10 @@ impl SessionViewState {
     }
 
     fn current_pane(&self) -> &Pane {
-        return self.panes.get(self.current_pane).unwrap();
+        self.panes.get(self.current_pane).unwrap()
     }
 
-    pub(crate) fn reset(&mut self) -> () {
+    pub(crate) fn reset(&mut self) {
         self.context_scroll = 0;
         self.source_scroll = 0;
     }

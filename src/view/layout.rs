@@ -106,17 +106,14 @@ fn status_widget(app: &App) -> Paragraph {
                 }),
         ),
         Span::styled(
-            format!(
-                "{}",
-                match app.session_view.mode {
+            (match app.session_view.mode {
                     SessionViewMode::Current => "".to_string(),
                     SessionViewMode::History => format!(
                     " {} / {} history [p] to go back [n] to go forwards [b] to return",
                     app.history.offset + 1,
                     app.history.len()
                 ),
-                }
-            ),
+                }).to_string(),
             Style::default().bg(Color::Red),
         ),
         Span::styled(
