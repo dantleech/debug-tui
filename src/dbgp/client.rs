@@ -26,7 +26,7 @@ pub enum CommandResponse {
     StepOver(ContinuationResponse),
     Run(ContinuationResponse),
     Unknown,
-    StackGet(Option<StackGetResponse>),
+    StackGet(StackGetResponse),
     Source(String),
     ContextGet(ContextGetResponse),
 }
@@ -67,6 +67,10 @@ pub struct StackGetResponse {
 impl StackGetResponse {
     pub fn top(&self) -> &StackEntry {
         self.entries.get(0).expect("Expected at least one stack entry")
+    }
+
+    pub(crate) fn top_or_none(&self) -> Option<&StackEntry> {
+        self.entries.get(0)
     }
 }
 
@@ -173,7 +177,7 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn get_stack(&mut self) -> Result<Option<StackGetResponse>> {
+    pub(crate) async fn get_stack(&mut self) -> Result<StackGetResponse> {
         match self.command("stack_get", &mut vec!["-n 0"]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StackGet(s) => Ok(s),
@@ -338,24 +342,30 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
     Ok(ContextGetResponse { properties })
 }
 
-fn parse_stack_get(element: &Element) -> Option<StackGetResponse> {
-    element.get_child("stack").map(|s| StackGetResponse {
-        entries: vec![
-            StackEntry {
-                filename: s
+fn parse_stack_get(element: &Element) -> StackGetResponse {
+    let mut entries: Vec<StackEntry> = Vec::new();
+    for ce in &element.children {
+        let stack_el = match ce {
+            XMLNode::Element(element) => element,
+            _ => continue,
+        };
+        let entry = StackEntry {
+                filename: stack_el
                     .attributes
                     .get("filename")
                     .expect("Expected status to be set")
                     .to_string(),
-                line: s
+                line: stack_el
                     .attributes
                     .get("lineno")
                     .expect("Expected lineno to be set")
                     .parse()
                     .unwrap(),
-            }
-        ]
-    })
+        };
+        entries.push(entry);
+    }
+
+    return StackGetResponse { entries}
 }
 
 fn parse_continuation_response(
@@ -404,7 +414,7 @@ mod test {
             Message::Response(r) => {
                 match r.command {
                     CommandResponse::StackGet(s) => {
-                        assert_eq!("file:///app/test.php", s.unwrap().top().filename)
+                        assert_eq!("file:///app/test.php", s.top().filename)
                     }
                     _ => panic!("Could not parse get_stack"),
                 };
@@ -425,7 +435,7 @@ mod test {
             Message::Response(r) => {
                 match r.command {
                     CommandResponse::StackGet(s) => {
-                        assert_eq!(3, s.unwrap().entries.len())
+                        assert_eq!(3, s.entries.len())
                     }
                     _ => panic!("Could not parse get_stack"),
                 };

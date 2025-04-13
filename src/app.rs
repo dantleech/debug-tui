@@ -273,9 +273,9 @@ impl App {
             }
             AppEvent::Snapshot() => {
                 let stack = self.client.get_stack().await?;
-                if let Some(stack) = stack {
-                    let filename = &stack.top().filename;
-                    let line_no = stack.top().line;
+                if let Some(top) = stack.top_or_none() {
+                    let filename = &top.filename;
+                    let line_no = top.line;
                     let source = self.client.source(filename.to_string()).await.unwrap();
                     let source_context = SourceContext {
                         source,
