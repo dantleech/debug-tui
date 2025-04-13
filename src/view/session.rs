@@ -36,6 +36,7 @@ impl View for SessionView {
         // handle global session events
         match input_event.code {
             KeyCode::Tab => return Some(AppEvent::NextPane),
+            KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
                 'j' => return Some(AppEvent::ScrollDown),
                 'k' => return Some(AppEvent::ScrollUp),
@@ -76,6 +77,11 @@ impl View for SessionView {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        if app.session_view.full_screen {
+            build_pane_widget(frame, app, &app.session_view.current_pane(), area, 0);
+            return;
+        }
+
         let main_pane = match app.session_view.panes.get(0) {
             Some(pane) => pane,
             None => return,
@@ -141,6 +147,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 }
 
 pub struct SessionViewState {
+    pub full_screen: bool,
     pub source_scroll: u16,
     pub context_scroll: u16,
     pub mode: SessionViewMode,
@@ -151,6 +158,7 @@ pub struct SessionViewState {
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
+            full_screen: false,
             source_scroll: 0,
             context_scroll: 0,
             current_pane: 0,

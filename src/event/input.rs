@@ -42,6 +42,7 @@ pub enum AppEvent {
     ScrollUp,
     ScrollSource(i16),
     ScrollContext(i16),
+    ToggleFullscreen,
 }
 
 #[derive(Debug, Clone)]
