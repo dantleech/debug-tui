@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::event::input::ServerStatus;
 use crate::notification::Notification;
@@ -46,6 +47,7 @@ impl Display for InputMode {
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
     pub source: SourceContext,
+    pub stack: StackGetResponse,
     pub context: ContextGetResponse,
 }
 
@@ -98,7 +100,8 @@ impl History {
     fn push_source(&mut self, filename: String, source: String) {
         self.push(HistoryEntry {
             source: SourceContext { source, filename, line_no: 1 },
-            context: ContextGetResponse { properties: vec![] }
+            context: ContextGetResponse { properties: vec![] },
+            stack: StackGetResponse { entries: vec![] },
         });
     }
 }
@@ -276,17 +279,14 @@ impl App {
                 if let Some(top) = stack.top_or_none() {
                     let filename = &top.filename;
                     let line_no = top.line;
-                    let source = self.client.source(filename.to_string()).await.unwrap();
-                    let source_context = SourceContext {
-                        source,
+                    let source_code = self.client.source(filename.to_string()).await.unwrap();
+                    let source = SourceContext {
+                        source: source_code,
                         filename: filename.to_string(),
                         line_no,
                     };
                     let context = self.client.context_get().await.unwrap();
-                    let entry = HistoryEntry {
-                        source: source_context,
-                        context,
-                    };
+                    let entry = HistoryEntry {source, stack, context};
                     self.history.push(entry);
                     self.session_view.reset();
                 }
