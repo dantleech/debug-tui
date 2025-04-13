@@ -65,6 +65,13 @@ pub struct StackGetResponse {
 }
 
 impl StackGetResponse {
+    pub fn depth(&self) -> usize {
+        self.entries.len()
+    }
+    
+}
+
+impl StackGetResponse {
     pub fn top(&self) -> &StackEntry {
         self.entries.get(0).expect("Expected at least one stack entry")
     }
