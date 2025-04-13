@@ -38,6 +38,8 @@ pub enum AppEvent {
     UpdateSourceContext(String, String, u32),
     UpdateStatus(ServerStatus),
     NextPane,
+    ScrollDown,
+    ScrollUp,
 }
 
 #[derive(Debug, Clone)]

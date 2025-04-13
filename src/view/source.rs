@@ -18,7 +18,11 @@ pub struct SourceComponent {
 
 impl View for SourceComponent {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
-        None
+        match event {
+            AppEvent::ScrollDown => None,
+            AppEvent::ScrollUp => None,
+            _ => None,
+        }
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {

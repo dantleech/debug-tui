@@ -1,12 +1,27 @@
 use ratatui::{layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Wrap}, Frame};
 
-use crate::{dbgp::client::{ContextGetResponse, Property}, event::input::AppEvent};
+use crate::{app::App, dbgp::client::{ContextGetResponse, Property}, event::input::AppEvent};
 
-pub fn draw(context: &ContextGetResponse, frame: &mut Frame, area: Rect) {
-    let mut lines: Vec<Line> = vec![];
-    draw_properties(&context.properties, &mut lines, 0);
+use super::View;
 
-    frame.render_widget(Paragraph::new(lines).wrap(Wrap{trim: false}), area);
+pub struct ContextComponent {
+}
+
+impl View for ContextComponent {
+    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+        None
+    }
+
+    fn draw(app: &App, frame: &mut Frame, area: Rect) {
+        let context = match app.history.current() {
+            Some(e) => &e.context,
+            None => return,
+        };
+        let mut lines: Vec<Line> = vec![];
+        draw_properties(&context.properties, &mut lines, 0);
+
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap{trim: false}), area);
+    }
 }
 
 pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level: usize) {

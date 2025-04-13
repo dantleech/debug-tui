@@ -13,7 +13,7 @@ use ratatui::Frame;
 
 pub trait View {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent>;
-    fn draw(app: &App, f: &mut Frame, area: Rect);
+    fn draw(app: &App, frame: &mut Frame, area: Rect);
 }
 
 pub enum ComponentType {

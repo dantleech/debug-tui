@@ -1,4 +1,5 @@
 use super::context;
+use super::context::ContextComponent;
 use super::source;
 use super::source::SourceComponent;
 use super::ComponentType;
@@ -34,9 +35,19 @@ impl View for SessionView {
             _ => return None,
         };
 
+        // handle global session events
+        match input_event.code {
+            KeyCode::Tab => return Some(AppEvent::NextPane),
+            KeyCode::Char(char) => match char {
+                'j' => return Some(AppEvent::ScrollDown),
+                'k' => return Some(AppEvent::ScrollUp),
+                _ => (),
+            },
+            _ => (),
+        };
+
         let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => match input_event.code {
-                KeyCode::Tab => Some(AppEvent::NextPane),
                 KeyCode::Char(char) => match char {
                     'r' => Some(AppEvent::Run),
                     'n' => Some(AppEvent::StepInto),
@@ -59,7 +70,12 @@ impl View for SessionView {
             },
         };
 
-        next_event
+        let focused_pane = app.session_view.current_pane();
+
+        match focused_pane.component_type {
+            ComponentType::Source => SourceComponent::handle(app, event),
+            ComponentType::Context => ContextComponent::handle(app, event),
+        }
     }
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
@@ -99,16 +115,14 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 
     frame.render_widget(&block, area);
 
-    if let Some(entry) = app.history.current() {
-        match pane.component_type {
-            ComponentType::Source => {
-                SourceComponent::draw(app, frame, block.inner(area));
-            }
-            ComponentType::Context => {
-                context::draw(&entry.context, frame, block.inner(area));
-            }
-        };
-    }
+    match pane.component_type {
+        ComponentType::Source => {
+            SourceComponent::draw(app, frame, block.inner(area));
+        }
+        ComponentType::Context => {
+            ContextComponent::draw(app, frame, block.inner(area));
+        }
+    };
 }
 
 pub struct SessionViewState {
@@ -138,6 +152,10 @@ impl SessionViewState {
     pub fn next_pane(&mut self) {
         let next = self.current_pane + 1;
         self.current_pane = next % self.panes.len();
+    }
+
+    fn current_pane(&self) -> &Pane {
+        return self.panes.get(self.current_pane).unwrap();
     }
 }
 
