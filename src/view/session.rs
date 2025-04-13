@@ -113,6 +113,13 @@ fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
 fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) -> () {
     let block = Block::default()
         .borders(Borders::all())
+        .title(match pane.component_type {
+            ComponentType::Source => match app.history.current() {
+                Some(c) => c.source.filename.to_string(),
+                None => "".to_string(),
+            },
+            ComponentType::Context => "Context".to_string(),
+        })
         .style(
             Style::default().fg(if index == app.session_view.current_pane {
                 Color::Green
