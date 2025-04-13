@@ -124,6 +124,7 @@ pub struct App {
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
+
     pub input_mode: InputMode,
     pub server_status: ServerStatus,
     pub command_input: Input,
@@ -304,11 +305,12 @@ impl App {
             }
             AppEvent::Input(e) => match self.input_mode {
                 InputMode::Normal => {
-                    if let KeyCode::Char(char) = e.code {
-                        match char {
+                    match e.code {
+                        KeyCode::Char(char) => match char {
                             ':' => self.input_mode = InputMode::Command,
                             _ => self.send_event_to_current_view(event).await,
-                        }
+                        },
+                        _ => self.send_event_to_current_view(event).await,
                     }
                 }
                 InputMode::Command => match e.code {

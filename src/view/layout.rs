@@ -33,7 +33,7 @@ impl View for LayoutView {
             Constraint::Length(match app.input_mode {
                 InputMode::Normal => match app.command_response {
                     Some(ref response) => response.lines().count() as u16 + 1,
-                    None => 1,
+                    None => 0,
                 },
                 _ => 1,
             }),

@@ -1,5 +1,7 @@
 use super::context;
 use super::source;
+use super::ComponentType;
+use super::Pane;
 use super::View;
 use crate::app::App;
 use crate::app::CurrentView;
@@ -8,69 +10,116 @@ use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::style::Stylize;
+use ratatui::widgets::block::Title;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use ratatui::Frame;
 
 pub struct SessionView {}
 
 impl View for SessionView {
     fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
-        if let AppEvent::Input(e) = event {
-            if app.input_mode == InputMode::Normal {
-                match app.session_view.mode {
-                    SessionViewMode::Current => {
-                        if let KeyCode::Char(char) = e.code {
-                            return match char {
-                                'r' => Some(AppEvent::Run),
-                                'n' => Some(AppEvent::StepInto),
-                                'N' => Some(AppEvent::StepOver),
-                                'o' => Some(AppEvent::StepOut),
-                                'p' => {
-                                    Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
-                                }
-                                _ => None,
-                            };
-                        }
-                    }
-                    SessionViewMode::History => {
-                        if e.code == KeyCode::Esc {
-                            return Some(AppEvent::ChangeView(CurrentView::Session));
-                        }
-                        if let KeyCode::Char(char) = e.code {
-                            return match char {
-                                'n' => Some(AppEvent::HistoryNext),
-                                'p' => Some(AppEvent::HistoryPrevious),
-                                'b' => {
-                                    Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
-                                }
-                                _ => None,
-                            };
-                        }
-                    }
-                }
-            }
-        }
-        None
+        let input_event = match event {
+            AppEvent::Input(key_event) => key_event,
+            _ => return None,
+        };
+
+        match app.input_mode {
+            InputMode::Normal => (),
+            _ => return None,
+        };
+
+        let next_event: Option<AppEvent> = match app.session_view.mode {
+            SessionViewMode::Current => match input_event.code {
+                KeyCode::Char(char) => match char {
+                    'r' => Some(AppEvent::Run),
+                    'n' => Some(AppEvent::StepInto),
+                    'N' => Some(AppEvent::StepOver),
+                    'o' => Some(AppEvent::StepOut),
+                    'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
+                    _ => None,
+                },
+                _ => None,
+            },
+            SessionViewMode::History => match input_event.code {
+                KeyCode::Esc => Some(AppEvent::ChangeView(CurrentView::Session)),
+                KeyCode::Char(c) => match c {
+                    'n' => Some(AppEvent::HistoryNext),
+                    'p' => Some(AppEvent::HistoryPrevious),
+                    'b' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current)),
+                    _ => None,
+                },
+                _ => None,
+            },
+        };
+
+        next_event
     }
 
     fn draw(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
-        let constraints = vec![Constraint::Percentage(70), Constraint::Percentage(30)];
-        let layout = Layout::horizontal(constraints).split(area);
+        let main_pane = match app.session_view.panes.get(0) {
+            Some(pane) => pane,
+            None => return,
+        };
 
-        if let Some(entry) = app.history.current() {
-            source::draw(&entry.source, frame, layout[0]);
-            context::draw(&entry.context, frame, layout[1]);
+        let cols = Layout::horizontal(vec![main_pane.constraint, Constraint::Min(1)]).split(area);
+
+        build_pane_widget(frame, app, main_pane, cols[0]);
+
+        let mut vertical_constraints = Vec::new(); 
+
+        for pane in &app.session_view.panes[1..] {
+            vertical_constraints.push(pane.constraint);
         }
+
+        let rows = Layout::vertical(vertical_constraints).split(cols[1]);
+
+        let mut row_index = 0;
+        for pane in &app.session_view.panes[1..] {
+            build_pane_widget(frame, app, &pane, rows[row_index]);
+            row_index += 1;
+        }
+    }
+}
+
+fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect) -> () {
+    let block = Block::default().borders(Borders::all());
+    frame.render_widget(&block, area);
+    if let Some(entry) = app.history.current() {
+        match pane.component_type {
+            ComponentType::Source => {
+                source::draw(&entry.source, frame, block.inner(area));
+            }
+            ComponentType::Context => {
+                context::draw(&entry.context, frame, block.inner(area));
+            }
+        };
     }
 }
 
 pub struct SessionViewState {
     pub mode: SessionViewMode,
+    pub panes: Vec<Pane>,
 }
 
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
             mode: SessionViewMode::Current,
+            panes: vec![
+                Pane {
+                    component_type: ComponentType::Source,
+                    constraint: ratatui::layout::Constraint::Percentage(70),
+                },
+                Pane {
+                    component_type: ComponentType::Context,
+                    constraint: ratatui::layout::Constraint::Min(1),
+                },
+            ],
         }
     }
 }

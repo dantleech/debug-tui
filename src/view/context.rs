@@ -1,6 +1,6 @@
 use ratatui::{layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Wrap}, Frame};
 
-use crate::dbgp::client::{ContextGetResponse, Property};
+use crate::{dbgp::client::{ContextGetResponse, Property}, event::input::AppEvent};
 
 pub fn draw(context: &ContextGetResponse, frame: &mut Frame, area: Rect) {
     let mut lines: Vec<Line> = vec![];
@@ -40,3 +40,9 @@ pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level:
         }
     }
 }
+
+pub(crate) fn handle(event: AppEvent) -> AppEvent {
+    todo!()
+}
+
+
