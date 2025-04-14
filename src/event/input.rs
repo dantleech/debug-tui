@@ -15,6 +15,28 @@ use tokio::sync::mpsc::Sender;
 use crate::app::CurrentView;
 use crate::view::session::SessionViewMode;
 
+pub struct AppEvents {
+    pub events: Vec<AppEvent>
+}
+
+impl AppEvents {
+    pub fn one(event: AppEvent) -> Self {
+        Self {
+            events: vec![event]
+        }
+    }
+
+    pub(crate) fn none() -> Self {
+        Self {
+            events: vec![]
+        }
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.events.len()
+    }
+}
+
 #[derive(Debug)]
 pub enum AppEvent {
     ChangeSessionViewMode(SessionViewMode),

@@ -6,6 +6,7 @@ use crate::app::App;
 use crate::app::InputMode;
 use crate::app::CurrentView;
 use crate::event::input::AppEvent;
+use crate::event::input::AppEvents;
 use crate::notification::NotificationLevel;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -22,8 +23,8 @@ use ratatui::Frame;
 pub struct LayoutView {}
 
 impl View for LayoutView {
-    fn handle(_app: &App, _key: AppEvent) -> Option<AppEvent> {
-        None
+    fn handle(_app: &App, _key: AppEvent) -> AppEvents {
+        AppEvents::none()
     }
 
     fn draw(app: &App, f: &mut Frame, area: Rect) {
