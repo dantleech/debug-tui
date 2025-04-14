@@ -113,14 +113,12 @@ pub struct SourceContext {
     pub line_no: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CurrentView {
     Listen,
     Session,
 }
 
-pub struct Views {}
-pub struct AppState {}
 pub struct App {
     pub notification: Notification,
     pub config: Config,
@@ -138,6 +136,7 @@ pub struct App {
 
     pub view_current: CurrentView,
     pub session_view: SessionViewState,
+    pub input_plurality: Vec<char>,
 }
 
 impl App {
@@ -145,6 +144,7 @@ impl App {
         let client = DbgpClient::new(None);
         App {
             config,
+            input_plurality: vec![],
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
@@ -368,6 +368,7 @@ impl App {
                     .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
             }
+            AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             _ => self.send_event_to_current_view(event).await,
         };
 

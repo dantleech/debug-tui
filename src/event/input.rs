@@ -44,6 +44,7 @@ pub enum AppEvent {
     ScrollContext(i16),
     ToggleFullscreen,
     ScrollStack(i16),
+    PushInputPlurality(char),
 }
 
 #[derive(Debug, Clone)]
