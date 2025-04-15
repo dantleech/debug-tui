@@ -422,14 +422,4 @@ impl App {
             self.sender.send(event).await.unwrap()
         };
     }
-
-    pub fn take_input_plurality(&mut self) -> u8
-    {
-        let input = String::from_iter(&self.input_plurality);
-        self.input_plurality = Vec::new();
-        match input.parse::<u8>() {
-            Ok(i) => i,
-            Err(_) => u8::MAX,
-        }
-    }
 }

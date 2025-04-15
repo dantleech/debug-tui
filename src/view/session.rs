@@ -38,7 +38,7 @@ impl View for SessionView {
             KeyCode::Tab => return AppEvents::one(AppEvent::NextPane),
             KeyCode::Enter => return AppEvents::one(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
-                'j' => return AppEvents::one(AppEvent::ScrollDown(app.take_input_plurality().into())),
+                'j' => return AppEvents::one(AppEvent::ScrollDown(1)),
                 'k' => return AppEvents::one(AppEvent::ScrollUp(1)),
                 'J' => return AppEvents::one(AppEvent::ScrollDown(10)),
                 'K' => return AppEvents::one(AppEvent::ScrollUp(10)),
