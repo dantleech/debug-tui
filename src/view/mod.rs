@@ -8,12 +8,12 @@ pub mod source;
 pub mod context;
 
 use crate::app::App;
-use crate::event::input::{AppEvent, AppEvents};
+use crate::event::input::AppEvent;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::Frame;
 
 pub trait View {
-    fn handle(app: &App, event: AppEvent) -> AppEvents;
+    fn handle(app: &App, event: AppEvent) -> Option<AppEvent>;
     fn draw(app: &App, frame: &mut Frame, area: Rect);
 }
 

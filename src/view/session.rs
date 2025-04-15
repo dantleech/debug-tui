@@ -8,7 +8,6 @@ use crate::app::App;
 use crate::app::CurrentView;
 use crate::app::InputMode;
 use crate::event::input::AppEvent;
-use crate::event::input::AppEvents;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -22,7 +21,7 @@ use ratatui::Frame;
 pub struct SessionView {}
 
 impl View for SessionView {
-    fn handle(app: &App, event: AppEvent) -> AppEvents {
+    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
@@ -30,50 +29,50 @@ impl View for SessionView {
 
         match app.input_mode {
             InputMode::Normal => (),
-            _ => return AppEvents::none(),
+            _ => return None,
         };
 
         // handle global session events
         match input_event.code {
-            KeyCode::Tab => return AppEvents::one(AppEvent::NextPane),
-            KeyCode::Enter => return AppEvents::one(AppEvent::ToggleFullscreen),
+            KeyCode::Tab => return Some(AppEvent::NextPane),
+            KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
-                'j' => return AppEvents::one(AppEvent::ScrollDown(1)),
-                'k' => return AppEvents::one(AppEvent::ScrollUp(1)),
-                'J' => return AppEvents::one(AppEvent::ScrollDown(10)),
-                'K' => return AppEvents::one(AppEvent::ScrollUp(10)),
-                '0'..'9' => return AppEvents::one(AppEvent::PushInputPlurality(char)),
+                'j' => return Some(AppEvent::ScrollDown(1)),
+                'k' => return Some(AppEvent::ScrollUp(1)),
+                'J' => return Some(AppEvent::ScrollDown(10)),
+                'K' => return Some(AppEvent::ScrollUp(10)),
+                '0'..'9' => return Some(AppEvent::PushInputPlurality(char)),
                 _ => (),
             },
             _ => (),
         };
 
-        let next_events: AppEvents = match app.session_view.mode {
+        let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => match input_event.code {
                 KeyCode::Char(char) => match char {
-                    'r' => AppEvents::one(AppEvent::Run),
-                    'n' => AppEvents::one(AppEvent::StepInto),
-                    'N' => AppEvents::one(AppEvent::StepOver),
-                    'o' => AppEvents::one(AppEvent::StepOut),
-                    'p' => AppEvents::one(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
-                    _ => AppEvents::none(),
+                    'r' => Some(AppEvent::Run),
+                    'n' => Some(AppEvent::StepInto),
+                    'N' => Some(AppEvent::StepOver),
+                    'o' => Some(AppEvent::StepOut),
+                    'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
+                    _ => None,
                 },
-                _ => AppEvents::none(),
+                _ => None,
             },
             SessionViewMode::History => match input_event.code {
-                KeyCode::Esc => AppEvents::one(AppEvent::ChangeView(CurrentView::Session)),
+                KeyCode::Esc => Some(AppEvent::ChangeView(CurrentView::Session)),
                 KeyCode::Char(c) => match c {
-                    'n' => AppEvents::one(AppEvent::HistoryNext),
-                    'p' => AppEvents::one(AppEvent::HistoryPrevious),
-                    'b' => AppEvents::one(AppEvent::ChangeSessionViewMode(SessionViewMode::Current)),
-                    _ => AppEvents::none(),
+                    'n' => Some(AppEvent::HistoryNext),
+                    'p' => Some(AppEvent::HistoryPrevious),
+                    'b' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current)),
+                    _ => None,
                 },
-                _ => AppEvents::none(),
+                _ => None,
             },
         };
 
-        if next_events.len() > 0 {
-            return next_events;
+        if next_event.is_some() {
+            return next_event;
         }
 
         delegate_event_to_pane(app, event)
@@ -110,7 +109,7 @@ impl View for SessionView {
     }
 }
 
-fn delegate_event_to_pane(app: &App, event: AppEvent) -> AppEvents {
+fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
     let focused_pane = app.session_view.current_pane();
 
     match focused_pane.component_type {

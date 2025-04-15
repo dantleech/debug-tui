@@ -1,6 +1,5 @@
 use crate::app::App;
 use crate::event::input::AppEvent;
-use crate::event::input::AppEvents;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -17,11 +16,11 @@ pub struct SourceComponent {
 }
 
 impl View for SourceComponent {
-    fn handle(_: &App, event: AppEvent) -> AppEvents {
+    fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => AppEvents::one(AppEvent::ScrollSource(amount)),
-            AppEvent::ScrollUp(amount) => AppEvents::one(AppEvent::ScrollSource(-amount)),
-            _ => AppEvents::none(),
+            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollSource(amount)),
+            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollSource(-amount)),
+            _ => None,
         }
     }
 

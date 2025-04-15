@@ -1,6 +1,6 @@
 use ratatui::{layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Wrap}, Frame};
 
-use crate::{app::App, dbgp::client::Property, event::input::{AppEvent, AppEvents}};
+use crate::{app::App, dbgp::client::Property, event::input::AppEvent};
 
 use super::View;
 
@@ -8,11 +8,11 @@ pub struct ContextComponent {
 }
 
 impl View for ContextComponent {
-    fn handle(_app: &App, event: AppEvent) -> AppEvents {
+    fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => AppEvents::one(AppEvent::ScrollContext(amount)),
-            AppEvent::ScrollUp(amount) => AppEvents::one(AppEvent::ScrollContext(-amount)),
-            _ => AppEvents::none(),
+            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollContext(amount)),
+            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollContext(-amount)),
+            _ => None,
         }
     }
 

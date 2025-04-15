@@ -1,6 +1,5 @@
 use crate::app::App;
 use crate::event::input::AppEvent;
-use crate::event::input::AppEvents;
 use ratatui::layout::Alignment;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -15,11 +14,11 @@ pub struct StackComponent {
 }
 
 impl View for StackComponent {
-    fn handle(_: &App, event: AppEvent) -> AppEvents {
+    fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => AppEvents::one(AppEvent::ScrollStack(amount)),
-            AppEvent::ScrollUp(amount) => AppEvents::one(AppEvent::ScrollStack(-amount)),
-            _ => AppEvents::none(),
+            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollStack(amount)),
+            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollStack(-amount)),
+            _ => None,
         }
     }
 

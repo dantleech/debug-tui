@@ -414,11 +414,11 @@ impl App {
         }
     }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
-        let subsequent_events = match self.view_current {
+        let subsequent_event = match self.view_current {
             CurrentView::Listen => ListenView::handle(self, event),
             CurrentView::Session => SessionView::handle(self, event),
         };
-        for event in subsequent_events.events {
+        if let Some(event) = subsequent_event {
             self.sender.send(event).await.unwrap()
         };
     }
