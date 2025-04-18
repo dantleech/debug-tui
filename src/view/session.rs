@@ -41,6 +41,7 @@ impl View for SessionView {
                 'k' => return Some(AppEvent::ScrollUp(1)),
                 'J' => return Some(AppEvent::ScrollDown(10)),
                 'K' => return Some(AppEvent::ScrollUp(10)),
+                '0'..'9' => return Some(AppEvent::PushInputPlurality(char)),
                 _ => (),
             },
             _ => (),
@@ -209,7 +210,7 @@ impl SessionViewState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SessionViewMode {
     Current,
     History,

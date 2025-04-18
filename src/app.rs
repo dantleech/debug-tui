@@ -99,7 +99,11 @@ impl History {
 
     fn push_source(&mut self, filename: String, source: String) {
         self.push(HistoryEntry {
-            source: SourceContext { source, filename, line_no: 1 },
+            source: SourceContext {
+                source,
+                filename,
+                line_no: 1,
+            },
             context: ContextGetResponse { properties: vec![] },
             stack: StackGetResponse { entries: vec![] },
         });
@@ -113,14 +117,12 @@ pub struct SourceContext {
     pub line_no: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CurrentView {
     Listen,
     Session,
 }
 
-pub struct Views {}
-pub struct AppState {}
 pub struct App {
     pub notification: Notification,
     pub config: Config,
@@ -138,6 +140,7 @@ pub struct App {
 
     pub view_current: CurrentView,
     pub session_view: SessionViewState,
+    pub input_plurality: Vec<char>,
 }
 
 impl App {
@@ -145,6 +148,7 @@ impl App {
         let client = DbgpClient::new(None);
         App {
             config,
+            input_plurality: vec![],
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
@@ -239,8 +243,10 @@ impl App {
                 self.session_view.mode = mode;
             }
             AppEvent::NextPane => {
-                self.session_view.next_pane();
-            },
+                for _ in 0..self.take_input_plurality() {
+                    self.session_view.next_pane();
+                }
+            }
             AppEvent::Panic(message) => {
                 terminal.clear().unwrap();
                 terminal
@@ -256,15 +262,19 @@ impl App {
                 self.quit = true;
             }
             AppEvent::HistoryNext => {
-                self.history.next();
-                if self.history.is_current() && self.client.is_connected() {
-                    self.sender
-                        .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
-                        .await?;
+                for _ in 0..self.take_input_plurality() {
+                    self.history.next();
+                    if self.history.is_current() && self.client.is_connected() {
+                        self.sender
+                            .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
+                            .await?;
+                    }
                 }
             }
             AppEvent::HistoryPrevious => {
-                self.history.previous();
+                for _ in 0..self.take_input_plurality() {
+                    self.history.previous();
+                }
             }
             AppEvent::ClientConnected(s) => {
                 let response = self.client.connect(s).await?;
@@ -272,7 +282,7 @@ impl App {
                 self.view_current = CurrentView::Session;
                 let source = self.client.source(response.fileuri.clone()).await.unwrap();
                 self.history = History::default();
-                self.history.push_source(response.fileuri.clone(),source);
+                self.history.push_source(response.fileuri.clone(), source);
             }
             AppEvent::Snapshot() => {
                 let stack = self.client.get_stack().await?;
@@ -286,20 +296,42 @@ impl App {
                         line_no,
                     };
                     let context = self.client.context_get().await.unwrap();
-                    let entry = HistoryEntry {source, stack, context};
+                    let entry = HistoryEntry {
+                        source,
+                        stack,
+                        context,
+                    };
                     self.history.push(entry);
                     self.session_view.reset();
                 }
             }
             AppEvent::StepOut => {
+                if self.input_plurality.len() > 0 {
+                    for _ in 0..self.take_input_plurality() {
+                        self.sender.send(AppEvent::StepOut).await?;
+                    }
+                    return Ok(());
+                }
                 let response = self.client.step_out().await;
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::StepInto => {
+                if self.input_plurality.len() > 0 {
+                    for _ in 0..self.take_input_plurality() {
+                        self.sender.send(AppEvent::StepInto).await?;
+                    }
+                    return Ok(());
+                }
                 let response = self.client.step_into().await;
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::StepOver => {
+                if self.input_plurality.len() > 0 {
+                    for _ in 0..self.take_input_plurality() {
+                        self.sender.send(AppEvent::StepOver).await?;
+                    }
+                    return Ok(());
+                }
                 let response = self.client.step_over().await;
                 self.handle_continuation_response(response).await?;
             }
@@ -308,27 +340,34 @@ impl App {
                 self.handle_continuation_response(response).await?;
             }
             AppEvent::ScrollSource(amount) => {
-                self.session_view.source_scroll = self.session_view.source_scroll.saturating_add_signed(amount);
-            },
+                self.session_view.source_scroll = self
+                    .session_view
+                    .source_scroll
+                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+            }
             AppEvent::ScrollContext(amount) => {
-                self.session_view.context_scroll = self.session_view.context_scroll.saturating_add_signed(amount);
-            },
+                self.session_view.context_scroll = self
+                    .session_view
+                    .context_scroll
+                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+            }
             AppEvent::ScrollStack(amount) => {
-                self.session_view.stack_scroll = self.session_view.stack_scroll.saturating_add_signed(amount);
-            },
+                self.session_view.stack_scroll = self
+                    .session_view
+                    .stack_scroll
+                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+            }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
-            },
+            }
             AppEvent::Input(e) => match self.input_mode {
-                InputMode::Normal => {
-                    match e.code {
-                        KeyCode::Char(char) => match char {
-                            ':' => self.input_mode = InputMode::Command,
-                            _ => self.send_event_to_current_view(event).await,
-                        },
+                InputMode::Normal => match e.code {
+                    KeyCode::Char(char) => match char {
+                        ':' => self.input_mode = InputMode::Command,
                         _ => self.send_event_to_current_view(event).await,
-                    }
-                }
+                    },
+                    _ => self.send_event_to_current_view(event).await,
+                },
                 InputMode::Command => match e.code {
                     // escape back to normal mode
                     KeyCode::Esc => {
@@ -368,6 +407,7 @@ impl App {
                     .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
             }
+            AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -420,5 +460,20 @@ impl App {
         if let Some(event) = subsequent_event {
             self.sender.send(event).await.unwrap()
         };
+    }
+
+    pub fn take_input_plurality(&mut self) -> u8 {
+        if self.input_plurality.is_empty() {
+            return 1;
+        }
+        let input = String::from_iter(&self.input_plurality);
+        self.input_plurality = Vec::new();
+        match input.parse::<u8>() {
+            Ok(i) => i.min(15),
+            Err(e) => {
+                self.notification = Notification::error(e.to_string());
+                1
+            }
+        }
     }
 }

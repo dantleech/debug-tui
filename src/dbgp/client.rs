@@ -356,6 +356,9 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
             XMLNode::Element(element) => element,
             _ => continue,
         };
+        if stack_el.name != "stack" {
+            continue;
+        }
         let entry = StackEntry {
                 filename: stack_el
                     .attributes
