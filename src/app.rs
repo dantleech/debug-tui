@@ -23,8 +23,12 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
+use tokio::sync::Mutex;
 use std::fmt::Display;
 use std::io;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
@@ -124,6 +128,7 @@ pub enum CurrentView {
 }
 
 pub struct App {
+    pub is_connected: bool,
     pub notification: Notification,
     pub config: Config,
     receiver: Receiver<AppEvent>,
@@ -134,7 +139,7 @@ pub struct App {
     pub server_status: ServerStatus,
     pub command_input: Input,
     pub command_response: Option<String>,
-    pub client: DbgpClient,
+    pub client: Arc<Mutex<DbgpClient>>,
 
     pub history: History,
 
@@ -147,6 +152,7 @@ impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = DbgpClient::new(None);
         App {
+            is_connected: false,
             config,
             input_plurality: vec![],
             notification: Notification::none(),
@@ -154,7 +160,7 @@ impl App {
             sender: sender.clone(),
             quit: false,
             history: History::default(),
-            client,
+            client: Arc::new(Mutex::new(client)),
 
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
@@ -230,10 +236,11 @@ impl App {
             AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
                 "q" => self.sender.send(AppEvent::Quit).await.unwrap(),
                 _ => {
-                    if !self.client.is_connected() {
+                    let mut client = self.client.lock().await;
+                    if !client.is_connected() {
                         return Ok(());
                     }
-                    self.command_response = Some(self.client.exec_raw(cmd.to_string()).await?);
+                    self.command_response = Some(client.exec_raw(cmd.to_string()).await?);
                 }
             },
             AppEvent::ChangeView(view) => {
@@ -264,7 +271,7 @@ impl App {
             AppEvent::HistoryNext => {
                 for _ in 0..self.take_input_plurality() {
                     self.history.next();
-                    if self.history.is_current() && self.client.is_connected() {
+                    if self.history.is_current() && self.is_connected {
                         self.sender
                             .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
                             .await?;
@@ -277,25 +284,31 @@ impl App {
                 }
             }
             AppEvent::ClientConnected(s) => {
-                let response = self.client.connect(s).await?;
+                if self.is_connected {
+                    panic!("Client already connected!");
+                }
+                let mut client = self.client.lock().await;
+                let response = client.deref_mut().connect(s).await?;
+                self.is_connected = true;
                 self.server_status = ServerStatus::Initial;
                 self.view_current = CurrentView::Session;
-                let source = self.client.source(response.fileuri.clone()).await.unwrap();
+                let source = client.source(response.fileuri.clone()).await.unwrap();
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
             }
             AppEvent::Snapshot() => {
-                let stack = self.client.get_stack().await?;
+                let mut client = self.client.lock().await;
+                let stack = client.deref_mut().get_stack().await?;
                 if let Some(top) = stack.top_or_none() {
                     let filename = &top.filename;
                     let line_no = top.line;
-                    let source_code = self.client.source(filename.to_string()).await.unwrap();
+                    let source_code = client.deref_mut().source(filename.to_string()).await.unwrap();
                     let source = SourceContext {
                         source: source_code,
                         filename: filename.to_string(),
                         line_no,
                     };
-                    let context = self.client.context_get().await.unwrap();
+                    let context = client.deref_mut().context_get().await.unwrap();
                     let entry = HistoryEntry {
                         source,
                         stack,
@@ -306,38 +319,36 @@ impl App {
                 }
             }
             AppEvent::StepOut => {
-                if self.input_plurality.len() > 0 {
-                    for _ in 0..self.take_input_plurality() {
-                        self.sender.send(AppEvent::StepOut).await?;
-                    }
-                    return Ok(());
-                }
-                let response = self.client.step_out().await;
-                self.handle_continuation_response(response).await?;
+                let client = Arc::clone(&self.client);
+                let sender = self.sender.clone();
+                tokio::spawn(async move {
+                    let r = client.lock().await.deref_mut().step_out().await;
+                    Self::handle_continuation_response(sender, r).await.unwrap();
+                });
             }
             AppEvent::StepInto => {
-                if self.input_plurality.len() > 0 {
-                    for _ in 0..self.take_input_plurality() {
-                        self.sender.send(AppEvent::StepInto).await?;
-                    }
-                    return Ok(());
-                }
-                let response = self.client.step_into().await;
-                self.handle_continuation_response(response).await?;
+                let client = Arc::clone(&self.client);
+                let sender = self.sender.clone();
+                tokio::spawn(async move {
+                    let r = client.lock().await.deref_mut().step_into().await;
+                    Self::handle_continuation_response(sender, r).await.unwrap();
+                });
             }
             AppEvent::StepOver => {
-                if self.input_plurality.len() > 0 {
-                    for _ in 0..self.take_input_plurality() {
-                        self.sender.send(AppEvent::StepOver).await?;
-                    }
-                    return Ok(());
-                }
-                let response = self.client.step_over().await;
-                self.handle_continuation_response(response).await?;
+                let client = Arc::clone(&self.client);
+                let sender = self.sender.clone();
+                tokio::spawn(async move {
+                    let r = client.lock().await.deref_mut().step_over().await;
+                    Self::handle_continuation_response(sender, r).await.unwrap();
+                });
             }
             AppEvent::Run => {
-                let response = self.client.run().await;
-                self.handle_continuation_response(response).await?;
+                let client = Arc::clone(&self.client);
+                let sender = self.sender.clone();
+                tokio::spawn(async move {
+                    let r = client.lock().await.deref_mut().run().await;
+                    Self::handle_continuation_response(sender, r).await.unwrap();
+                });
             }
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = self
@@ -402,7 +413,8 @@ impl App {
                 }
             }
             AppEvent::Disconnect => {
-                let _ = self.client.disonnect().await;
+                let _ = self.client.lock().await.deref_mut().disonnect().await;
+                self.is_connected = false;
                 self.sender
                     .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
@@ -415,26 +427,26 @@ impl App {
     }
 
     async fn handle_continuation_response(
-        &mut self,
+        sender: Sender<AppEvent>,
         r: Result<ContinuationResponse, anyhow::Error>,
     ) -> Result<()> {
         match r {
             Ok(continuation_response) => {
                 match continuation_response.status.as_str() {
                     "stopping" => {
-                        self.sender
+                        sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
                             .await
                             .unwrap();
                     }
                     "break" => {
-                        self.sender
+                        sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Break))
                             .await
                             .unwrap();
                     }
                     _ => {
-                        self.sender
+                        sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Unknown(
                                 continuation_response.status,
                             )))
@@ -443,12 +455,11 @@ impl App {
                     }
                 }
                 // update the source code
-                self.sender.send(AppEvent::Snapshot()).await.unwrap();
+                sender.send(AppEvent::Snapshot()).await.unwrap();
                 Ok(())
             }
             Err(e) => {
-                self.notification = Notification::error(e.to_string());
-                Ok(())
+                anyhow::bail!(e);
             }
         }
     }

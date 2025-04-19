@@ -93,16 +93,15 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                if app.client
-                    .is_connected() { "connected".to_string() } else { format!("listening {}", app.config.listen) }
+                if app.is_connected { "connected".to_string() } else { format!("listening {}", app.config.listen) }
             ),
             Style::default()
                 .add_modifier(Modifier::BOLD)
-                .bg(match app.client.is_connected() {
+                .bg(match app.is_connected {
                     false => Color::Yellow,
                     true => Color::Green,
                 })
-                .fg(match app.client.is_connected() {
+                .fg(match app.is_connected {
                     false => Color::Black,
                     true => Color::Black,
                 }),
