@@ -14,18 +14,10 @@ use ratatui::crossterm::terminal::enable_raw_mode;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
-use std::panic;
-use std::process;
 use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let orig_hook = panic::take_hook();
-    panic::set_hook(Box::new(move |panic_info| {
-        orig_hook(panic_info);
-        process::exit(1);
-    }));
-
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal: Terminal<CrosstermBackend<io::Stdout>> = Terminal::new(backend)?;

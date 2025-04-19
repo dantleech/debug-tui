@@ -23,7 +23,6 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
-use tokio::sync::Mutex;
 use std::fmt::Display;
 use std::io;
 use std::ops::DerefMut;
@@ -31,6 +30,7 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::Mutex;
 use tokio::task;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
@@ -145,6 +145,8 @@ pub struct App {
     pub view_current: CurrentView,
     pub session_view: SessionViewState,
     pub input_plurality: Vec<char>,
+
+    pub counter: u16,
 }
 
 impl App {
@@ -160,6 +162,7 @@ impl App {
             quit: false,
             history: History::default(),
             client: Arc::new(Mutex::new(client)),
+            counter: 0,
 
             input_mode: InputMode::Normal,
             server_status: ServerStatus::Initial,
@@ -212,7 +215,10 @@ impl App {
 
             let event = event.unwrap();
 
-            self.handle_event(terminal, event).await?;
+            if let Err(e) = self.handle_event(terminal, event).await {
+                self.notification = Notification::error(e.to_string());
+                continue;
+            };
 
             if self.quit {
                 return Ok(());
@@ -249,7 +255,7 @@ impl App {
                 self.session_view.mode = mode;
             }
             AppEvent::NextPane => {
-                for _ in 0..self.take_input_plurality() {
+                for _ in 0..self.take_motion() {
                     self.session_view.next_pane();
                 }
             }
@@ -268,7 +274,7 @@ impl App {
                 self.quit = true;
             }
             AppEvent::HistoryNext => {
-                for _ in 0..self.take_input_plurality() {
+                for _ in 0..self.take_motion() {
                     self.history.next();
                     if self.history.is_current() && self.is_connected {
                         self.sender
@@ -278,7 +284,7 @@ impl App {
                 }
             }
             AppEvent::HistoryPrevious => {
-                for _ in 0..self.take_input_plurality() {
+                for _ in 0..self.take_motion() {
                     self.history.previous();
                 }
             }
@@ -301,7 +307,11 @@ impl App {
                 if let Some(top) = stack.top_or_none() {
                     let filename = &top.filename;
                     let line_no = top.line;
-                    let source_code = client.deref_mut().source(filename.to_string()).await.unwrap();
+                    let source_code = client
+                        .deref_mut()
+                        .source(filename.to_string())
+                        .await
+                        .unwrap();
                     let source = SourceContext {
                         source: source_code,
                         filename: filename.to_string(),
@@ -318,63 +328,34 @@ impl App {
                 }
             }
             AppEvent::StepOut => {
-                let client = Arc::clone(&self.client);
-                let sender = self.sender.clone();
-                tokio::spawn(async move {
-                    let r = client.lock().await.deref_mut().step_out().await;
-                    Self::handle_continuation_response(sender, r).await.unwrap();
-                });
+                self.exec_continuation(AppEvent::StepOut).await;
             }
             AppEvent::StepInto => {
-                let client = Arc::clone(&self.client);
-                let sender = self.sender.clone();
-                let count = self.take_input_plurality();
-                tokio::spawn(async move {
-                    for _ in 0..count {
-                        let r = client.lock().await.deref_mut().step_into().await;
-                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
-                    }
-                });
+                self.exec_continuation(AppEvent::StepInto).await;
             }
             AppEvent::StepOver => {
-                let client = Arc::clone(&self.client);
-                let sender = self.sender.clone();
-                let count = self.take_input_plurality();
-                tokio::spawn(async move {
-                    for _ in 0..count {
-                        let r = client.lock().await.deref_mut().step_over().await;
-                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
-                    }
-                });
+                self.exec_continuation(AppEvent::StepOver).await;
             }
             AppEvent::Run => {
-                let client = Arc::clone(&self.client);
-                let sender = self.sender.clone();
-                let count = self.take_input_plurality();
-                tokio::spawn(async move {
-                    for _ in 0..count {
-                        let r = client.lock().await.deref_mut().run().await;
-                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
-                    }
-                });
+                self.exec_continuation(AppEvent::Run).await;
             }
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = self
                     .session_view
                     .source_scroll
-                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+                    .saturating_add_signed(amount * self.take_motion() as i16);
             }
             AppEvent::ScrollContext(amount) => {
                 self.session_view.context_scroll = self
                     .session_view
                     .context_scroll
-                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+                    .saturating_add_signed(amount * self.take_motion() as i16);
             }
             AppEvent::ScrollStack(amount) => {
                 self.session_view.stack_scroll = self
                     .session_view
                     .stack_scroll
-                    .saturating_add_signed(amount * self.take_input_plurality() as i16);
+                    .saturating_add_signed(amount * self.take_motion() as i16);
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -428,47 +409,88 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
+            AppEvent::Tick => {
+                self.counter += 1;
+                self.notification = Notification::info(format!("tick {}", self.counter));
+            },
             _ => self.send_event_to_current_view(event).await,
         };
 
         Ok(())
     }
 
+    async fn exec_continuation(&mut self, event: AppEvent) -> () {
+        let client = Arc::clone(&self.client);
+        let sender = self.sender.clone();
+        let count = self.take_motion();
+        tokio::spawn(async move {
+            for _ in 0..count {
+                let response = {
+                    let mut instance = client.lock().await;
+                    match event {
+                        AppEvent::Run => instance.deref_mut().run().await,
+                        AppEvent::StepOut => instance.deref_mut().step_out().await,
+                        AppEvent::StepOver => instance.deref_mut().step_over().await,
+                        AppEvent::StepInto => instance.deref_mut().step_into().await,
+                        _=> panic!("Unexpected continuation event: {:?}", event),
+                    }
+                };
+
+                let status = Self::handle_continuation_response(sender.clone(), response).await;
+
+                if let Ok(ServerStatus::Break) = status {
+                    continue;
+                }
+
+                if let Ok(ServerStatus::Stopping) = status {
+                    return;
+                }
+
+                return;
+            }
+        });
+    }
+
     async fn handle_continuation_response(
         sender: Sender<AppEvent>,
         r: Result<ContinuationResponse, anyhow::Error>,
-    ) -> Result<()> {
+    ) -> Result<ServerStatus> {
         match r {
             Ok(continuation_response) => {
-                match continuation_response.status.as_str() {
+                let status = match continuation_response.status.as_str() {
                     "stopping" => {
                         sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
                             .await
                             .unwrap();
+                        ServerStatus::Stopping
                     }
                     "break" => {
                         sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Break))
                             .await
                             .unwrap();
+                        ServerStatus::Break
                     }
                     _ => {
                         sender
                             .send(AppEvent::UpdateStatus(ServerStatus::Unknown(
-                                continuation_response.status,
+                                continuation_response.status.clone(),
                             )))
                             .await
                             .unwrap();
+                        ServerStatus::Unknown(continuation_response.status.clone())
                     }
+                };
+                match status {
+                    ServerStatus::Break => {
+                        sender.send(AppEvent::Snapshot()).await.unwrap();
+                        Ok(status)
+                    }
+                    _ => Ok(status),
                 }
-                // update the source code
-                sender.send(AppEvent::Snapshot()).await.unwrap();
-                Ok(())
             }
-            Err(e) => {
-                anyhow::bail!(e);
-            }
+            Err(e) => panic!("{:?}", e),
         }
     }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
@@ -481,14 +503,14 @@ impl App {
         };
     }
 
-    pub fn take_input_plurality(&mut self) -> u8 {
+    pub fn take_motion(&mut self) -> u8 {
         if self.input_plurality.is_empty() {
             return 1;
         }
         let input = String::from_iter(&self.input_plurality);
         self.input_plurality = Vec::new();
         match input.parse::<u8>() {
-            Ok(i) => i.min(15),
+            Ok(i) => i.min(50),
             Err(e) => {
                 self.notification = Notification::error(e.to_string());
                 1

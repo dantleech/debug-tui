@@ -74,9 +74,9 @@ impl View for LayoutView {
 fn status_widget(app: &App) -> Paragraph {
     Paragraph::new(vec![Line::from(vec![
         Span::styled(
-            format!("{:<3}°🐛", app.history.current().map_or("".to_string(), |entry| {
+            format!("{:<3}°🐛 {:?}", app.history.current().map_or("".to_string(), |entry| {
                 entry.stack.depth().to_string()
-            })),
+            }), app.server_status),
             Style::default()
                 .bg(Color::Magenta)
                 .bold()

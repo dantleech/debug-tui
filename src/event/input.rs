@@ -84,6 +84,7 @@ pub fn start(event_sender: EventSender) {
                     }
                 }
             }
+            event_sender.blocking_send(AppEvent::Tick).unwrap();
         }
     });
 }

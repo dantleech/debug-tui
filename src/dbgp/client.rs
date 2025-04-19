@@ -109,7 +109,7 @@ impl DbgpClient {
     pub(crate) async fn read_and_parse(&mut self) -> Result<Message> {
         let xml = self.read_raw().await?;
         if xml.is_empty() {
-            anyhow::bail!("Empty XML response");
+            return Err(anyhow::anyhow!("Empty XML response"));
         }
         parse_xml(xml.as_str())
     }
@@ -164,7 +164,7 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn step_out(&mut self) -> std::result::Result<ContinuationResponse, anyhow::Error> {
+    pub(crate) async fn step_out(&mut self) -> Result<ContinuationResponse> {
         match self.command("step_out", &mut vec![]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepInto(s) => Ok(s),
