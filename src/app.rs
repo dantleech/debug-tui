@@ -26,7 +26,6 @@ use ratatui::Terminal;
 use tokio::sync::Mutex;
 use std::fmt::Display;
 use std::io;
-use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -329,25 +328,34 @@ impl App {
             AppEvent::StepInto => {
                 let client = Arc::clone(&self.client);
                 let sender = self.sender.clone();
+                let count = self.take_input_plurality();
                 tokio::spawn(async move {
-                    let r = client.lock().await.deref_mut().step_into().await;
-                    Self::handle_continuation_response(sender, r).await.unwrap();
+                    for _ in 0..count {
+                        let r = client.lock().await.deref_mut().step_into().await;
+                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
+                    }
                 });
             }
             AppEvent::StepOver => {
                 let client = Arc::clone(&self.client);
                 let sender = self.sender.clone();
+                let count = self.take_input_plurality();
                 tokio::spawn(async move {
-                    let r = client.lock().await.deref_mut().step_over().await;
-                    Self::handle_continuation_response(sender, r).await.unwrap();
+                    for _ in 0..count {
+                        let r = client.lock().await.deref_mut().step_over().await;
+                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
+                    }
                 });
             }
             AppEvent::Run => {
                 let client = Arc::clone(&self.client);
                 let sender = self.sender.clone();
+                let count = self.take_input_plurality();
                 tokio::spawn(async move {
-                    let r = client.lock().await.deref_mut().run().await;
-                    Self::handle_continuation_response(sender, r).await.unwrap();
+                    for _ in 0..count {
+                        let r = client.lock().await.deref_mut().run().await;
+                        Self::handle_continuation_response(sender.clone(), r).await.unwrap();
+                    }
                 });
             }
             AppEvent::ScrollSource(amount) => {
