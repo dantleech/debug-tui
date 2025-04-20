@@ -25,5 +25,9 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Lint and test
-      run: make
+    - name: Build
+      run: cargo build
+    - name: Clippy
+      run: cargo clippy
+    - name: Test
+      run: cargo test
