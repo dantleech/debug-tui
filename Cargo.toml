@@ -10,6 +10,7 @@ better-panic = "0.3.0"
 clap = { version = "4.5.35", features = ["derive"] }
 crossterm = "0.28.1"
 log = "0.4.27"
+pretty_assertions = "1.4.1"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }
 simple-logging = "2.0.2"

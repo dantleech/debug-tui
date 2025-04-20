@@ -307,6 +307,7 @@ fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
 fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow::Error> {
     let mut properties: Vec<Property> = vec![];
     while let Some(mut child) = element.take_child("property") {
+        let encoding = child.attributes.get("encoding").map(|s| s.to_string());
         let p = Property {
             name: child.attributes
                 .get("name")
@@ -329,14 +330,18 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             size: child.attributes.get("size").map(|s| s.parse::<u32>().unwrap()),
             key: child.attributes.get("key").map(|name| name.to_string()),
             address: child.attributes.get("address").map(|name| name.to_string()),
-            encoding: child.attributes.get("encoding").map(|s| s.to_string()),
+            encoding: encoding.clone(),
             children: parse_context_get(&mut child).unwrap().properties,
             value: match child.children.first() {
-                Some(XMLNode::CData(cdata)) => Some(String::from_utf8(
-                    general_purpose::STANDARD.decode(
-                        cdata
-                    ).unwrap_or(vec![])
-                ).unwrap_or("".to_string())),
+                Some(XMLNode::CData(cdata)) => Some(
+                    match encoding {
+                        Some(encoding) => match encoding.as_str() {
+                            "base64" => String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap()).unwrap(),
+                            _ => cdata.to_string(),
+                        },
+                        _ => cdata.to_string(),
+                    }
+                ),
                 _ => None,
             }
         };
@@ -396,6 +401,7 @@ fn parse_continuation_response(
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn test_parse_xml() -> Result<(), anyhow::Error> {
@@ -486,7 +492,17 @@ function call_function(string $hello) {
     #[test]
     fn test_parse_context_get() -> Result<(), anyhow::Error> {
         let result = parse_xml(
-            r#"<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="context_get" transaction_id="4" context="0"><property name="$bar" fullname="$bar" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property><property name="$true" fullname="$true" type="bool"><![CDATA[1]]></property><property name="$this" fullname="$this" type="object" classname="Foo" children="1" numchildren="2" page="0" pagesize="32"><property name="true" fullname="$this-&gt;true" facet="public" type="bool"><![CDATA[1]]></property><property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property></property></response>"#,
+            r#"
+            <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="context_get" transaction_id="4" context="0">
+            <property name="$bar" fullname="$bar" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property>
+            <property name="$float" fullname="$float" type="float"><![CDATA[123.4]]></property>
+            <property name="$int" fullname="$int" type="int"><![CDATA[123]]></property>
+            <property name="$true" fullname="$true" type="bool"><![CDATA[1]]></property>
+            <property name="$this" fullname="$this" type="object" classname="Foo" children="1" numchildren="2" page="0" pagesize="32">
+                <property name="true" fullname="$this-&gt;true" facet="public" type="bool"><![CDATA[1]]></property>
+                <property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property>
+            </property>
+            </response>"#,
         )?;
 
         match result {
@@ -511,6 +527,36 @@ function call_function(string $hello) {
                                     value: Some("foo".to_string()),
                                 },
                                 Property {
+                                    name: "$float".to_string(),
+                                    fullname: "$float".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: "float".to_string(),
+                                    facet: None,
+                                    size: None,
+                                    children: vec![],
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                    value: Some("123.4".to_string()),
+                                },
+                                Property {
+                                    name: "$int".to_string(),
+                                    fullname: "$int".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: "int".to_string(),
+                                    facet: None,
+                                    size: None,
+                                    children: vec![],
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                    value: Some("123".to_string()),
+                                },
+                                Property {
                                     name: "$true".to_string(),
                                     fullname: "$true".to_string(),
                                     classname: None,
@@ -523,7 +569,7 @@ function call_function(string $hello) {
                                     key: None,
                                     address: None,
                                     encoding: None,
-                                    value: Some("".to_string()),
+                                    value: Some("1".to_string()),
                                 },
                                 Property {
                                     name: "$this".to_string(),
@@ -548,7 +594,7 @@ function call_function(string $hello) {
                                             key: None,
                                             address: None,
                                             encoding: None,
-                                            value: Some("".to_string()),
+                                            value: Some("1".to_string()),
                                         },
                                         Property {
                                             name: "bar".to_string(),

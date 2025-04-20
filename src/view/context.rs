@@ -1,11 +1,17 @@
-use ratatui::{layout::Rect, style::{Color, Style}, text::{Line, Span}, widgets::{Paragraph, Wrap}, Frame};
-
-use crate::{app::App, dbgp::client::Property, event::input::AppEvent};
-
 use super::View;
+use crate::app::App;
+use crate::dbgp::client::Property;
+use crate::event::input::AppEvent;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Wrap;
+use ratatui::Frame;
 
-pub struct ContextComponent {
-}
+pub struct ContextComponent {}
 
 impl View for ContextComponent {
     fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
@@ -24,7 +30,12 @@ impl View for ContextComponent {
         let mut lines: Vec<Line> = vec![];
         draw_properties(&context.properties, &mut lines, 0);
 
-        frame.render_widget(Paragraph::new(lines).wrap(Wrap{trim: false}).scroll((app.session_view.context_scroll, 0)), area);
+        frame.render_widget(
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .scroll((app.session_view.context_scroll, 0)),
+            area,
+        );
     }
 }
 
@@ -35,7 +46,10 @@ pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level:
             Span::raw("  ".repeat(level)),
             Span::styled(property.name.to_string(), Style::default().fg(Color::White)),
             Span::raw(" ".to_string()),
-            Span::styled(property.property_type.to_string(), Style::default().fg(Color::Blue)),
+            Span::styled(
+                property.property_type.to_string(),
+                Style::default().fg(Color::Blue),
+            ),
             Span::raw(" = ".to_string()),
             match property.property_type.as_str() {
                 "bool" => Span::styled(value, Style::default().fg(Color::LightRed)),
