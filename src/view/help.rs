@@ -34,13 +34,15 @@ Help for you - press any key to return.
 
 Key mappings (prefix with number to repeat):
 
+[r]     run
 [n]     next / step into
 [N]     step over
 [p]     previous (switches to history mode if in current mode)
 [o]     step out
-[j]     scroll down (with shift to scroll down 10)
-[k]     scroll up (with shift to scroll up 10)
-[tab]   switch pane
+[j]     scroll down
+[J]     scroll down 10
+[k]     scroll up
+[K]     scroll up 10
 [enter] toggle pane focus (full screen)
 
 Legend:
