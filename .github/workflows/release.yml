@@ -35,7 +35,9 @@ jobs:
         toolchain: stable
         override: true
         target: ${{ matrix.target }}
+
     - name: Install MUSL
+      if: matrix.target == 'x86_64-unknown-linux-musl'
       run: sudo apt install musl-tools
 
     - name: Build
