@@ -17,8 +17,8 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
-            artifact_name: target/x86_64-unknown-linux-musl/release/strava-rs
-            asset_name: strava-rs-linux
+            artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
+            asset_name: debug-tui-rs-linux
             target: "x86_64-unknown-linux-musl"
 
     steps:
