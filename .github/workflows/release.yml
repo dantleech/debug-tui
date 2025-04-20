@@ -1,0 +1,48 @@
+name: Release
+
+permissions:
+  contents: write
+
+on: 
+  push:
+    tags:
+      - "*.*.*"
+
+jobs:
+  publish:
+    name: "Publish for ${{ matrix.os }}"
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-latest
+            artifact_name: target/x86_64-unknown-linux-musl/release/strava-rs
+            asset_name: strava-rs-linux
+            target: "x86_64-unknown-linux-musl"
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        target: ${{ matrix.target }}
+    - name: Install MUSL
+      run: sudo apt install musl-tools
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release --target ${{ matrix.target }}
+
+    - name: Rename
+      run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ matrix.asset_name }}
