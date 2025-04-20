@@ -7,15 +7,17 @@ Interactive XDebug step debugger for your terminal with vim-like key bindings.
 
 - **Travel forwards**: step over, into and out.
 - **Travel backwards**: it's not quite time travel, but you can revisit
-  previous steps.
+  previous steps in _history mode_.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
 
-CLI options:
+## CLI options
 
 - `--log`: Debug log to file.
 - `--listen`: Listen on an alternative address (defaults to `0.0.0.0:9003`).
 
-Key bindings (prefix with number to repeat):
+## Key bindings
+
+Prefix with number to repeat:
 
 - `n`     next / step into
 - `N`     step over
@@ -26,3 +28,16 @@ Key bindings (prefix with number to repeat):
 - `tab`   switch pane
 - `enter` toggle pane focus (full screen)
 - `?`     Show help
+
+## Setting Breakpoints
+
+`xdebug-tui` has no mechanism for setting a breakpoint but you can use the
+function `xdebug_break()` in your code:
+
+```php
+<?php
+
+function my_function() {
+    xdebug_break(); // break after this line
+}
+```
