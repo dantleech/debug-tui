@@ -24,11 +24,16 @@ async fn main() -> Result<(), anyhow::Error> {
     enable_raw_mode()?;
     set_panic_hook();
     terminal.clear()?;
-    let (event_sender, event_receiver) = mpsc::channel(32);
+    let (event_sender, event_receiver) = mpsc::channel(1024);
 
     // start input thread
     input::start(event_sender.clone());
     let config = load_config();
+    if let Some(log_path) = &config.log_path {
+        if let Err(err) = simple_logging::log_to_file(log_path, log::LevelFilter::Trace) {
+            anyhow::bail!(err);
+        }
+    }
 
     let mut app = App::new(config, event_receiver, event_sender);
     app.run(&mut terminal).await?;

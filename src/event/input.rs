@@ -6,13 +6,13 @@ use crossterm::event::KeyModifiers;
 use crossterm::event::{
     self,
 };
-use std::fmt::Display;
 use std::thread;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::CurrentView;
+use crate::dbgp::client::ContinuationStatus;
 use crate::view::session::SessionViewMode;
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub enum AppEvent {
     StepOver,
     Tick,
     UpdateSourceContext(String, String, u32),
-    UpdateStatus(ServerStatus),
+    UpdateStatus(ContinuationStatus),
     NextPane,
     ScrollDown(i16),
     ScrollUp(i16),
@@ -45,20 +45,6 @@ pub enum AppEvent {
     ToggleFullscreen,
     ScrollStack(i16),
     PushInputPlurality(char),
-}
-
-#[derive(Debug, Clone)]
-pub enum ServerStatus {
-    Break,
-    Stopping,
-    Unknown(String),
-    Initial,
-}
-
-impl Display for ServerStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 pub type EventSender = Sender<AppEvent>;

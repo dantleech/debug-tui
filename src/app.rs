@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
+use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
-use crate::event::input::ServerStatus;
 use crate::notification::Notification;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -15,6 +15,7 @@ use crate::view::View;
 use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use log::info;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
@@ -135,7 +136,7 @@ pub struct App {
     sender: Sender<AppEvent>,
 
     pub input_mode: InputMode,
-    pub server_status: ServerStatus,
+    pub server_status: Option<ContinuationStatus>,
     pub command_input: Input,
     pub command_response: Option<String>,
     pub client: Arc<Mutex<DbgpClient>>,
@@ -165,7 +166,7 @@ impl App {
             counter: 0,
 
             input_mode: InputMode::Normal,
-            server_status: ServerStatus::Initial,
+            server_status: None,
             command_input: Input::default(),
             command_response: None,
             view_current: CurrentView::Listen,
@@ -236,6 +237,7 @@ impl App {
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
         event: AppEvent,
     ) -> Result<()> {
+        info!("Handling event {:?}", event);
         match event {
             AppEvent::Quit => self.quit = true,
             AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
@@ -295,37 +297,14 @@ impl App {
                 let mut client = self.client.lock().await;
                 let response = client.deref_mut().connect(s).await?;
                 self.is_connected = true;
-                self.server_status = ServerStatus::Initial;
+                self.server_status = None;
                 self.view_current = CurrentView::Session;
                 let source = client.source(response.fileuri.clone()).await.unwrap();
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
             }
             AppEvent::Snapshot() => {
-                let mut client = self.client.lock().await;
-                let stack = client.deref_mut().get_stack().await?;
-                if let Some(top) = stack.top_or_none() {
-                    let filename = &top.filename;
-                    let line_no = top.line;
-                    let source_code = client
-                        .deref_mut()
-                        .source(filename.to_string())
-                        .await
-                        .unwrap();
-                    let source = SourceContext {
-                        source: source_code,
-                        filename: filename.to_string(),
-                        line_no,
-                    };
-                    let context = client.deref_mut().context_get().await.unwrap();
-                    let entry = HistoryEntry {
-                        source,
-                        stack,
-                        context,
-                    };
-                    self.history.push(entry);
-                    self.session_view.reset();
-                }
+                self.snapshot().await?;
             }
             AppEvent::StepOut => {
                 self.exec_continuation(AppEvent::StepOut).await;
@@ -390,16 +369,14 @@ impl App {
                     }
                 },
             },
-            // needed?
             AppEvent::UpdateStatus(server_status) => {
-                self.server_status = server_status.clone();
                 match server_status {
-                    ServerStatus::Break => (),
-                    ServerStatus::Stopping => {
+                    ContinuationStatus::Stopping => {
                         self.sender.send(AppEvent::Disconnect).await.unwrap();
                     }
                     _ => (),
                 }
+                self.server_status = Some(server_status);
             }
             AppEvent::Disconnect => {
                 let _ = self.client.lock().await.deref_mut().disonnect().await;
@@ -412,7 +389,7 @@ impl App {
             AppEvent::Tick => {
                 self.counter += 1;
                 self.notification = Notification::info(format!("tick {}", self.counter));
-            },
+            }
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -424,7 +401,9 @@ impl App {
         let sender = self.sender.clone();
         let count = self.take_motion();
         tokio::spawn(async move {
-            for _ in 0..count {
+            let mut last_response: Option<ContinuationResponse> = None;
+            for i in 0..count {
+                info!("Running iteration {}/{}", i, count);
                 let response = {
                     let mut instance = client.lock().await;
                     match event {
@@ -432,67 +411,35 @@ impl App {
                         AppEvent::StepOut => instance.deref_mut().step_out().await,
                         AppEvent::StepOver => instance.deref_mut().step_over().await,
                         AppEvent::StepInto => instance.deref_mut().step_into().await,
-                        _=> panic!("Unexpected continuation event: {:?}", event),
+                        _ => panic!("Unexpected continuation event: {:?}", event),
                     }
                 };
 
-                let status = Self::handle_continuation_response(sender.clone(), response).await;
-
-                if let Ok(ServerStatus::Break) = status {
+                if let Ok(response) = response {
+                    last_response = Some(response.clone());
+                    match response.status {
+                        ContinuationStatus::Break => {
+                            sender.send(AppEvent::Snapshot()).await.unwrap();
+                        }
+                        ContinuationStatus::Stopping => {
+                            break;
+                        },
+                        _ => (),
+                    };
                     continue;
-                }
-
-                if let Ok(ServerStatus::Stopping) = status {
-                    return;
                 }
 
                 return;
             }
+            if let Some(last_response) = last_response {
+                sender
+                    .send(AppEvent::UpdateStatus(last_response.status))
+                    .await
+                    .unwrap();
+            }
         });
     }
 
-    async fn handle_continuation_response(
-        sender: Sender<AppEvent>,
-        r: Result<ContinuationResponse, anyhow::Error>,
-    ) -> Result<ServerStatus> {
-        match r {
-            Ok(continuation_response) => {
-                let status = match continuation_response.status.as_str() {
-                    "stopping" => {
-                        sender
-                            .send(AppEvent::UpdateStatus(ServerStatus::Stopping))
-                            .await
-                            .unwrap();
-                        ServerStatus::Stopping
-                    }
-                    "break" => {
-                        sender
-                            .send(AppEvent::UpdateStatus(ServerStatus::Break))
-                            .await
-                            .unwrap();
-                        ServerStatus::Break
-                    }
-                    _ => {
-                        sender
-                            .send(AppEvent::UpdateStatus(ServerStatus::Unknown(
-                                continuation_response.status.clone(),
-                            )))
-                            .await
-                            .unwrap();
-                        ServerStatus::Unknown(continuation_response.status.clone())
-                    }
-                };
-                match status {
-                    ServerStatus::Break => {
-                        sender.send(AppEvent::Snapshot()).await.unwrap();
-                        Ok(status)
-                    }
-                    _ => Ok(status),
-                }
-            }
-            Err(e) => panic!("{:?}", e),
-        }
-    }
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
             CurrentView::Listen => ListenView::handle(self, event),
@@ -516,5 +463,33 @@ impl App {
                 1
             }
         }
+    }
+
+    pub async fn snapshot(&mut self) -> Result<()> {
+        let mut client = self.client.lock().await;
+        let stack = client.deref_mut().get_stack().await?;
+        if let Some(top) = stack.top_or_none() {
+            let filename = &top.filename;
+            let line_no = top.line;
+            let source_code = client
+                .deref_mut()
+                .source(filename.to_string())
+                .await
+                .unwrap();
+            let source = SourceContext {
+                source: source_code,
+                filename: filename.to_string(),
+                line_no,
+            };
+            let context = client.deref_mut().context_get().await.unwrap();
+            let entry = HistoryEntry {
+                source,
+                stack,
+                context,
+            };
+            self.history.push(entry);
+            self.session_view.reset();
+        }
+        Ok(())
     }
 }

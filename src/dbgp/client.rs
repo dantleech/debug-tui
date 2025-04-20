@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::{debug};
 use base64::engine::general_purpose;
 use base64::Engine;
 use core::str;
@@ -53,9 +54,16 @@ pub struct Property {
     pub value: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub enum ContinuationStatus {
+    Break,
+    Stopping,
+    Unknown(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct ContinuationResponse {
-    pub status: String,
+    pub status: ContinuationStatus,
     pub reason: String,
 }
 
@@ -111,6 +119,7 @@ impl DbgpClient {
         if xml.is_empty() {
             return Err(anyhow::anyhow!("Empty XML response"));
         }
+        debug!("[dbgp] << {}", xml);
         parse_xml(xml.as_str())
     }
 
@@ -131,7 +140,9 @@ impl DbgpClient {
                 xml.pop();
             }
         }
-        Ok(String::from_utf8(xml)?)
+        let string = String::from_utf8(xml)?;
+        debug!("[dbgp] << {}", string);
+        Ok(string)
     }
 
     pub(crate) async fn run(&mut self) -> Result<ContinuationResponse> {
@@ -214,6 +225,7 @@ impl DbgpClient {
 
     async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<usize> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
+        debug!("[dbgp] >> {}", cmd_str);
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
         self.stream
@@ -381,11 +393,15 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
 fn parse_continuation_response(
     attributes: &std::collections::HashMap<String, String>,
 ) -> ContinuationResponse {
-    ContinuationResponse {
-        status: attributes
+    let status = attributes
             .get("status")
-            .expect("Expected status to be set")
-            .to_string(),
+            .expect("Expected status to be set");
+    ContinuationResponse {
+        status: match status.as_str() {
+            "break" => ContinuationStatus::Break,
+            "stopping" => ContinuationStatus::Stopping,
+            _ => ContinuationStatus::Unknown(status.to_string()),
+        },
         reason: attributes
             .get("reason")
             .expect("Expected reason to be set")
