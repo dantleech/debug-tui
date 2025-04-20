@@ -30,7 +30,6 @@ impl View for LayoutView {
         let constraints = vec![
             Constraint::Length(1),
             Constraint::Min(4),
-            Constraint::Length(1),
         ];
 
         let rows = Layout::default()
