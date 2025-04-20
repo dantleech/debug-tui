@@ -5,8 +5,9 @@ permissions:
 
 on: 
   push:
-    tags:
-      - "*.*.*"
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   publish:
@@ -45,11 +46,13 @@ jobs:
       with:
         command: build
         args: --release --target ${{ matrix.target }}
+    - name: List
+      run: find -name debug-tui
 
     - name: Rename
       run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ${{ matrix.asset_name }}
+      #  - name: Release
+      #    uses: softprops/action-gh-release@v1
+      #    with:
+      #      files: ${{ matrix.asset_name }}
