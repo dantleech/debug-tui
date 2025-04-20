@@ -10,6 +10,11 @@ Interactive XDebug step debugger for your terminal with vim-like key bindings.
   previous steps in _history mode_.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
 
+## Installation
+
+- Download the [latest release](https://github.com/dantleech/debug-tui/releases/tag/0.0.1)
+- Compile it yourself `cargo build`
+
 ## CLI options
 
 - `--log`: Debug log to file.
@@ -19,12 +24,15 @@ Interactive XDebug step debugger for your terminal with vim-like key bindings.
 
 Prefix with number to repeat:
 
+- `r`     run
 - `n`     next / step into
 - `N`     step over
 - `p`     previous (switches to history mode if in current mode)
 - `o`     step out
-- `j`     scroll down (with shift to scroll down 10)
-- `k`     scroll up (with shift to scroll up 10)
+- `j`     scroll down
+- `J`     scroll down 10
+- `k`     scroll up
+- `K`     scroll up 10
 - `tab`   switch pane
 - `enter` toggle pane focus (full screen)
 - `?`     Show help
