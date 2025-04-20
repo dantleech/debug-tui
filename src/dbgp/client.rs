@@ -245,22 +245,6 @@ impl DbgpClient {
         Ok(())
     }
 
-    pub(crate) async fn exec_raw(&mut self, cmd: String) -> Result<String, anyhow::Error> {
-        let mut cmd = cmd.split_whitespace();
-        let name = cmd.next();
-        if name.is_none() {
-            return Ok("<command was empty>".to_string());
-        }
-        let mut args: Vec<&str> = Vec::new();
-
-        for arg in cmd {
-            args.push(arg);
-        }
-
-        self.command_raw(name.unwrap(), &mut args).await?;
-        self.read_raw().await
-    }
-
     pub(crate) async fn connect(&mut self, s: TcpStream) -> Result<Init> {
         self.stream = Some(s);
         match self.read_and_parse().await? {

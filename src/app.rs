@@ -6,6 +6,7 @@ use crate::dbgp::client::DbgpClient;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
+use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
 use crate::view::session::SessionView;
@@ -13,6 +14,7 @@ use crate::view::session::SessionViewMode;
 use crate::view::session::SessionViewState;
 use crate::view::View;
 use anyhow::Result;
+use crossterm::event::KeyCode;
 use log::info;
 use log::warn;
 use ratatui::layout::Rect;
@@ -111,6 +113,7 @@ pub struct SourceContext {
 pub enum CurrentView {
     Listen,
     Session,
+    Help,
 }
 
 pub struct App {
@@ -195,6 +198,8 @@ impl App {
             }
         });
 
+        self.notification = Notification::info("Welcome to debug-tui press ? for help".to_string());
+
         loop {
             let event = self.receiver.recv().await;
 
@@ -229,16 +234,6 @@ impl App {
         match event {
             AppEvent::Tick => (),
             AppEvent::Quit => self.quit = true,
-            AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
-                "q" => self.sender.send(AppEvent::Quit).await.unwrap(),
-                _ => {
-                    let mut client = self.client.lock().await;
-                    if !client.is_connected() {
-                        return Ok(());
-                    }
-                    self.command_response = Some(client.exec_raw(cmd.to_string()).await?);
-                }
-            },
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
             }
@@ -344,6 +339,14 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
+            AppEvent::Input(key_event) => {
+                match key_event.code {
+                    KeyCode::Char('?') => {
+                        self.sender.send(AppEvent::ChangeView(CurrentView::Help)).await.unwrap();
+                    },
+                    _ => self.send_event_to_current_view(event).await
+                }
+            },
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -411,6 +414,7 @@ impl App {
     // route the event to the currently selected view
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
+            CurrentView::Help => HelpView::handle(self, event),
             CurrentView::Listen => ListenView::handle(self, event),
             CurrentView::Session => SessionView::handle(self, event),
         };

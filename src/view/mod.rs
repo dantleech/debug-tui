@@ -3,6 +3,7 @@ pub mod layout;
 pub mod listen;
 pub mod session;
 pub mod stack;
+pub mod help;
 
 pub mod source;
 pub mod context;

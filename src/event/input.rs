@@ -21,7 +21,6 @@ pub enum AppEvent {
     ChangeView(CurrentView),
     ClientConnected(TcpStream),
     Disconnect,
-    ExecCommand(String),
     HistoryNext,
     HistoryPrevious,
     Input(KeyEvent),

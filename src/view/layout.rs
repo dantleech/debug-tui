@@ -1,3 +1,4 @@
+use super::help::HelpView;
 use super::listen::ListenView;
 use super::session::SessionView;
 use super::session::SessionViewMode;
@@ -29,6 +30,7 @@ impl View for LayoutView {
         let constraints = vec![
             Constraint::Length(1),
             Constraint::Min(4),
+            Constraint::Length(1),
         ];
 
         let rows = Layout::default()
@@ -41,6 +43,7 @@ impl View for LayoutView {
         match app.view_current {
             CurrentView::Listen => ListenView::draw(app, f, rows[1]),
             CurrentView::Session => SessionView::draw(app, f, rows[1]),
+            CurrentView::Help => HelpView::draw(app, f, rows[1]),
         }
     }
 }
@@ -77,7 +80,7 @@ fn status_widget(app: &App) -> Paragraph {
             (match app.session_view.mode {
                     SessionViewMode::Current => match app.is_connected {
                         true => format!("   {} / ∞", app.history.offset + 1),
-                        false => "".to_string(),
+                        false => "   0 / 0".to_string(),
                     },
                     SessionViewMode::History => format!(
                     "   {} / {} history [p] to go back [n] to go forwards [b] to return",
