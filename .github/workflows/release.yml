@@ -22,7 +22,7 @@ jobs:
             target: "x86_64-unknown-linux-musl"
           - name: macos
             os: macos-latest
-            artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui-apple-darwin
+            artifact_name: target/x86_64-apple-darwin/release/debug-tui-apple-darwin
             asset_name: debug-tui-apple-darwin
             target: "x86_64-apple-darwin"
 
