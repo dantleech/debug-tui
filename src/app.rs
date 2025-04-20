@@ -13,8 +13,6 @@ use crate::view::session::SessionViewMode;
 use crate::view::session::SessionViewState;
 use crate::view::View;
 use anyhow::Result;
-use crossterm::event::Event;
-use crossterm::event::KeyCode;
 use log::info;
 use log::warn;
 use ratatui::layout::Rect;
@@ -25,7 +23,7 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
-use std::fmt::Display;
+use tokio::sync::Notify;
 use std::io;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -34,20 +32,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
 use tokio::task;
-use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
-
-#[derive(PartialEq, Eq, Debug)]
-pub enum InputMode {
-    Normal,
-    Command,
-}
-
-impl Display for InputMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
@@ -136,7 +121,6 @@ pub struct App {
     quit: bool,
     sender: Sender<AppEvent>,
 
-    pub input_mode: InputMode,
     pub server_status: Option<ContinuationStatus>,
     pub command_input: Input,
     pub command_response: Option<String>,
@@ -149,6 +133,8 @@ pub struct App {
     pub input_plurality: Vec<char>,
 
     pub counter: u16,
+
+    pub snapshot_notify: Arc<Notify>,
 }
 
 impl App {
@@ -166,12 +152,13 @@ impl App {
             client: Arc::new(Mutex::new(client)),
             counter: 0,
 
-            input_mode: InputMode::Normal,
             server_status: None,
             command_input: Input::default(),
             command_response: None,
             view_current: CurrentView::Listen,
             session_view: SessionViewState::new(),
+
+            snapshot_notify: Arc::new(Notify::new()),
         }
     }
 
@@ -305,6 +292,7 @@ impl App {
             }
             AppEvent::Snapshot() => {
                 self.snapshot().await?;
+                self.snapshot_notify.notify_one();
             }
             AppEvent::StepOut => {
                 self.exec_continuation(AppEvent::StepOut).await;
@@ -339,36 +327,6 @@ impl App {
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
             }
-            AppEvent::Input(e) => match self.input_mode {
-                InputMode::Normal => match e.code {
-                    KeyCode::Char(char) => match char {
-                        ':' => self.input_mode = InputMode::Command,
-                        _ => self.send_event_to_current_view(event).await,
-                    },
-                    _ => self.send_event_to_current_view(event).await,
-                },
-                InputMode::Command => match e.code {
-                    // escape back to normal mode
-                    KeyCode::Esc => {
-                        self.input_mode = InputMode::Normal;
-                        self.command_response = None;
-                    }
-                    // execute command
-                    KeyCode::Enter => {
-                        self.input_mode = InputMode::Normal;
-                        self.sender
-                            .send(AppEvent::ExecCommand(
-                                self.command_input.value().to_string(),
-                            ))
-                            .await
-                            .unwrap();
-                    }
-                    // delegate keys to command input
-                    _ => {
-                        self.command_input.handle_event(&Event::Key(e));
-                    }
-                },
-            },
             AppEvent::UpdateStatus(server_status) => {
                 match server_status {
                     ContinuationStatus::Stopping => {
@@ -398,9 +356,18 @@ impl App {
         let client = Arc::clone(&self.client);
         let sender = self.sender.clone();
         let count = self.take_motion();
+
+        let snapshot_notify = Arc::clone(&self.snapshot_notify);
+        snapshot_notify.notify_one();
+
         tokio::spawn(async move {
             let mut last_response: Option<ContinuationResponse> = None;
             for i in 0..count {
+
+                // we need to wait for the snapshot to complete before running a further
+                // continuation.
+                snapshot_notify.notified().await;
+
                 info!("Running iteration {}/{}", i, count);
                 let response = {
                     let mut instance = client.lock().await;
@@ -422,14 +389,14 @@ impl App {
                             }
                             ContinuationStatus::Stopping => {
                                 break;
-                            },
+                            }
                             _ => (),
                         };
                         continue;
-                    },
+                    }
                     Err(_) => {
                         sender.send(AppEvent::Disconnect).await.unwrap();
-                    },
+                    }
                 };
             }
             if let Some(last_response) = last_response {

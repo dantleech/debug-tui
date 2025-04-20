@@ -6,7 +6,6 @@ use super::Pane;
 use super::View;
 use crate::app::App;
 use crate::app::CurrentView;
-use crate::app::InputMode;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
@@ -25,11 +24,6 @@ impl View for SessionView {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
-        };
-
-        match app.input_mode {
-            InputMode::Normal => (),
-            _ => return None,
         };
 
         // handle global session events
