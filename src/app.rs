@@ -16,6 +16,7 @@ use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
 use log::info;
+use log::warn;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
@@ -239,6 +240,7 @@ impl App {
     ) -> Result<()> {
         info!("Handling event {:?}", event);
         match event {
+            AppEvent::Tick => (),
             AppEvent::Quit => self.quit = true,
             AppEvent::ExecCommand(ref cmd) => match cmd.as_str() {
                 "q" => self.sender.send(AppEvent::Quit).await.unwrap(),
@@ -291,14 +293,12 @@ impl App {
                 }
             }
             AppEvent::ClientConnected(s) => {
-                if self.is_connected {
-                    panic!("Client already connected!");
-                }
                 let mut client = self.client.lock().await;
                 let response = client.deref_mut().connect(s).await?;
                 self.is_connected = true;
                 self.server_status = None;
                 self.view_current = CurrentView::Session;
+                self.session_view.mode = SessionViewMode::Current;
                 let source = client.source(response.fileuri.clone()).await.unwrap();
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
@@ -386,16 +386,14 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
-            AppEvent::Tick => {
-                self.counter += 1;
-                self.notification = Notification::info(format!("tick {}", self.counter));
-            }
             _ => self.send_event_to_current_view(event).await,
         };
 
         Ok(())
     }
 
+    // generically handle "continuation" events and update the
+    // application state accordingly.
     async fn exec_continuation(&mut self, event: AppEvent) -> () {
         let client = Arc::clone(&self.client);
         let sender = self.sender.clone();
@@ -415,21 +413,24 @@ impl App {
                     }
                 };
 
-                if let Ok(response) = response {
-                    last_response = Some(response.clone());
-                    match response.status {
-                        ContinuationStatus::Break => {
-                            sender.send(AppEvent::Snapshot()).await.unwrap();
-                        }
-                        ContinuationStatus::Stopping => {
-                            break;
-                        },
-                        _ => (),
-                    };
-                    continue;
-                }
-
-                return;
+                match response {
+                    Ok(response) => {
+                        last_response = Some(response.clone());
+                        match response.status {
+                            ContinuationStatus::Break => {
+                                sender.send(AppEvent::Snapshot()).await.unwrap();
+                            }
+                            ContinuationStatus::Stopping => {
+                                break;
+                            },
+                            _ => (),
+                        };
+                        continue;
+                    },
+                    Err(_) => {
+                        sender.send(AppEvent::Disconnect).await.unwrap();
+                    },
+                };
             }
             if let Some(last_response) = last_response {
                 sender
@@ -440,6 +441,7 @@ impl App {
         });
     }
 
+    // route the event to the currently selected view
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
             CurrentView::Listen => ListenView::handle(self, event),
@@ -450,21 +452,23 @@ impl App {
         };
     }
 
-    pub fn take_motion(&mut self) -> u8 {
+    // take the current motion (i.e. number of times to repeat a command)
+    pub fn take_motion(&mut self) -> u16 {
         if self.input_plurality.is_empty() {
             return 1;
         }
         let input = String::from_iter(&self.input_plurality);
         self.input_plurality = Vec::new();
-        match input.parse::<u8>() {
-            Ok(i) => i.min(50),
+        match input.parse::<u16>() {
+            Ok(i) => i.min(255),
             Err(e) => {
-                self.notification = Notification::error(e.to_string());
+                warn!("take_motion: {}", e.to_string());
                 1
             }
         }
     }
 
+    /// capture the current status and push it onto the history stack
     pub async fn snapshot(&mut self) -> Result<()> {
         let mut client = self.client.lock().await;
         let stack = client.deref_mut().get_stack().await?;
