@@ -108,14 +108,22 @@ fn status_widget(app: &App) -> Paragraph {
         ),
         Span::styled(
             (match app.session_view.mode {
-                    SessionViewMode::Current => "".to_string(),
+                    SessionViewMode::Current => match app.is_connected {
+                        true => format!(" {} / ∞", app.history.offset + 1),
+                        false => "".to_string(),
+                    },
                     SessionViewMode::History => format!(
                     " {} / {} history [p] to go back [n] to go forwards [b] to return",
                     app.history.offset + 1,
                     app.history.len()
                 ),
                 }).to_string(),
-            Style::default().bg(Color::Red),
+            Style::default().bg(
+                match app.session_view.mode {
+                    SessionViewMode::Current => Color::Black,
+                    SessionViewMode::History => Color::Red,
+                }
+            ),
         ),
         Span::styled(
             match app.notification.is_visible() {
