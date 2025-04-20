@@ -35,7 +35,7 @@ impl View for SessionView {
                 'k' => return Some(AppEvent::ScrollUp(1)),
                 'J' => return Some(AppEvent::ScrollDown(10)),
                 'K' => return Some(AppEvent::ScrollUp(10)),
-                '0'..'9' => return Some(AppEvent::PushInputPlurality(char)),
+                '0'..='9' => return Some(AppEvent::PushInputPlurality(char)),
                 _ => (),
             },
             _ => (),
@@ -95,10 +95,8 @@ impl View for SessionView {
 
         let rows = Layout::vertical(vertical_constraints).split(cols[1]);
 
-        let mut row_index = 0;
-        for pane in &app.session_view.panes[1..] {
+        for (row_index, pane) in app.session_view.panes[1..].iter().enumerate() {
             build_pane_widget(frame, app, pane, rows[row_index], row_index + 1);
-            row_index += 1;
         }
     }
 }

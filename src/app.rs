@@ -323,11 +323,8 @@ impl App {
                 self.session_view.full_screen = !self.session_view.full_screen;
             }
             AppEvent::UpdateStatus(server_status) => {
-                match server_status {
-                    ContinuationStatus::Stopping => {
-                        self.sender.send(AppEvent::Disconnect).await.unwrap();
-                    }
-                    _ => (),
+                if let ContinuationStatus::Stopping = server_status {
+                    self.sender.send(AppEvent::Disconnect).await.unwrap();
                 }
                 self.server_status = Some(server_status);
             }
@@ -355,7 +352,7 @@ impl App {
 
     // generically handle "continuation" events and update the
     // application state accordingly.
-    async fn exec_continuation(&mut self, event: AppEvent) -> () {
+    async fn exec_continuation(&mut self, event: AppEvent) {
         let client = Arc::clone(&self.client);
         let sender = self.sender.clone();
         let count = self.take_motion();
@@ -433,7 +430,7 @@ impl App {
         match input.parse::<u16>() {
             Ok(i) => i.min(255),
             Err(e) => {
-                warn!("take_motion: {}", e.to_string());
+                warn!("take_motion: {}", e);
                 1
             }
         }

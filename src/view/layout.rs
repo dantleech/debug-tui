@@ -52,7 +52,7 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                if app.is_connected { "".to_string() } else { format!("{}", app.config.listen) }
+                if app.is_connected { "".to_string() } else { app.config.listen.to_string() }
             ),
             Style::default()
                 .add_modifier(Modifier::BOLD)
