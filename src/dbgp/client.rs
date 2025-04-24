@@ -155,6 +155,16 @@ impl DbgpClient {
         }
     }
 
+    pub(crate) async fn feature_set(&mut self, feature: &str, value: &str) -> Result<()> {
+        match self.command("feature_set", &mut vec!["-n",feature,"-v",value]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::Unknown => Ok(()),
+                _ => anyhow::bail!("Unexpected response"),
+            },
+            _ => anyhow::bail!("Unexpected response"),
+        }
+    }
+
     pub(crate) async fn context_get(&mut self) -> Result<ContextGetResponse> {
         match self.command("context_get", &mut vec![]).await? {
             Message::Response(r) => match r.command {

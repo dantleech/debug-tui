@@ -44,6 +44,8 @@ impl View for SessionView {
         let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => match input_event.code {
                 KeyCode::Char(char) => match char {
+                    '+' => Some(AppEvent::ContextDepth(1)),
+                    '-' => Some(AppEvent::ContextDepth(-1)),
                     'r' => Some(AppEvent::Run),
                     'n' => Some(AppEvent::StepInto),
                     'N' => Some(AppEvent::StepOver),
@@ -119,7 +121,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 Some(c) => c.source.filename.to_string(),
                 None => "".to_string(),
             },
-            ComponentType::Context => "Context".to_string(),
+            ComponentType::Context => format!("Context({})", app.context_depth),
             ComponentType::Stack => "Stack".to_string(),
         })
         .style(

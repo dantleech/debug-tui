@@ -44,6 +44,7 @@ pub enum AppEvent {
     ToggleFullscreen,
     ScrollStack(i16),
     PushInputPlurality(char),
+    ContextDepth(i8),
 }
 
 pub type EventSender = Sender<AppEvent>;
