@@ -138,6 +138,7 @@ pub struct App {
     pub counter: u16,
 
     pub snapshot_notify: Arc<Notify>,
+    pub context_depth: u8,
 }
 
 impl App {
@@ -154,6 +155,7 @@ impl App {
             history: History::default(),
             client: Arc::new(Mutex::new(client)),
             counter: 0,
+            context_depth: 4,
 
             server_status: None,
             command_input: Input::default(),
@@ -277,6 +279,10 @@ impl App {
             AppEvent::ClientConnected(s) => {
                 let mut client = self.client.lock().await;
                 let response = client.deref_mut().connect(s).await?;
+                client.feature_set(
+                    "max_depth",
+                    self.context_depth.to_string().as_str()
+                ).await?;
                 self.is_connected = true;
                 self.server_status = None;
                 self.view_current = CurrentView::Session;
@@ -301,6 +307,14 @@ impl App {
             AppEvent::Run => {
                 self.exec_continuation(AppEvent::Run).await;
             }
+            AppEvent::ContextDepth(inc) => {
+                let depth = self.context_depth as i8;
+                self.context_depth = depth.wrapping_add(inc).max(0) as u8;
+                self.client.lock().await.feature_set(
+                    "max_depth",
+                    self.context_depth.to_string().as_str()
+                ).await?;
+            },
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = self
                     .session_view

@@ -43,6 +43,8 @@ Key mappings (prefix with number to repeat):
 [J]     scroll down 10
 [k]     scroll up
 [K]     scroll up 10
+[+]     increase context depth
+[-]     decrease context depth
 [enter] toggle pane focus (full screen)
 
 Legend:
