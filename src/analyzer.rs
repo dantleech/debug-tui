@@ -4,7 +4,7 @@ use anyhow::Result;
 use ratatui::text::{Line, ToLine};
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Value {
     pub value: String,
 }
@@ -27,23 +27,29 @@ pub struct VariableRef {
     pub name: String,
     pub value: Option<Value>,
 }
+impl VariableRef {
+    pub(crate) fn width(&self) -> u16 {
+        return (self.range.end.char - self.range.start.char) as u16;
+
+    }
+}
 
 type Row = HashMap<usize, VariableRef>;
 
 #[derive(Clone, Debug)]
 pub struct Analysis {
-    lines: HashMap<usize,Row>,
+    rows: HashMap<usize,Row>,
 }
 
 impl Analysis {
     fn register(&mut self, variable: VariableRef) {
-        let line = self.lines.entry(variable.range.end.row).or_insert(HashMap::new());
+        let line = self.rows.entry(variable.range.end.row).or_insert(HashMap::new());
         line.insert(variable.range.start.char, variable);
         ()
     }
 
     pub fn row(&self, number: usize) -> Row {
-        let value = self.lines.get(&number);
+        let value = self.rows.get(&number);
         if value.is_none() {
             return HashMap::new();
         }
@@ -52,7 +58,7 @@ impl Analysis {
 
     fn new() -> Self {
         Self{
-            lines: HashMap::new(),
+            rows: HashMap::new(),
         }
     }
 }
@@ -100,7 +106,7 @@ impl Analyser {
     }
 
     pub fn new() -> Self {
-        Self { analysis: Analysis { lines: HashMap::new() } }
+        Self { analysis: Analysis { rows: HashMap::new() } }
     }
 }
 

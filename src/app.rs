@@ -5,6 +5,7 @@ use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::Property;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
@@ -46,6 +47,17 @@ pub struct HistoryEntry {
     pub source: SourceContext,
     pub stack: StackGetResponse,
     pub context: ContextGetResponse,
+}
+impl HistoryEntry {
+    // todo: this is inefficient!
+    pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
+        for property in &self.context.properties {
+            if property.name == name {
+                return Some(property);
+            }
+        }
+        None
+    }
 }
 
 pub struct History {
