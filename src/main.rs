@@ -4,6 +4,7 @@ pub mod dbgp;
 pub mod event;
 pub mod notification;
 pub mod view;
+pub mod analyzer;
 
 use app::App;
 use better_panic::Settings;
