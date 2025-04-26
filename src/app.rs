@@ -1,3 +1,5 @@
+use crate::analyzer::Analyser;
+use crate::analyzer::Analysis;
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
@@ -26,6 +28,7 @@ use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::sync::Notify;
+use std::collections::HashMap;
 use std::io;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -35,6 +38,8 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
 use tokio::task;
 use tui_input::Input;
+
+type AnalyzedFiles = HashMap<String,Analysis>;
 
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
@@ -139,6 +144,8 @@ pub struct App {
 
     pub snapshot_notify: Arc<Notify>,
     pub context_depth: u8,
+
+    pub analyzed_files: AnalyzedFiles,
 }
 
 impl App {
@@ -164,6 +171,8 @@ impl App {
             session_view: SessionViewState::new(),
 
             snapshot_notify: Arc::new(Notify::new()),
+
+            analyzed_files: HashMap::new(),
         }
     }
 
@@ -288,6 +297,8 @@ impl App {
                 self.view_current = CurrentView::Session;
                 self.session_view.mode = SessionViewMode::Current;
                 let source = client.source(response.fileuri.clone()).await.unwrap();
+                self.analyzed_files.insert(response.fileuri.clone(), self.analyze(&source.as_str()));
+
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
             }
@@ -477,5 +488,10 @@ impl App {
             self.session_view.reset();
         }
         Ok(())
+    }
+
+    fn analyze(&self, source: &str) -> Analysis {
+        let mut analyser = Analyser::new();
+        return analyser.analyze(source).unwrap();
     }
 }
