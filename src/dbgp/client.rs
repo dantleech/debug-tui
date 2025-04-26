@@ -411,7 +411,7 @@ fn parse_continuation_response(
 #[cfg(test)]
 mod test {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_parse_xml() -> Result<(), anyhow::Error> {

@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use ratatui::text::{Line, ToLine};
-use tree_sitter::{Node, Parser, Tree, TreeCursor};
+use tree_sitter::{Node, Parser, Tree};
 
 #[derive(Clone, Debug, Default)]
 pub struct Value {
@@ -27,12 +26,6 @@ pub struct VariableRef {
     pub name: String,
     pub value: Option<Value>,
 }
-impl VariableRef {
-    pub(crate) fn width(&self) -> u16 {
-        return (self.range.end.char - self.range.start.char) as u16;
-
-    }
-}
 
 type Row = HashMap<usize, VariableRef>;
 
@@ -43,9 +36,9 @@ pub struct Analysis {
 
 impl Analysis {
     fn register(&mut self, variable: VariableRef) {
-        let line = self.rows.entry(variable.range.end.row).or_insert(HashMap::new());
+        let line = self.rows.entry(variable.range.end.row).or_default();
         line.insert(variable.range.start.char, variable);
-        ()
+        
     }
 
     pub fn row(&self, number: usize) -> Row {
@@ -53,7 +46,7 @@ impl Analysis {
         if value.is_none() {
             return HashMap::new();
         }
-        return value.unwrap().clone();
+        value.unwrap().clone()
     }
 
     fn new() -> Self {
@@ -67,21 +60,27 @@ pub struct Analyser {
     analysis: Analysis,
 }
 
+impl Default for Analyser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Analyser {
-    pub fn analyze<'a>(&mut self, source: &str) -> Result<Analysis> {
+    pub fn analyze(&mut self, source: &str) -> Result<Analysis> {
         self.analysis = Analysis::new();
-        let tree = self.parse(&source);
+        let tree = self.parse(source);
         self.walk(&tree.root_node(), source);
 
-        return Ok(self.analysis.clone());
+        Ok(self.analysis.clone())
     }
 
     fn parse(&mut self, source: &str) -> Tree{
         let mut parser = Parser::new();
         let language = tree_sitter_php::LANGUAGE_PHP;
         parser.set_language(&language.into()).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        return tree;
+        
+        parser.parse(source, None).unwrap()
 
     }
 
@@ -112,7 +111,7 @@ impl Analyser {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
+    
 
     #[test]
     fn test_analyse() -> Result<(), anyhow::Error> {

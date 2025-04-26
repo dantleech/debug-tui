@@ -51,12 +51,7 @@ pub struct HistoryEntry {
 impl HistoryEntry {
     // todo: this is inefficient!
     pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
-        for property in &self.context.properties {
-            if property.name == name {
-                return Some(property);
-            }
-        }
-        None
+        self.context.properties.iter().find(|&property| property.name == name)
     }
 }
 
@@ -490,7 +485,7 @@ impl App {
                 line_no,
             };
             let context = client.deref_mut().context_get().await.unwrap();
-            self.analyzed_files.insert(source.filename.clone(), self.analyze(&source.source.as_str()));
+            self.analyzed_files.insert(source.filename.clone(), self.analyze(source.source.as_str()));
             let entry = HistoryEntry {
                 source,
                 stack,
@@ -504,6 +499,6 @@ impl App {
 
     fn analyze(&self, source: &str) -> Analysis {
         let mut analyser = Analyser::new();
-        return analyser.analyze(source).unwrap();
+        analyser.analyze(source).unwrap()
     }
 }
