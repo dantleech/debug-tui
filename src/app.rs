@@ -309,7 +309,6 @@ impl App {
                 self.view_current = CurrentView::Session;
                 self.session_view.mode = SessionViewMode::Current;
                 let source = client.source(response.fileuri.clone()).await.unwrap();
-                self.analyzed_files.insert(response.fileuri.clone(), self.analyze(&source.as_str()));
 
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
@@ -491,6 +490,7 @@ impl App {
                 line_no,
             };
             let context = client.deref_mut().context_get().await.unwrap();
+            self.analyzed_files.insert(source.filename.clone(), self.analyze(&source.source.as_str()));
             let entry = HistoryEntry {
                 source,
                 stack,

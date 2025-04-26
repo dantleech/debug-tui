@@ -86,7 +86,6 @@ impl Analyser {
     }
 
     fn walk(&mut self, node: &Node, source: &str) {
-        println!("{:?}", node.kind());
         let count = node.child_count();
         if node.kind() == "variable_name" {
             self.analysis.register(VariableRef{

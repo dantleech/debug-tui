@@ -1,5 +1,6 @@
 use crate::analyzer::Value;
 use crate::app::App;
+use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -63,37 +64,34 @@ impl View for SourceComponent {
         frame.render_widget(Paragraph::new(lines).scroll((app.session_view.source_scroll, 0)), rows[0]);
 
         let mut line_no = 0;
-        for _ in source_context.source.lines() {
+        for line in source_context.source.lines() {
             match app.analyzed_files.get(&source_context.filename.to_string()) {
                 Some(analysis) => {
                     for (_, var) in analysis.row(line_no as usize) {
+                        let label = Rect{
+                            y: (var.range.start.row as u16 + 2).saturating_sub(app.session_view.source_scroll).saturating_sub(offset),
+                            x: line.len() as u16 + 8,
+                            width: var.width(),
+                            height: 1,
+                        };
+                        if !rows[0].intersects(label) {
+                            continue;
+                        }
 
                         let history_entry = app.history.current();
                         if history_entry.is_none() {
                             continue;
                         }
+
                         let property = history_entry.unwrap().get_property(var.name.as_str());
                         if property.is_none() {
                             continue;
                         }
 
-                        let label = Rect{
-                            y: (var.range.start.row as u16 + 2).saturating_sub(app.session_view.source_scroll) - offset,
-                            x: var.range.end.char as u16 + 1 + var.width(),
-                            width: var.width(),
-                            height: 1,
+                        match render_property(property.unwrap()) {
+                            Some((span, length)) => frame.buffer_mut().set_span(label.x, label.y, &span, length),
+                            None => continue,
                         };
-
-                        if rows[0].intersects(label) {
-                            let value = property.unwrap().clone().value.unwrap_or("".to_string());
-                            let text = format!("// {}", value);
-                            frame.buffer_mut().set_span(
-                                label.x,
-                                label.y,
-                                &Span::default().content(text.clone()).style(Style::default().bg(Color::DarkGray).fg(Color::Cyan)),
-                                text.len() as u16,
-                            );
-                        }
                     }
                     ()
                 },
@@ -101,5 +99,17 @@ impl View for SourceComponent {
             };
             line_no += 1;
         }
+    }
+}
+
+fn render_property(property: &Property) -> Option<(Span, u16)> {
+    match &property.value {
+        Some(value) => {
+            let text = format!("// {}", value);
+            Some(
+                (Span::default().content(text.clone()).style(Style::default().fg(Color::DarkGray)), text.len() as u16)
+            )
+        },
+        None => None
     }
 }
