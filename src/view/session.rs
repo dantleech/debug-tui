@@ -149,7 +149,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 
 pub struct SessionViewState {
     pub full_screen: bool,
-    pub source_scroll: u16,
+    pub source_scroll: Option<i16>,
     pub context_scroll: u16,
     pub stack_scroll: u16,
     pub mode: SessionViewMode,
@@ -167,7 +167,7 @@ impl SessionViewState {
     pub fn new() -> Self {
         Self {
             full_screen: false,
-            source_scroll: 0,
+            source_scroll: None,
             context_scroll: 0,
             stack_scroll: 0,
             current_pane: 0,
@@ -200,7 +200,7 @@ impl SessionViewState {
 
     pub(crate) fn reset(&mut self) {
         self.context_scroll = 0;
-        self.source_scroll = 0;
+        self.source_scroll = None;
     }
 }
 

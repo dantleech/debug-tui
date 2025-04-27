@@ -1,8 +1,11 @@
+use crate::analyzer::Analyser;
+use crate::analyzer::Analysis;
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::Property;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
@@ -26,6 +29,8 @@ use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::sync::Notify;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::io;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -36,11 +41,19 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tui_input::Input;
 
+type AnalyzedFiles = HashMap<String,Analysis>;
+
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
     pub source: SourceContext,
     pub stack: StackGetResponse,
     pub context: ContextGetResponse,
+}
+impl HistoryEntry {
+    // todo: this is inefficient!
+    pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
+        self.context.properties.iter().find(|&property| property.name == name)
+    }
 }
 
 pub struct History {
@@ -139,6 +152,8 @@ pub struct App {
 
     pub snapshot_notify: Arc<Notify>,
     pub context_depth: u8,
+
+    pub analyzed_files: AnalyzedFiles,
 }
 
 impl App {
@@ -164,6 +179,8 @@ impl App {
             session_view: SessionViewState::new(),
 
             snapshot_notify: Arc::new(Notify::new()),
+
+            analyzed_files: HashMap::new(),
         }
     }
 
@@ -288,6 +305,7 @@ impl App {
                 self.view_current = CurrentView::Session;
                 self.session_view.mode = SessionViewMode::Current;
                 let source = client.source(response.fileuri.clone()).await.unwrap();
+
                 self.history = History::default();
                 self.history.push_source(response.fileuri.clone(), source);
             }
@@ -316,10 +334,10 @@ impl App {
                 ).await?;
             },
             AppEvent::ScrollSource(amount) => {
-                self.session_view.source_scroll = self
+                self.session_view.source_scroll = Some(self
                     .session_view
-                    .source_scroll
-                    .saturating_add_signed(amount * self.take_motion() as i16);
+                    .source_scroll.unwrap_or(0)
+                    .saturating_add(amount * self.take_motion() as i16));
             }
             AppEvent::ScrollContext(amount) => {
                 self.session_view.context_scroll = self
@@ -468,6 +486,13 @@ impl App {
                 line_no,
             };
             let context = client.deref_mut().context_get().await.unwrap();
+            match self.analyzed_files.entry(source.filename.clone()) {
+                Entry::Occupied(_) => (),
+                Entry::Vacant(vacant_entry) => {
+                    let mut analyser = Analyser::new();
+                    vacant_entry.insert(analyser.analyze(source.source.as_str()).unwrap());
+                }
+            };
             let entry = HistoryEntry {
                 source,
                 stack,

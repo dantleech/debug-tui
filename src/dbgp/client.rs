@@ -1,8 +1,9 @@
 use anyhow::Result;
-use log::{debug};
 use base64::engine::general_purpose;
 use base64::Engine;
 use core::str;
+use std::fmt::Display;
+use log::debug;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
@@ -37,6 +38,58 @@ pub struct ContextGetResponse {
     pub properties: Vec<Property>,
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub enum PropertyType {
+    Bool,
+    Int,
+    Float,
+    String,
+    Null,
+    Array,
+    Hash,
+    Object,
+    Resource,
+    Undefined,
+}
+
+impl Display for PropertyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl PropertyType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            PropertyType::Bool => "bool",
+            PropertyType::Int => "int",
+            PropertyType::Float => "float",
+            PropertyType::String => "string",
+            PropertyType::Null => "null",
+            PropertyType::Array => "array",
+            PropertyType::Hash => "hash",
+            PropertyType::Object => "object",
+            PropertyType::Resource => "resource",
+            PropertyType::Undefined => "undefined",
+        }
+    }
+
+    fn from_str(expect: &str) -> PropertyType {
+        match expect {
+            "bool" => Self::Bool,
+            "int" => Self::Int,
+            "float" => Self::Float,
+            "string" => Self::String,
+            "null" => Self::Null,
+            "array" => Self::Array,
+            "hash" => Self::Hash,
+            "object" => Self::Object,
+            "resource" => Self::Resource,
+            _ => Self::Undefined,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property {
     pub name: String,
@@ -44,7 +97,7 @@ pub struct Property {
     pub classname: Option<String>,
     pub page: Option<u32>,
     pub pagesize: Option<u32>,
-    pub property_type: String,
+    pub property_type: PropertyType,
     pub facet: Option<String>,
     pub size: Option<u32>,
     pub children: Vec<Property>,
@@ -52,6 +105,20 @@ pub struct Property {
     pub address: Option<String>,
     pub encoding: Option<String>,
     pub value: Option<String>,
+}
+impl Property {
+    pub(crate) fn type_name(&self) -> String {
+        match self.property_type {
+            PropertyType::Object => self.classname.clone().unwrap_or("object".to_string()),
+            _ => self.property_type.to_string(),
+        }
+    }
+    pub(crate) fn value_is(&self, value: &str) -> bool {
+        match &self.value {
+            Some(v) => value == *v,
+            None => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -69,19 +136,20 @@ pub struct ContinuationResponse {
 
 #[derive(Debug, Clone)]
 pub struct StackGetResponse {
-    pub entries: Vec<StackEntry>
+    pub entries: Vec<StackEntry>,
 }
 
 impl StackGetResponse {
     pub fn depth(&self) -> usize {
         self.entries.len()
     }
-    
 }
 
 impl StackGetResponse {
     pub fn top(&self) -> &StackEntry {
-        self.entries.first().expect("Expected at least one stack entry")
+        self.entries
+            .first()
+            .expect("Expected at least one stack entry")
     }
 
     pub(crate) fn top_or_none(&self) -> Option<&StackEntry> {
@@ -156,7 +224,10 @@ impl DbgpClient {
     }
 
     pub(crate) async fn feature_set(&mut self, feature: &str, value: &str) -> Result<()> {
-        match self.command("feature_set", &mut vec!["-n",feature,"-v",value]).await? {
+        match self
+            .command("feature_set", &mut vec!["-n", feature, "-v", value])
+            .await?
+        {
             Message::Response(r) => match r.command {
                 CommandResponse::Unknown => Ok(()),
                 _ => anyhow::bail!("Unexpected response"),
@@ -246,9 +317,9 @@ impl DbgpClient {
             .map_err(anyhow::Error::from)
     }
 
-    pub(crate) async fn disonnect(&mut self) ->Result<(), anyhow::Error>{
+    pub(crate) async fn disonnect(&mut self) -> Result<(), anyhow::Error> {
         if let Some(s) = &mut self.stream {
-            let res = s.shutdown().await.or_else(|e|anyhow::bail!(e.to_string()));
+            let res = s.shutdown().await.or_else(|e| anyhow::bail!(e.to_string()));
             self.stream = None;
             return res;
         };
@@ -319,41 +390,53 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
     while let Some(mut child) = element.take_child("property") {
         let encoding = child.attributes.get("encoding").map(|s| s.to_string());
         let p = Property {
-            name: child.attributes
+            name: child
+                .attributes
                 .get("name")
                 .expect("Expected name to be set")
                 .to_string(),
-            fullname: child.attributes
+            fullname: child
+                .attributes
                 .get("name")
                 .expect("Expected fullname to be set")
                 .to_string(),
             classname: child.attributes.get("classname").map(|s| s.to_string()),
-            page: child.attributes.get("page").map(|s| s.parse::<u32>().unwrap()),
-            pagesize: child.attributes
+            page: child
+                .attributes
+                .get("page")
+                .map(|s| s.parse::<u32>().unwrap()),
+            pagesize: child
+                .attributes
                 .get("pagesize")
                 .map(|s| s.parse::<u32>().unwrap()),
-            property_type: child.attributes
-                .get("type")
-                .expect("Expected property_type to be set")
-                .to_string(),
+            property_type: PropertyType::from_str(
+                child
+                    .attributes
+                    .get("type")
+                    .expect("Expected property_type to be set"),
+            ),
             facet: child.attributes.get("facet").map(|s| s.to_string()),
-            size: child.attributes.get("size").map(|s| s.parse::<u32>().unwrap()),
+            size: child
+                .attributes
+                .get("size")
+                .map(|s| s.parse::<u32>().unwrap()),
             key: child.attributes.get("key").map(|name| name.to_string()),
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
             children: parse_context_get(&mut child).unwrap().properties,
             value: match child.children.first() {
-                Some(XMLNode::CData(cdata)) => Some(
-                    match encoding {
-                        Some(encoding) => match encoding.as_str() {
-                            "base64" => String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap()).unwrap(),
-                            _ => cdata.to_string(),
-                        },
+                Some(XMLNode::CData(cdata)) => Some(match encoding {
+                    Some(encoding) => match encoding.as_str() {
+                        "base64" => {
+                            String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
+                                .unwrap()
+                        }
                         _ => cdata.to_string(),
-                    }
-                ),
+                    },
+                    _ => cdata.to_string(),
+                }),
                 _ => None,
-            }
+            },
         };
         properties.push(p);
     }
@@ -371,30 +454,28 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
             continue;
         }
         let entry = StackEntry {
-                filename: stack_el
-                    .attributes
-                    .get("filename")
-                    .expect("Expected status to be set")
-                    .to_string(),
-                line: stack_el
-                    .attributes
-                    .get("lineno")
-                    .expect("Expected lineno to be set")
-                    .parse()
-                    .unwrap(),
+            filename: stack_el
+                .attributes
+                .get("filename")
+                .expect("Expected status to be set")
+                .to_string(),
+            line: stack_el
+                .attributes
+                .get("lineno")
+                .expect("Expected lineno to be set")
+                .parse()
+                .unwrap(),
         };
         entries.push(entry);
     }
 
-    StackGetResponse { entries}
+    StackGetResponse { entries }
 }
 
 fn parse_continuation_response(
     attributes: &std::collections::HashMap<String, String>,
 ) -> ContinuationResponse {
-    let status = attributes
-            .get("status")
-            .expect("Expected status to be set");
+    let status = attributes.get("status").expect("Expected status to be set");
     ContinuationResponse {
         status: match status.as_str() {
             "break" => ContinuationStatus::Break,
@@ -411,7 +492,7 @@ fn parse_continuation_response(
 #[cfg(test)]
 mod test {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_parse_xml() -> Result<(), anyhow::Error> {
@@ -511,6 +592,7 @@ function call_function(string $hello) {
             <property name="$this" fullname="$this" type="object" classname="Foo" children="1" numchildren="2" page="0" pagesize="32">
                 <property name="true" fullname="$this-&gt;true" facet="public" type="bool"><![CDATA[1]]></property>
                 <property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property>
+                <property name="handle" fullname="$this-&gt;handle" facet="private" type="resource"><![CDATA[resource id='18' type='stream']]></property>
             </property>
             </response>"#,
         )?;
@@ -527,7 +609,7 @@ function call_function(string $hello) {
                                     classname: None,
                                     page: None,
                                     pagesize: None,
-                                    property_type: "string".to_string(),
+                                    property_type: PropertyType::String,
                                     facet: None,
                                     size: Some(3),
                                     children: vec![],
@@ -542,7 +624,7 @@ function call_function(string $hello) {
                                     classname: None,
                                     page: None,
                                     pagesize: None,
-                                    property_type: "float".to_string(),
+                                    property_type: PropertyType::Float,
                                     facet: None,
                                     size: None,
                                     children: vec![],
@@ -557,7 +639,7 @@ function call_function(string $hello) {
                                     classname: None,
                                     page: None,
                                     pagesize: None,
-                                    property_type: "int".to_string(),
+                                    property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
                                     children: vec![],
@@ -572,7 +654,7 @@ function call_function(string $hello) {
                                     classname: None,
                                     page: None,
                                     pagesize: None,
-                                    property_type: "bool".to_string(),
+                                    property_type: PropertyType::Bool,
                                     facet: None,
                                     size: None,
                                     children: vec![],
@@ -587,7 +669,7 @@ function call_function(string $hello) {
                                     classname: Some("Foo".to_string()),
                                     page: Some(0),
                                     pagesize: Some(32),
-                                    property_type: "object".to_string(),
+                                    property_type: PropertyType::Object,
                                     facet: None,
                                     size: None,
                                     children: vec![
@@ -597,7 +679,7 @@ function call_function(string $hello) {
                                             classname: None,
                                             page: None,
                                             pagesize: None,
-                                            property_type: "bool".to_string(),
+                                            property_type: PropertyType::Bool,
                                             facet: Some("public".to_string()),
                                             size: None,
                                             children: vec![],
@@ -612,7 +694,7 @@ function call_function(string $hello) {
                                             classname: None,
                                             page: None,
                                             pagesize: None,
-                                            property_type: "string".to_string(),
+                                            property_type: PropertyType::String,
                                             facet: Some("public".to_string()),
                                             size: Some(3),
                                             children: vec![],
@@ -620,7 +702,22 @@ function call_function(string $hello) {
                                             address: None,
                                             encoding: Some("base64".to_string()),
                                             value: Some("foo".to_string()),
-                                        }
+                                        },
+                                        Property {
+                                            name: "handle".to_string(),
+                                            fullname: "handle".to_string(),
+                                            classname: None,
+                                            page: None,
+                                            pagesize: None,
+                                            property_type: PropertyType::Resource,
+                                            facet: Some("private".to_string()),
+                                            size: None,
+                                            children: vec![],
+                                            key: None,
+                                            address: None,
+                                            encoding: None,
+                                            value: Some("resource id='18' type='stream'".to_string()),
+                                        },
                                     ],
                                     key: None,
                                     address: None,
