@@ -3,30 +3,44 @@ use std::collections::HashMap;
 use anyhow::Result;
 use tree_sitter::{Node, Parser, Tree};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Value {
     pub value: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Position {
     pub row: usize,
     pub char: usize,
 }
 
-#[derive(Clone, Debug)]
+impl Position {
+    pub fn new(row: usize, column: usize) -> Self {
+        Self { row, char: column }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Range {
     pub start: Position,
     pub end: Position,
 }
 
-#[derive(Clone, Debug)]
+impl Range {
+    
+    pub fn new(start: Position, end: Position) -> Self {
+        Range { start, end }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct VariableRef {
     pub range: Range,
     pub name: String,
     pub value: Option<Value>,
 }
 
+// variable's start char is the key
 type Row = HashMap<usize, VariableRef>;
 
 #[derive(Clone, Debug)]
@@ -44,7 +58,7 @@ impl Analysis {
     pub fn row(&self, number: usize) -> Row {
         let value = self.rows.get(&number);
         if value.is_none() {
-            return HashMap::new();
+            return Row::new();
         }
         value.unwrap().clone()
     }
@@ -111,26 +125,45 @@ impl Analyser {
 #[cfg(test)]
 mod test {
     use super::*;
-    
+    use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_analyse() -> Result<(), anyhow::Error> {
+    fn test_analyse_vars() -> Result<(), anyhow::Error> {
         let source = r#"<?php
-            $var1 = 'hello'; $var2 = 'bar';
-
-            echo $var3;
-            if ($var1 && $var2) {
-                die($var2);
-            }
-
-            function foo($bar, $baz) {
-            }
-
-            echo "Hello World";
+$var1 = 'hello'; $var2 = 'bar';
         "#;
         let analysis = Analyser::new().analyze(source)?;
         let line = analysis.row(1);
-        panic!("{:?}", line);
+        assert_eq!(2, line.values().len());
+
+        assert_eq!(&VariableRef{
+            range: Range::new(Position::new(1,0), Position::new(1,5)),
+            name: "$var1".to_string(),
+            value: None,
+        }, line.get(&0).unwrap());
+
+        assert_eq!(&VariableRef{
+            range: Range::new(Position::new(1,17), Position::new(1,22)),
+            name: "$var2".to_string(),
+            value: None,
+        }, line.get(&17).unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyse_list() -> Result<(), anyhow::Error> {
+        let source = r#"<?php
+list($var1, $var2) = some_call();
+        "#;
+        let analysis = Analyser::new().analyze(source)?;
+        let line = analysis.row(1);
+        assert_eq!(2, line.values().len());
+
+        assert_eq!(&VariableRef{
+            range: Range::new(Position::new(1,5), Position::new(1,10)),
+            name: "$var1".to_string(),
+            value: None,
+        }, line.get(&5).unwrap());
         Ok(())
     }
 }
