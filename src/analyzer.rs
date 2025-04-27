@@ -52,7 +52,6 @@ impl Analysis {
     fn register(&mut self, variable: VariableRef) {
         let line = self.rows.entry(variable.range.end.row).or_default();
         line.insert(variable.range.start.char, variable);
-        
     }
 
     pub fn row(&self, number: usize) -> Row {
@@ -101,14 +100,15 @@ impl Analyser {
     fn walk(&mut self, node: &Node, source: &str) {
         let count = node.child_count();
         if node.kind() == "variable_name" {
-            self.analysis.register(VariableRef{
+            let var_ref = VariableRef{
                 name: node.utf8_text(source.as_bytes()).unwrap().to_string(),
                 range: Range{
                     start: Position {row: node.start_position().row, char: node.start_position().column},
                     end: Position {row: node.end_position().row, char: node.end_position().column},
                 },
                 value: None, 
-            });
+            };
+            self.analysis.register(var_ref);
         }
 
         for index in 0..count {

@@ -29,6 +29,7 @@ use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::sync::Notify;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
 use std::ops::DerefMut;
@@ -333,10 +334,10 @@ impl App {
                 ).await?;
             },
             AppEvent::ScrollSource(amount) => {
-                self.session_view.source_scroll = self
+                self.session_view.source_scroll = Some(self
                     .session_view
-                    .source_scroll
-                    .saturating_add_signed(amount * self.take_motion() as i16);
+                    .source_scroll.unwrap_or(0)
+                    .saturating_add(amount * self.take_motion() as i16));
             }
             AppEvent::ScrollContext(amount) => {
                 self.session_view.context_scroll = self
@@ -485,7 +486,13 @@ impl App {
                 line_no,
             };
             let context = client.deref_mut().context_get().await.unwrap();
-            self.analyzed_files.insert(source.filename.clone(), self.analyze(source.source.as_str()));
+            match self.analyzed_files.entry(source.filename.clone()) {
+                Entry::Occupied(_) => (),
+                Entry::Vacant(vacant_entry) => {
+                    let mut analyser = Analyser::new();
+                    vacant_entry.insert(analyser.analyze(source.source.as_str()).unwrap());
+                }
+            };
             let entry = HistoryEntry {
                 source,
                 stack,
@@ -495,10 +502,5 @@ impl App {
             self.session_view.reset();
         }
         Ok(())
-    }
-
-    fn analyze(&self, source: &str) -> Analysis {
-        let mut analyser = Analyser::new();
-        analyser.analyze(source).unwrap()
     }
 }
