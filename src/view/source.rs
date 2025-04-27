@@ -45,12 +45,14 @@ impl View for SourceComponent {
             .get(&history_entry.source.filename.to_string());
 
         for (line_no, line) in history_entry.source.source.lines().enumerate() {
+            let is_current_line = history_entry.source.line_no == line_no as u32+ 1;
+
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("{:<6}", line_no),
                     Style::default().fg(Color::Yellow),
                 ),
-                match history_entry.source.line_no == line_no as u32+ 1 {
+                match is_current_line {
                     // highlight the current line
                     true => Span::styled(line.to_string(), Style::default().bg(Color::Blue)),
                     false => Span::styled(line.to_string(), Style::default().fg(Color::White)),
@@ -59,24 +61,28 @@ impl View for SourceComponent {
 
             // record annotations to add at the end of the line
             let mut labels = vec![Span::raw("// ").style(Style::default().fg(Color::DarkGray))];
-            if let Some(analysis) = analysis {
-                for (_, var) in analysis.row(line_no) {
-                    let property = history_entry.get_property(var.name.as_str());
-                    if property.is_none() {
-                        continue;
+
+            if is_current_line {
+                if let Some(analysis) = analysis {
+                    for (_, var) in analysis.row(line_no) {
+                        let property = history_entry.get_property(var.name.as_str());
+                        if property.is_none() {
+                            continue;
+                        }
+                        match render_label(property.unwrap()) {
+                            Some(label) => labels.push(Span::raw(label)),
+                            None => continue,
+                        };
+                        labels.push(Span::raw(",").style(Style::default().fg(Color::DarkGray)));
                     }
-                    match render_label(property.unwrap()) {
-                        Some(label) => labels.push(Span::raw(label)),
-                        None => continue,
-                    };
-                    labels.push(Span::raw(",").style(Style::default().fg(Color::DarkGray)));
-                }
-                if labels.len() > 1 {
-                    labels.pop();
-                    annotations.push((line_no + 1, line.len() + 8, Line::from(labels).style(Style::default().fg(Color::DarkGray))));
+                    if labels.len() > 1 {
+                        labels.pop();
+                        annotations.push((line_no + 1, line.len() + 8, Line::from(labels).style(Style::default().fg(Color::DarkGray))));
+                    }
                 }
             }
         }
+
 
         let scroll:u16 = if history_entry.source.line_no as u16 > area.height {
             let center = (history_entry.source.line_no as u16).saturating_sub(area.height.div_ceil(2)) as i16;
