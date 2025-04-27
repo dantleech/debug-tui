@@ -9,6 +9,7 @@ Interactive XDebug step debugger for your terminal with vim-like key bindings.
 - **Travel backwards**: it's not quite time travel, but you can revisit
   previous steps in _history mode_.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
+- **Inline values**: Show variable values inline with the source code.
 
 ## Installation
 
@@ -33,6 +34,8 @@ Prefix with number to repeat:
 - `J`     scroll down 10
 - `k`     scroll up
 - `K`     scroll up 10
+- `+`     increase context depth
+- `-`     decrease context depth
 - `tab`   switch pane
 - `enter` toggle pane focus (full screen)
 - `?`     Show help

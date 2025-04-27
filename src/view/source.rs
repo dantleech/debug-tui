@@ -137,7 +137,7 @@ fn render_label(property: &Property) -> Option<String> {
         PropertyType::Float => property.value.clone().unwrap_or("".to_string()),
         PropertyType::String => format!("\"{}\"", property.value.clone().unwrap_or("".to_string())),
         PropertyType::Null => String::from("null"),
-        PropertyType::Resource => todo!(),
+        PropertyType::Resource => String::from(property.value.clone().unwrap_or("".to_string())),
         PropertyType::Undefined => String::from("undefined"),
     })
 }

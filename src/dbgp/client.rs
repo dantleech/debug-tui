@@ -592,6 +592,7 @@ function call_function(string $hello) {
             <property name="$this" fullname="$this" type="object" classname="Foo" children="1" numchildren="2" page="0" pagesize="32">
                 <property name="true" fullname="$this-&gt;true" facet="public" type="bool"><![CDATA[1]]></property>
                 <property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property>
+                <property name="handle" fullname="$this-&gt;handle" facet="private" type="resource"><![CDATA[resource id='18' type='stream']]></property>
             </property>
             </response>"#,
         )?;
@@ -701,6 +702,21 @@ function call_function(string $hello) {
                                             address: None,
                                             encoding: Some("base64".to_string()),
                                             value: Some("foo".to_string()),
+                                        },
+                                        Property {
+                                            name: "handle".to_string(),
+                                            fullname: "handle".to_string(),
+                                            classname: None,
+                                            page: None,
+                                            pagesize: None,
+                                            property_type: PropertyType::Resource,
+                                            facet: Some("private".to_string()),
+                                            size: None,
+                                            children: vec![],
+                                            key: None,
+                                            address: None,
+                                            encoding: None,
+                                            value: Some("resource id='18' type='stream'".to_string()),
                                         },
                                     ],
                                     key: None,
