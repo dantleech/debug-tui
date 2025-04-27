@@ -177,6 +177,10 @@ mod test {
             Some(String::from("undefined")),
             render_label(&create_simple_property(PropertyType::Undefined, ""))
         );
+        assert_eq!(
+            Some(String::from("resource id='18' type='stream'")),
+            render_label(&create_resource())
+        );
     }
 
     fn create_simple_property(property_type: PropertyType, value: &str) -> Property {
@@ -194,6 +198,24 @@ mod test {
             address: None,
             encoding: None,
             value: Some(value.to_string()),
+        }
+    }
+
+    fn create_resource() -> Property {
+        Property {
+            name: "handle".to_string(),
+            fullname: "handle".to_string(),
+            classname: None,
+            page: None,
+            pagesize: None,
+            property_type: PropertyType::Resource,
+            facet: Some("private".to_string()),
+            size: None,
+            children: vec![],
+            key: None,
+            address: None,
+            encoding: None,
+            value: Some("resource id='18' type='stream'".to_string()),
         }
     }
 
