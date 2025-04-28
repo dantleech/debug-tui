@@ -430,19 +430,7 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
             children: parse_context_get(&mut child).unwrap().properties,
-            value: match child.children.first() {
-                Some(XMLNode::CData(cdata)) => Some(match encoding {
-                    Some(encoding) => match encoding.as_str() {
-                        "base64" => {
-                            String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
-                                .unwrap()
-                        }
-                        _ => cdata.to_string(),
-                    },
-                    _ => cdata.to_string(),
-                }),
-                _ => None,
-            },
+            value: decode_element(Some(&child)),
         };
         properties.push(p);
     }
