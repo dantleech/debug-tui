@@ -3,6 +3,7 @@ use crate::app::App;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
+use log::info;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Position;
