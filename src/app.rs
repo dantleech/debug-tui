@@ -249,7 +249,10 @@ impl App {
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
         event: AppEvent,
     ) -> Result<()> {
-        info!("Handling event {:?}", event);
+        match event {
+            AppEvent::Tick => (),
+            _ => info!("Handling event {:?}", event),
+        };
         match event {
             AppEvent::Tick => (),
             AppEvent::Quit => self.quit = true,
@@ -296,10 +299,13 @@ impl App {
             AppEvent::ClientConnected(s) => {
                 let mut client = self.client.lock().await;
                 let response = client.deref_mut().connect(s).await?;
-                client.feature_set(
-                    "max_depth",
-                    self.context_depth.to_string().as_str()
-                ).await?;
+                for (feature, value) in [
+                    ("max_depth",self.context_depth.to_string().as_str()),
+                    ("extended_properties","1"),
+                ] {
+                    info!("setting feature {} to {:?}", feature, value);
+                    client.feature_set(feature, value).await?;
+                }
                 self.is_connected = true;
                 self.server_status = None;
                 self.view_current = CurrentView::Session;

@@ -187,7 +187,6 @@ impl DbgpClient {
         if xml.is_empty() {
             return Err(anyhow::anyhow!("Empty XML response"));
         }
-        debug!("[dbgp] << {}", xml);
         parse_xml(xml.as_str())
     }
 
