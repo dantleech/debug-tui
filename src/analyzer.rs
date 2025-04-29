@@ -166,5 +166,22 @@ list($var1, $var2) = some_call();
         }, line.get(&5).unwrap());
         Ok(())
     }
+
+    #[test]
+    fn test_cats() -> Result<(), anyhow::Error> {
+        let source = r#"<?php
+$fo😸cat = "12";
+        "#;
+        let analysis = Analyser::new().analyze(source)?;
+        let line = analysis.row(1);
+        assert_eq!(1, line.values().len());
+
+        assert_eq!(&VariableRef{
+            range: Range::new(Position::new(1,0), Position::new(1,10)),
+            name: "$fo😸cat".to_string(),
+            value: None,
+        }, line.get(&0).unwrap());
+        Ok(())
+    }
 }
 

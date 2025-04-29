@@ -187,7 +187,6 @@ impl DbgpClient {
         if xml.is_empty() {
             return Err(anyhow::anyhow!("Empty XML response"));
         }
-        debug!("[dbgp] << {}", xml);
         parse_xml(xml.as_str())
     }
 
@@ -390,17 +389,24 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
     while let Some(mut child) = element.take_child("property") {
         let encoding = child.attributes.get("encoding").map(|s| s.to_string());
         let p = Property {
-            name: child
+            name: match child
                 .attributes
-                .get("name")
-                .expect("Expected name to be set")
-                .to_string(),
-            fullname: child
+                .get("name") {
+                    Some(name) => name.to_string(),
+                    None => decode_element(child.get_child("name")).unwrap_or("".to_string())
+                },
+            fullname: match child
                 .attributes
-                .get("name")
-                .expect("Expected fullname to be set")
-                .to_string(),
-            classname: child.attributes.get("classname").map(|s| s.to_string()),
+                .get("fullname") {
+                    Some(name) => name.to_string(),
+                    None => decode_element(child.get_child("fullname")).unwrap_or("".to_string())
+                },
+            classname: match child
+                .attributes
+                .get("classname") {
+                    Some(name) => Some(name.to_string()),
+                    None => decode_element(child.get_child("classname"))
+                },
             page: child
                 .attributes
                 .get("page")
@@ -424,23 +430,33 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
             children: parse_context_get(&mut child).unwrap().properties,
-            value: match child.children.first() {
-                Some(XMLNode::CData(cdata)) => Some(match encoding {
-                    Some(encoding) => match encoding.as_str() {
-                        "base64" => {
-                            String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
-                                .unwrap()
-                        }
-                        _ => cdata.to_string(),
-                    },
-                    _ => cdata.to_string(),
-                }),
-                _ => None,
-            },
+            value: decode_element(Some(&child)),
         };
         properties.push(p);
     }
     Ok(ContextGetResponse { properties })
+}
+
+fn decode_element(element: Option<&Element>) -> Option<String> {
+    match element {
+        Some(e) => {
+            let encoding = e.attributes.get("encoding");
+             match e.children.first() {
+                Some(XMLNode::CData(cdata)) => match encoding {
+                    Some(encoding) => match encoding.as_str() {
+                        "base64" => {
+                            Some(String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
+                                .unwrap())
+                        }
+                        _ => Some(cdata.to_string()),
+                    },
+                    _ => Some(cdata.to_string()),
+                },
+                _ => None,
+            }
+        }
+        None => None,
+    }
 }
 
 fn parse_stack_get(element: &Element) -> StackGetResponse {
@@ -594,6 +610,7 @@ function call_function(string $hello) {
                 <property name="bar" fullname="$this-&gt;bar" facet="public" type="string" size="3" encoding="base64"><![CDATA[Zm9v]]></property>
                 <property name="handle" fullname="$this-&gt;handle" facet="private" type="resource"><![CDATA[resource id='18' type='stream']]></property>
             </property>
+            <property type="array"><name encoding="base64"><![CDATA[JGFycvCfmLhheQ==]]></name><fullname encoding="base64"><![CDATA[JGFycvCfmLhheQ==]]></fullname></property>
             </response>"#,
         )?;
 
@@ -675,7 +692,7 @@ function call_function(string $hello) {
                                     children: vec![
                                         Property {
                                             name: "true".to_string(),
-                                            fullname: "true".to_string(),
+                                            fullname: "$this->true".to_string(),
                                             classname: None,
                                             page: None,
                                             pagesize: None,
@@ -690,7 +707,7 @@ function call_function(string $hello) {
                                         },
                                         Property {
                                             name: "bar".to_string(),
-                                            fullname: "bar".to_string(),
+                                            fullname: "$this->bar".to_string(),
                                             classname: None,
                                             page: None,
                                             pagesize: None,
@@ -705,7 +722,7 @@ function call_function(string $hello) {
                                         },
                                         Property {
                                             name: "handle".to_string(),
-                                            fullname: "handle".to_string(),
+                                            fullname: "$this->handle".to_string(),
                                             classname: None,
                                             page: None,
                                             pagesize: None,
@@ -719,6 +736,21 @@ function call_function(string $hello) {
                                             value: Some("resource id='18' type='stream'".to_string()),
                                         },
                                     ],
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                    value: None,
+                                },
+                                Property {
+                                    name: "$arr😸ay".to_string(),
+                                    fullname: "$arr😸ay".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: PropertyType::Array,
+                                    facet: None,
+                                    size: None,
+                                    children: vec![],
                                     key: None,
                                     address: None,
                                     encoding: None,
