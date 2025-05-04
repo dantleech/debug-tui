@@ -1,4 +1,3 @@
-use clap::builder::styling::RgbColor;
 use ratatui::style::Color;
 use ratatui::style::Style;
 

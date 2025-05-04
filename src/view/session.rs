@@ -13,7 +13,6 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
-use ratatui::widgets::Clear;
 use ratatui::Frame;
 
 pub struct SessionView {}
