@@ -175,7 +175,7 @@ impl App {
             counter: 0,
             context_depth: 4,
 
-            theme: Theme::Dark,
+            theme: Theme::SolarizedDark,
             server_status: None,
             command_input: Input::default(),
             command_response: None,

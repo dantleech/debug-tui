@@ -56,26 +56,16 @@ fn status_widget(app: &App) -> Paragraph {
                 " 󱘖 {} ",
                 if app.is_connected { "".to_string() } else { app.config.listen.to_string() }
             ),
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .bg(match app.is_connected {
-                    false => Color::Yellow,
-                    true => Color::Green,
-                })
-                .fg(match app.is_connected {
-                    false => Color::Black,
-                    true => Color::Black,
-                }),
+            match app.is_connected {
+                false => app.theme().widget_inactive,
+                true => app.theme().widget_active,
+            }
         ),
         Span::styled(
             format!("   {:<3} ", app.history.current().map_or("n/a".to_string(), |entry| {
                 entry.stack.depth().to_string()
             })),
-            Style::default()
-                .bg(Color::Magenta)
-                .bold()
-                .fg(Color::White),
-
+            app.theme().widget_inactive,
         ),
         Span::styled(
             (match app.session_view.mode {
@@ -88,13 +78,11 @@ fn status_widget(app: &App) -> Paragraph {
                     app.history.offset + 1,
                     app.history.len()
                 ),
-                }).to_string(),
-            Style::default().bg(
-                match app.session_view.mode {
-                    SessionViewMode::Current => Color::Blue,
-                    SessionViewMode::History => Color::Red,
-                }
-            ),
+            }).to_string(),
+            match app.session_view.mode {
+                SessionViewMode::Current => app.theme().widget_mode_debug,
+                SessionViewMode::History => app.theme().widget_mode_history,
+            }
         ),
         Span::styled(
             match app.notification.is_visible() {
