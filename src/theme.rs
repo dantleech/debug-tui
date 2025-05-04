@@ -2,12 +2,19 @@ use clap::builder::styling::RgbColor;
 use ratatui::style::Color;
 use ratatui::style::Style;
 
+#[derive(Debug)]
 pub enum Theme {
     Dark,
     SolarizedDark,
 }
 
 impl Theme {
+    pub fn next(&self) -> Theme {
+        match self {
+            Theme::Dark => Self::SolarizedDark,
+            Theme::SolarizedDark => Self::Dark,
+        }
+    }
     pub fn scheme(&self) -> Scheme {
         match self {
             Theme::SolarizedDark => Scheme{

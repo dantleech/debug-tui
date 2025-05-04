@@ -380,6 +380,10 @@ impl App {
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::Input(key_event) => {
                 match key_event.code {
+                    KeyCode::Char('t') => {
+                        self.theme = self.theme.next();
+                        self.notification = Notification::info(format!("Switched to theme: {:?}", self.theme));
+                    },
                     KeyCode::Char('?') => {
                         self.sender.send(AppEvent::ChangeView(CurrentView::Help)).await.unwrap();
                     },

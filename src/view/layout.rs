@@ -54,7 +54,7 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                if app.is_connected { "".to_string() } else { app.config.listen.to_string() }
+                if app.is_connected { "connected".to_string() } else { app.config.listen.to_string() }
             ),
             match app.is_connected {
                 false => app.theme().widget_inactive,
