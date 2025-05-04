@@ -45,6 +45,7 @@ Key mappings (prefix with number to repeat):
 [K]     scroll up 10
 [+]     increase context depth
 [-]     decrease context depth
+[t]     rotate the theme
 [enter] toggle pane focus (full screen)
 
 Legend:
