@@ -1,6 +1,6 @@
 <?php
 
-$arra😸ay = [
+$array = [
     'int' => 123,
     'float' => 123.4,
     'string' => "string",
@@ -14,7 +14,7 @@ $arra😸ay = [
 ];
 $a = 2;
 $foo = $a;
-$foo = $arra😸ay;
+$foo = $array;
 
 $bar = $foo;
 

@@ -45,6 +45,7 @@ pub enum AppEvent {
     ScrollStack(i16),
     PushInputPlurality(char),
     ContextDepth(i8),
+    NextTheme,
 }
 
 pub type EventSender = Sender<AppEvent>;

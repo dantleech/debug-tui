@@ -1,7 +1,7 @@
 Debug-TUI
 =========
 
-Interactive XDebug step debugger for your terminal with vim-like key bindings.
+Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
 
 ![Screenshot](https://github.com/user-attachments/assets/9f938d2b-717b-4816-bb35-9f317f82a0a3)
 
@@ -38,11 +38,12 @@ Prefix with number to repeat:
 - `-`     decrease context depth
 - `tab`   switch pane
 - `enter` toggle pane focus (full screen)
+- `t`     rotate the theme
 - `?`     Show help
 
 ## Setting Breakpoints
 
-`xdebug-tui` has no mechanism for setting a breakpoint but you can use the
+`debug-tui` has no mechanism for setting a breakpoint but you can use the
 function `xdebug_break()` in your code:
 
 ```php

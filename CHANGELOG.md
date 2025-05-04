@@ -5,7 +5,7 @@ main
 ----
 
 - Improved property rendering
-- Introduced theme concept
+- Introduced themes (including solarized and solarized dark)
 - Show value of variables on current line
 - Support `extended_properties` #5
 
