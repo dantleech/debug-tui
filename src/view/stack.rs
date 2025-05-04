@@ -1,17 +1,13 @@
+use super::View;
 use crate::app::App;
 use crate::event::input::AppEvent;
 use ratatui::layout::Alignment;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-use super::View;
-
-pub struct StackComponent {
-}
+pub struct StackComponent {}
 
 impl View for StackComponent {
     fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
@@ -34,16 +30,21 @@ impl View for StackComponent {
             let entry_string = format!("{}:{}", entry.filename, entry.line);
 
             lines.push(Line::from(
-                entry_string[entry_string.len().saturating_sub(area.width as usize)..entry_string.len()].to_string()
+                entry_string
+                    [entry_string.len().saturating_sub(area.width as usize)..entry_string.len()]
+                    .to_string(),
             ));
         }
         frame.render_widget(
             Paragraph::new(lines)
-                .alignment(if app.session_view.full_screen { Alignment::Left } else { Alignment::Right} )
-                .style(Style::default().fg(Color::White))
+                .alignment(if app.session_view.full_screen {
+                    Alignment::Left
+                } else {
+                    Alignment::Right
+                })
+                .style(app.theme.scheme().stack_line)
                 .scroll((app.session_view.stack_scroll, 0)),
-            area
+            area,
         );
     }
 }
-

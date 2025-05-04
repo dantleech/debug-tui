@@ -1,10 +1,10 @@
 use super::View;
 use crate::app::App;
 use crate::dbgp::client::Property;
+use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
+use crate::theme::Scheme;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
@@ -28,7 +28,7 @@ impl View for ContextComponent {
             None => return,
         };
         let mut lines: Vec<Line> = vec![];
-        draw_properties(&context.properties, &mut lines, 0);
+        draw_properties(&app.theme(), &context.properties, &mut lines, 0);
 
         frame.render_widget(
             Paragraph::new(lines)
@@ -39,37 +39,58 @@ impl View for ContextComponent {
     }
 }
 
-pub fn draw_properties(properties: &Vec<Property>, lines: &mut Vec<Line>, level: usize) {
+pub fn draw_properties(
+    theme: &Scheme,
+    properties: &Vec<Property>,
+    lines: &mut Vec<Line>,
+    level: usize,
+) {
     for property in properties {
-        let value = property.value.clone().unwrap_or("".to_string());
-        lines.push(Line::from(vec![
+        let mut spans = vec![
             Span::raw("  ".repeat(level)),
-            Span::styled(property.name.to_string(), Style::default().fg(Color::White)),
+            Span::styled(property.name.to_string(), theme.syntax_label),
             Span::raw(" ".to_string()),
             Span::styled(
-                property.property_type.to_string(),
-                Style::default().fg(Color::Blue),
+                property.type_name(),
+                match property.property_type {
+                    PropertyType::Object => theme.syntax_type_object,
+                    _ => theme.syntax_type,
+                },
             ),
             Span::raw(" = ".to_string()),
-            match property.property_type.as_str() {
-                "bool" => Span::styled(value, Style::default().fg(Color::LightRed)),
-                "int" => Span::styled(value, Style::default().fg(Color::LightBlue)),
-                "float" => Span::styled(value, Style::default().fg(Color::LightBlue)),
-                "string" => Span::styled(value, Style::default().fg(Color::LightGreen)),
-                "array" => Span::styled(value, Style::default().fg(Color::Cyan)),
-                "hash" => Span::styled(value, Style::default().fg(Color::Cyan)),
-                "object" => match &property.classname {
-                    Some(name) => Span::styled(name.to_string(), Style::default().fg(Color::Red)),
-                    None => Span::styled(value, Style::default().fg(Color::Red)),
-                },
-                "resource" => Span::styled(value, Style::default().fg(Color::Red)),
-                "undefined" => Span::styled(value, Style::default().fg(Color::White)),
-                _ => Span::raw(value),
-            },
-        ]));
+            render_value(theme, property),
+        ];
+
+        let delimiters = match property.property_type {
+            PropertyType::Array => ("[", "]"),
+            _ => ("{", "}"),
+        };
 
         if !property.children.is_empty() {
-            draw_properties(&property.children, lines, level + 1);
+            spans.push(Span::raw(delimiters.0).style(theme.syntax_brace));
         }
+
+        lines.push(Line::from(spans));
+
+        if !property.children.is_empty() {
+            draw_properties(theme, &property.children, lines, level + 1);
+            lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
+        }
+    }
+}
+
+pub fn render_value<'a>(theme: &Scheme, property: &Property) -> Span<'a> {
+    let value = property.value.clone().unwrap_or("".to_string());
+    match property.property_type {
+        PropertyType::Bool => Span::styled(value, theme.syntax_literal),
+        PropertyType::Int => Span::styled(value, theme.syntax_literal),
+        PropertyType::Float => Span::styled(value, theme.syntax_literal),
+        PropertyType::String => Span::styled(format!("\"{}\"", value), theme.syntax_literal_string),
+        PropertyType::Array => Span::styled(value, theme.syntax_literal),
+        PropertyType::Hash => Span::styled(value, theme.syntax_literal),
+        PropertyType::Object => Span::styled(value, theme.syntax_literal),
+        PropertyType::Resource => Span::styled(value, theme.syntax_literal),
+        PropertyType::Undefined => Span::styled(value, theme.syntax_literal),
+        _ => Span::styled(value, theme.syntax_literal),
     }
 }

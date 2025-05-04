@@ -3,13 +3,10 @@ use crate::app::App;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
-use log::info;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Position;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
@@ -46,22 +43,19 @@ impl View for SourceComponent {
             .get(&history_entry.source.filename.to_string());
 
         for (line_no, line) in history_entry.source.source.lines().enumerate() {
-            let is_current_line = history_entry.source.line_no == line_no as u32+ 1;
+            let is_current_line = history_entry.source.line_no == line_no as u32 + 1;
 
             lines.push(Line::from(vec![
-                Span::styled(
-                    format!("{:<6}", line_no),
-                    Style::default().fg(Color::Yellow),
-                ),
+                Span::styled(format!("{:<6}", line_no), app.theme().source_line_no),
                 match is_current_line {
                     // highlight the current line
-                    true => Span::styled(line.to_string(), Style::default().bg(Color::Blue)),
-                    false => Span::styled(line.to_string(), Style::default().fg(Color::White)),
+                    true => Span::styled(line.to_string(), app.theme().source_line_highlight),
+                    false => Span::styled(line.to_string(), app.theme().source_line),
                 },
             ]));
 
             // record annotations to add at the end of the line
-            let mut labels = vec![Span::raw("// ").style(Style::default().fg(Color::DarkGray))];
+            let mut labels = vec![Span::raw("// ")];
 
             if is_current_line {
                 if let Some(analysis) = analysis {
@@ -74,28 +68,31 @@ impl View for SourceComponent {
                             Some(label) => labels.push(Span::raw(label)),
                             None => continue,
                         };
-                        labels.push(Span::raw(",").style(Style::default().fg(Color::DarkGray)));
+                        labels.push(Span::raw(","));
                     }
                     if labels.len() > 1 {
                         labels.pop();
-                        annotations.push((line_no + 1, line.len() + 8, Line::from(labels).style(Style::default().fg(Color::DarkGray))));
+                        annotations.push((
+                            line_no + 1,
+                            line.len() + 8,
+                            Line::from(labels).style(app.theme().source_annotation),
+                        ));
                     }
                 }
             }
         }
 
-
-        let scroll:u16 = if history_entry.source.line_no as u16 > area.height {
-            let center = (history_entry.source.line_no as u16).saturating_sub(area.height.div_ceil(2)) as i16;
-            center.saturating_add(app.session_view.source_scroll.unwrap_or(0)).max(0) as u16
+        let scroll: u16 = if history_entry.source.line_no as u16 > area.height {
+            let center = (history_entry.source.line_no as u16)
+                .saturating_sub(area.height.div_ceil(2)) as i16;
+            center
+                .saturating_add(app.session_view.source_scroll.unwrap_or(0))
+                .max(0) as u16
         } else {
             app.session_view.source_scroll.unwrap_or(0).max(0) as u16
         };
 
-        frame.render_widget(
-            Paragraph::new(lines.clone()).scroll((scroll, 0)),
-            rows[0],
-        );
+        frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, 0)), rows[0]);
 
         for (line_no, line_length, line) in annotations {
             let position = Position {
@@ -108,25 +105,27 @@ impl View for SourceComponent {
 
             frame
                 .buffer_mut()
-                .set_line(position.x, position.y, &line, rows[0].width);
+                .set_line(position.x, position.y, &line, rows[0].width - line_length as u16 + 1);
         }
     }
 }
 
 fn render_label(property: &Property) -> Option<String> {
     Some(match property.property_type {
-        PropertyType::Object|PropertyType::Array|PropertyType::Hash => format!("{}{{{}}}", property.type_name(), {
-            let mut labels: Vec<String> = Vec::new();
-            for child in &property.children {
-                let label = render_label(child);
-                if label.is_none() {
-                    continue;
-                }
+        PropertyType::Object | PropertyType::Array | PropertyType::Hash => {
+            format!("{}{{{}}}", property.type_name(), {
+                let mut labels: Vec<String> = Vec::new();
+                for child in &property.children {
+                    let label = render_label(child);
+                    if label.is_none() {
+                        continue;
+                    }
 
-                labels.push(format!("{}:{}", child.name, label.unwrap()));
-            }
-            labels.join(",")
-        }),
+                    labels.push(format!("{}:{}", child.name, label.unwrap()));
+                }
+                labels.join(",")
+            })
+        }
         PropertyType::Bool => {
             if property.value_is("1") {
                 String::from("true")

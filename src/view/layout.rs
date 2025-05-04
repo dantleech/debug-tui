@@ -16,6 +16,7 @@ use ratatui::style::Style;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::widgets::Clear;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
@@ -37,6 +38,7 @@ impl View for LayoutView {
             .constraints(constraints)
             .split(area);
 
+        f.render_widget(Clear::default(), rows[0]);
         f.render_widget(status_widget(app), rows[0]);
 
         match app.view_current {
@@ -99,15 +101,11 @@ fn status_widget(app: &App) -> Paragraph {
                 true => format!(" {} ", app.notification.message.clone()),
                 false => "".to_string(),
             },
-            Style::default()
-                .fg(match app.notification.level {
-                    NotificationLevel::Info => Color::Green,
-                    _ => Color::White,
-                })
-                .bg(match app.notification.level {
-                    NotificationLevel::Error => Color::Red,
-                    _ => Color::Black,
-                }),
+            match app.notification.level {
+                NotificationLevel::Error => app.theme().notification_error,
+                NotificationLevel::Info => app.theme().notification_info,
+                NotificationLevel::None => Style::default(),
+            },
         ),
     ])])
 }

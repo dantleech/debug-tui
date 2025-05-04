@@ -11,10 +11,9 @@ use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
+use ratatui::widgets::Clear;
 use ratatui::Frame;
 
 pub struct SessionView {}
@@ -125,14 +124,14 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             ComponentType::Stack => "Stack".to_string(),
         })
         .style(
-            Style::default().fg(if index == app.session_view.current_pane {
-                Color::Green
-            } else {
-                Color::DarkGray
-            }),
+            match index == app.session_view.current_pane {
+                true => app.theme().pane_border_active,
+                false => app.theme().pane_border_inactive,
+            }
         );
 
     frame.render_widget(&block, area);
+    frame.render_widget(Clear::default(), block.inner(area));
 
     match pane.component_type {
         ComponentType::Source => {

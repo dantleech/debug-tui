@@ -9,6 +9,8 @@ use crate::dbgp::client::Property;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
+use crate::theme::Scheme;
+use crate::theme::Theme;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -152,6 +154,7 @@ pub struct App {
 
     pub snapshot_notify: Arc<Notify>,
     pub context_depth: u8,
+    pub theme: Theme,
 
     pub analyzed_files: AnalyzedFiles,
 }
@@ -172,6 +175,7 @@ impl App {
             counter: 0,
             context_depth: 4,
 
+            theme: Theme::Dark,
             server_status: None,
             command_input: Input::default(),
             command_response: None,
@@ -508,5 +512,9 @@ impl App {
             self.session_view.reset();
         }
         Ok(())
+    }
+
+    pub(crate) fn theme(&self) -> Scheme {
+        self.theme.scheme()
     }
 }

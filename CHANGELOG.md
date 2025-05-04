@@ -4,6 +4,8 @@ CHANGELOG
 main
 ----
 
+- Improved property rendering
+- Introduced theme concept
 - Show value of variables on current line
 - Support `extended_properties` #5
 
