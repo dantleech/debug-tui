@@ -16,6 +16,7 @@ use ratatui::style::Style;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::widgets::Block;
 use ratatui::widgets::Clear;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
@@ -28,17 +29,14 @@ impl View for LayoutView {
     }
 
     fn draw(app: &App, f: &mut Frame, area: Rect) {
-        let constraints = vec![
-            Constraint::Length(1),
-            Constraint::Min(4),
-        ];
+        let constraints = vec![Constraint::Length(1), Constraint::Min(4)];
 
         let rows = Layout::default()
             .margin(0)
             .constraints(constraints)
             .split(area);
 
-        f.render_widget(Clear::default(), rows[0]);
+        f.render_widget(Block::default().style(app.theme().background), area);
         f.render_widget(status_widget(app), rows[0]);
 
         match app.view_current {
@@ -54,35 +52,43 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                if app.is_connected { "connected".to_string() } else { app.config.listen.to_string() }
+                if app.is_connected {
+                    "connected".to_string()
+                } else {
+                    app.config.listen.to_string()
+                }
             ),
             match app.is_connected {
                 false => app.theme().widget_inactive,
                 true => app.theme().widget_active,
-            }
+            },
         ),
         Span::styled(
-            format!("   {:<3} ", app.history.current().map_or("n/a".to_string(), |entry| {
-                entry.stack.depth().to_string()
-            })),
+            format!(
+                "   {:<3} ",
+                app.history.current().map_or("n/a".to_string(), |entry| {
+                    entry.stack.depth().to_string()
+                })
+            ),
             app.theme().widget_inactive,
         ),
         Span::styled(
             (match app.session_view.mode {
-                    SessionViewMode::Current => match app.is_connected {
-                        true => format!("   {} / ∞", app.history.offset + 1),
-                        false => "   0 / 0".to_string(),
-                    },
-                    SessionViewMode::History => format!(
+                SessionViewMode::Current => match app.is_connected {
+                    true => format!("   {} / ∞", app.history.offset + 1),
+                    false => "   0 / 0".to_string(),
+                },
+                SessionViewMode::History => format!(
                     "   {} / {} history [p] to go back [n] to go forwards [b] to return",
                     app.history.offset + 1,
                     app.history.len()
                 ),
-            }).to_string(),
+            })
+            .to_string(),
             match app.session_view.mode {
                 SessionViewMode::Current => app.theme().widget_mode_debug,
                 SessionViewMode::History => app.theme().widget_mode_history,
-            }
+            },
         ),
         Span::styled(
             match app.notification.is_visible() {

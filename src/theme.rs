@@ -6,17 +6,33 @@ use ratatui::style::Style;
 pub enum Theme {
     Dark,
     SolarizedDark,
+    SolarizedLight,
 }
 
 impl Theme {
     pub fn next(&self) -> Theme {
         match self {
             Theme::Dark => Self::SolarizedDark,
-            Theme::SolarizedDark => Self::Dark,
+            Theme::SolarizedDark => Self::SolarizedLight,
+            Theme::SolarizedLight => Self::Dark,
         }
     }
     pub fn scheme(&self) -> Scheme {
         match self {
+            Theme::SolarizedLight => {
+                let mut scheme = Self::SolarizedDark.scheme();
+                scheme.background = Style::default().bg(Solarized::Base3.to_color());
+
+                scheme.widget_active = Style::default().fg(Solarized::Green.to_color()).bg(Solarized::Base2.to_color());
+                scheme.widget_inactive = Style::default().fg(Solarized::Base03.to_color()).bg(Solarized::Base3.to_color());
+                scheme.source_line = scheme.source_line.fg(Solarized::Base00.to_color());
+                scheme.source_line_highlight = scheme.source_line_highlight.bg(Solarized::Base2.to_color()).fg(Solarized::Base01.to_color());
+
+                scheme.widget_mode_debug = scheme.widget_mode_debug.fg(Solarized::Base03.to_color()).bg(Solarized::Base3.to_color());
+                scheme.widget_mode_history = scheme.widget_mode_debug.bg(Solarized::Base3.to_color()).fg(Solarized::Red.to_color());
+
+                return scheme;
+            }
             Theme::SolarizedDark => Scheme{
                 syntax_variable: Style::default().fg(Solarized::Base00.to_color()),
                 syntax_type: Style::default().fg(Solarized::Cyan.to_color()),
@@ -31,13 +47,16 @@ impl Theme {
                 pane_border_inactive: Style::default().fg(Solarized::Base02.to_color()),
                 source_line: Style::default().fg(Solarized::Base1.to_color()),
                 source_line_no: Style::default().fg(Solarized::Yellow.to_color()),
-                source_line_highlight: Style::default().bg(Solarized::Base02.to_color()),
+                source_line_highlight: Style::default().bg(Solarized::Base02.to_color()).fg(Solarized::Base3.to_color()),
                 source_annotation: Style::default().fg(Solarized::Magenta.to_color()),
                 stack_line: Style::default().fg(Solarized::Base1.to_color()),
+
                 widget_active: Style::default().fg(Solarized::Base02.to_color()).bg(Solarized::Green.to_color()),
                 widget_inactive: Style::default().fg(Solarized::Base1.to_color()).bg(Solarized::Base03.to_color()),
                 widget_mode_debug: Style::default().fg(Solarized::Base1.to_color()).bg(Solarized::Base03.to_color()),
                 widget_mode_history: Style::default().fg(Solarized::Red.to_color()).bg(Solarized::Base03.to_color()),
+
+                background: Style::default().bg(Color::Black),
             },
             Theme::Dark => Scheme {
                 syntax_variable: Style::default().fg(Color::LightBlue),
@@ -54,7 +73,7 @@ impl Theme {
                 pane_border_active: Style::default().fg(Color::Green),
                 pane_border_inactive: Style::default().fg(Color::DarkGray),
 
-                source_line: Style::default(),
+                source_line: Style::default().fg(Color::White),
                 source_line_no: Style::default().fg(Color::Yellow),
                 source_line_highlight: Style::default().bg(Color::Blue),
                 source_annotation: Style::default().fg(Color::DarkGray),
@@ -65,12 +84,14 @@ impl Theme {
                 widget_inactive: Style::default().fg(Color::Black).bg(Color::Yellow),
                 widget_mode_debug: Style::default().bg(Color::Blue),
                 widget_mode_history: Style::default().bg(Color::Red),
+                background: Style::default().bg(Color::Black),
             },
         }
     }
 }
 
 pub struct Scheme {
+    pub background: Style,
     pub syntax_variable: Style,
     pub syntax_type: Style,
     pub syntax_type_object: Style,

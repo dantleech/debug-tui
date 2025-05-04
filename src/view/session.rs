@@ -131,7 +131,6 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         );
 
     frame.render_widget(&block, area);
-    frame.render_widget(Clear::default(), block.inner(area));
 
     match pane.component_type {
         ComponentType::Source => {
