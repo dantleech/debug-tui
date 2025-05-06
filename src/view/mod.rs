@@ -29,3 +29,5 @@ pub struct Pane {
     pub component_type: ComponentType,
     pub constraint: Constraint,
 }
+
+pub type Scroll = (i16,i16);

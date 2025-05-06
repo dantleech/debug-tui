@@ -17,8 +17,7 @@ pub struct SourceComponent {}
 impl View for SourceComponent {
     fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollSource(amount)),
-            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollSource(-amount)),
+            AppEvent::Scroll(amount) => Some(AppEvent::ScrollSource(amount)),
             _ => None,
         }
     }
@@ -86,17 +85,17 @@ impl View for SourceComponent {
             let center = (history_entry.source.line_no as u16)
                 .saturating_sub(area.height.div_ceil(2)) as i16;
             center
-                .saturating_add(app.session_view.source_scroll.unwrap_or(0))
+                .saturating_add(app.session_view.source_scroll.0 as i16)
                 .max(0) as u16
         } else {
-            app.session_view.source_scroll.unwrap_or(0).max(0) as u16
+            app.session_view.source_scroll.0
         };
 
-        frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, 0)), rows[0]);
+        frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, app.session_view.source_scroll.1)), rows[0]);
 
         for (line_no, line_length, line) in annotations {
             let position = Position {
-                x: line_length as u16,
+                x: (line_length as u16).saturating_sub(app.session_view.source_scroll.1),
                 y: (line_no as u32).saturating_sub(scroll as u32) as u16 + 1,
             };
             if !rows[0].contains(position) {
@@ -137,7 +136,7 @@ fn render_label(property: &Property) -> Option<String> {
         PropertyType::Float => property.value.clone().unwrap_or("".to_string()),
         PropertyType::String => format!("\"{}\"", property.value.clone().unwrap_or("".to_string())),
         PropertyType::Null => String::from("null"),
-        PropertyType::Resource => String::from(property.value.clone().unwrap_or("".to_string())),
+        PropertyType::Resource => property.value.clone().unwrap_or("".to_string()),
         PropertyType::Undefined => String::from("undefined"),
     })
 }

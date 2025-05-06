@@ -14,6 +14,7 @@ use tokio::sync::mpsc::Sender;
 use crate::app::CurrentView;
 use crate::dbgp::client::ContinuationStatus;
 use crate::view::session::SessionViewMode;
+use crate::view::Scroll;
 
 #[derive(Debug)]
 pub enum AppEvent {
@@ -37,12 +38,11 @@ pub enum AppEvent {
     UpdateSourceContext(String, String, u32),
     UpdateStatus(ContinuationStatus),
     NextPane,
-    ScrollDown(i16),
-    ScrollUp(i16),
-    ScrollSource(i16),
-    ScrollContext(i16),
+    Scroll(Scroll),
+    ScrollSource(Scroll),
+    ScrollContext(Scroll),
+    ScrollStack(Scroll),
     ToggleFullscreen,
-    ScrollStack(i16),
     PushInputPlurality(char),
     ContextDepth(i8),
     NextTheme,

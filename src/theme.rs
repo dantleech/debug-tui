@@ -30,7 +30,7 @@ impl Theme {
                 scheme.widget_mode_debug = scheme.widget_mode_debug.fg(Solarized::Base03.to_color()).bg(Solarized::Base3.to_color());
                 scheme.widget_mode_history = scheme.widget_mode_debug.bg(Solarized::Base3.to_color()).fg(Solarized::Red.to_color());
 
-                return scheme;
+                scheme
             }
             Theme::SolarizedDark => Scheme{
                 syntax_variable: Style::default().fg(Solarized::Base00.to_color()),

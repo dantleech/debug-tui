@@ -4,6 +4,7 @@ CHANGELOG
 main
 ----
 
+- Horizontal scrolling
 - Improved property rendering
 - Introduced themes (including solarized and solarized dark)
 - Show value of variables on current line

@@ -344,22 +344,13 @@ impl App {
                 ).await?;
             },
             AppEvent::ScrollSource(amount) => {
-                self.session_view.source_scroll = Some(self
-                    .session_view
-                    .source_scroll.unwrap_or(0)
-                    .saturating_add(amount * self.take_motion() as i16));
+                self.session_view.source_scroll = apply_scroll(self.session_view.source_scroll, amount, self.take_motion() as i16);
             }
             AppEvent::ScrollContext(amount) => {
-                self.session_view.context_scroll = self
-                    .session_view
-                    .context_scroll
-                    .saturating_add_signed(amount * self.take_motion() as i16);
+                self.session_view.context_scroll = apply_scroll(self.session_view.context_scroll, amount, self.take_motion() as i16);
             }
             AppEvent::ScrollStack(amount) => {
-                self.session_view.stack_scroll = self
-                    .session_view
-                    .stack_scroll
-                    .saturating_add_signed(amount * self.take_motion() as i16);
+                self.session_view.stack_scroll = apply_scroll(self.session_view.stack_scroll, amount, self.take_motion() as i16);
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -521,4 +512,11 @@ impl App {
     pub(crate) fn theme(&self) -> Scheme {
         self.theme.scheme()
     }
+}
+
+fn apply_scroll(scroll: (u16, u16), amount: (i16, i16), motion: i16) -> (u16, u16) {
+    (
+        (scroll.0 as i16).saturating_add(amount.0 * motion).max(0) as u16,
+        (scroll.1 as i16).saturating_add(amount.1 * motion).max(0) as u16,
+    )
 }

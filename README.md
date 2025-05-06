@@ -34,6 +34,10 @@ Prefix with number to repeat:
 - `J`     scroll down 10
 - `k`     scroll up
 - `K`     scroll up 10
+- `h`     scroll left
+- `H`     scroll left 10
+- `l`     scroll right
+- `L`     scroll right 10
 - `+`     increase context depth
 - `-`     decrease context depth
 - `tab`   switch pane

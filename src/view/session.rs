@@ -29,10 +29,14 @@ impl View for SessionView {
             KeyCode::Tab => return Some(AppEvent::NextPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
-                'j' => return Some(AppEvent::ScrollDown(1)),
-                'k' => return Some(AppEvent::ScrollUp(1)),
-                'J' => return Some(AppEvent::ScrollDown(10)),
-                'K' => return Some(AppEvent::ScrollUp(10)),
+                'j' => return Some(AppEvent::Scroll((1, 0))),
+                'k' => return Some(AppEvent::Scroll((-1, 0))),
+                'J' => return Some(AppEvent::Scroll((10, 0))),
+                'K' => return Some(AppEvent::Scroll((-10, 0))),
+                'l' => return Some(AppEvent::Scroll((0, 1))),
+                'L' => return Some(AppEvent::Scroll((0, 10))),
+                'h' => return Some(AppEvent::Scroll((0, -1))),
+                'H' => return Some(AppEvent::Scroll((0, -10))),
                 '0'..='9' => return Some(AppEvent::PushInputPlurality(char)),
                 _ => (),
             },
@@ -74,7 +78,13 @@ impl View for SessionView {
 
     fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
         if app.session_view.full_screen {
-            build_pane_widget(frame, app, app.session_view.current_pane(), area, app.session_view.current_pane);
+            build_pane_widget(
+                frame,
+                app,
+                app.session_view.current_pane(),
+                area,
+                app.session_view.current_pane,
+            );
             return;
         }
 
@@ -122,12 +132,10 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             ComponentType::Context => format!("Context({})", app.context_depth),
             ComponentType::Stack => "Stack".to_string(),
         })
-        .style(
-            match index == app.session_view.current_pane {
-                true => app.theme().pane_border_active,
-                false => app.theme().pane_border_inactive,
-            }
-        );
+        .style(match index == app.session_view.current_pane {
+            true => app.theme().pane_border_active,
+            false => app.theme().pane_border_inactive,
+        });
 
     frame.render_widget(&block, area);
 
@@ -146,9 +154,9 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 
 pub struct SessionViewState {
     pub full_screen: bool,
-    pub source_scroll: Option<i16>,
-    pub context_scroll: u16,
-    pub stack_scroll: u16,
+    pub source_scroll: (u16, u16),
+    pub context_scroll: (u16, u16),
+    pub stack_scroll: (u16, u16),
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
     pub current_pane: usize,
@@ -164,9 +172,9 @@ impl SessionViewState {
     pub fn new() -> Self {
         Self {
             full_screen: false,
-            source_scroll: None,
-            context_scroll: 0,
-            stack_scroll: 0,
+            source_scroll: (0, 0),
+            context_scroll: (0, 0),
+            stack_scroll: (0, 0),
             current_pane: 0,
             mode: SessionViewMode::Current,
             panes: vec![
@@ -196,8 +204,9 @@ impl SessionViewState {
     }
 
     pub(crate) fn reset(&mut self) {
-        self.context_scroll = 0;
-        self.source_scroll = None;
+        self.context_scroll = (0, 0);
+        self.stack_scroll = (0, 0);
+        self.source_scroll = (0, 0);
     }
 }
 

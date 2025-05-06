@@ -12,8 +12,7 @@ pub struct StackComponent {}
 impl View for StackComponent {
     fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollStack(amount)),
-            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollStack(-amount)),
+            AppEvent::Scroll(amount) => Some(AppEvent::ScrollStack(amount)),
             _ => None,
         }
     }
@@ -43,7 +42,7 @@ impl View for StackComponent {
                     Alignment::Right
                 })
                 .style(app.theme.scheme().stack_line)
-                .scroll((app.session_view.stack_scroll, 0)),
+                .scroll(app.session_view.stack_scroll),
             area,
         );
     }

@@ -8,7 +8,6 @@ use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
-use ratatui::widgets::Wrap;
 use ratatui::Frame;
 
 pub struct ContextComponent {}
@@ -16,8 +15,7 @@ pub struct ContextComponent {}
 impl View for ContextComponent {
     fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
-            AppEvent::ScrollDown(amount) => Some(AppEvent::ScrollContext(amount)),
-            AppEvent::ScrollUp(amount) => Some(AppEvent::ScrollContext(-amount)),
+            AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
             _ => None,
         }
     }
@@ -31,9 +29,8 @@ impl View for ContextComponent {
         draw_properties(&app.theme(), &context.properties, &mut lines, 0);
 
         frame.render_widget(
-            Paragraph::new(lines)
-                .wrap(Wrap { trim: false })
-                .scroll((app.session_view.context_scroll, 0)),
+            Paragraph::new(lines).scroll(app.session_view.context_scroll),
+
             area,
         );
     }
