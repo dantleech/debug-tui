@@ -4,7 +4,6 @@ permissions:
   contents: write
 
 on: 
-  pull_request:
   push:
     tags:
       - "*.*.*"
@@ -21,6 +20,11 @@ jobs:
             artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
             asset_name: debug-tui-linux_x86_64
             target: "x86_64-unknown-linux-musl"
+          - name: mac-aarch64
+            os: macos-14
+            target: "aarch64-apple-darwin"
+            artifact_name: target/aarch64-apple-darwin/release/debug-tui
+            asset_name: debug-tui-aarch64
           - name: mac-aarch64
             os: macos-14
             target: "aarch64-apple-darwin"
@@ -47,11 +51,10 @@ jobs:
         command: build
         args: --release --target ${{ matrix.target }}
 
-    - run: ls target
     - name: Rename
       run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
 
-      #    - name: Release
-      #      uses: softprops/action-gh-release@v1
-      #      with:
-      #        files: ${{ matrix.asset_name }}
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ matrix.asset_name }}
