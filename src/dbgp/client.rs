@@ -308,12 +308,12 @@ impl DbgpClient {
         debug!("[dbgp] >> {}", cmd_str);
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
-        self.stream
-            .as_mut()
-            .unwrap()
-            .write(bytes.as_bytes())
-            .await
-            .map_err(anyhow::Error::from)
+        match self.stream.as_mut() {
+            Some(stream) => stream.write(bytes.as_bytes())
+                .await
+                .map_err(anyhow::Error::from),
+            None => Err(anyhow::anyhow!("Stream was closed")),
+        }
     }
 
     pub(crate) async fn disonnect(&mut self) -> Result<(), anyhow::Error> {
