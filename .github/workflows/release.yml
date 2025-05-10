@@ -15,11 +15,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: linux
+          - name: linux-x86
             os: ubuntu-latest
             artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
-            asset_name: debug-tui-linux
+            asset_name: debug-tui-linux_x86_64
             target: "x86_64-unknown-linux-musl"
+          - name: mac-aarch64
+            os: macos-14
+            target: "aarch64-apple-darwin"
+            artifact_name: target/aarch64-apple-darwin/release/debug-tui
+            asset_name: debug-tui-aarch64
+          - name: mac-aarch64
+            os: macos-14
+            target: "aarch64-apple-darwin"
+            artifact_name: target/aarch64-apple-darwin/release/debug-tui
+            asset_name: debug-tui-aarch64
 
     steps:
     - uses: actions/checkout@v3
