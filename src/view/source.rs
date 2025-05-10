@@ -94,17 +94,31 @@ impl View for SourceComponent {
         frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, app.session_view.source_scroll.1)), rows[0]);
 
         for (line_no, line_length, line) in annotations {
-            let position = Position {
-                x: (line_length as u16).saturating_sub(app.session_view.source_scroll.1),
+            let area = Rect {
+                x: rows[0].x + (line_length as u16).saturating_sub(app.session_view.source_scroll.1),
                 y: (line_no as u32).saturating_sub(scroll as u32) as u16 + 1,
+                width: rows[0].width,
+                height: 1,
             };
-            if !rows[0].contains(position) {
-                continue;
+
+            if !frame.buffer_mut().area().contains(Position{x: area.x, y: area.y}) {
+                continue
+            }
+            if !rows[0].contains(Position{x: area.x, y: area.y}) {
+                continue
             }
 
-            frame
-                .buffer_mut()
-                .set_line(position.x, position.y, &line, rows[0].width - line_length as u16 + 1);
+            frame.render_widget(
+                Paragraph::new(line.clone()).scroll((
+                    0,
+                    if app.session_view.source_scroll.1 > line_length as u16 {
+                        app.session_view.source_scroll.1 - line_length as u16
+                    } else {
+                        0
+                    })
+                ),
+                area
+            );
         }
     }
 }

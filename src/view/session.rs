@@ -13,6 +13,7 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
+use ratatui::widgets::Clear;
 use ratatui::Frame;
 
 pub struct SessionView {}
@@ -137,6 +138,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             false => app.theme().pane_border_inactive,
         });
 
+    frame.render_widget(Clear, area);
     frame.render_widget(&block, area);
 
     match pane.component_type {
