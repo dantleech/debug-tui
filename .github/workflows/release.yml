@@ -19,13 +19,13 @@ jobs:
           - name: linux-x86
             os: ubuntu-latest
             artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
-            asset_name: debug-tui-linux
+            asset_name: debug-tui-linux_x86_64
             target: "x86_64-unknown-linux-musl"
           - name: mac-aarch64
             os: macos-14
             target: "aarch64-apple-darwin"
-            artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
-            asset_name: debug-tui-linux
+            artifact_name: target/aarch64-apple-darwin/release/debug-tui
+            asset_name: debug-tui-aarch64
 
     steps:
     - uses: actions/checkout@v3
@@ -47,6 +47,7 @@ jobs:
         command: build
         args: --release --target ${{ matrix.target }}
 
+    - run: ls target
     - name: Rename
       run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
 
@@ -54,43 +55,3 @@ jobs:
       #      uses: softprops/action-gh-release@v1
       #      with:
       #        files: ${{ matrix.asset_name }}
-
-  publish-mac-windows:
-    name: "Publish for ${{ matrix.os }}"
-    runs-on: "${{ matrix.os }}"
-    strategy:
-      matrix:
-        include:
-          - name: linux
-            os: ubuntu-latest
-            artifact_name: target/x86_64-unknown-linux-musl/release/debug-tui
-            asset_name: debug-tui-linux
-            target: "x86_64-unknown-linux-musl"
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install stable toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-        target: ${{ matrix.target }}
-
-    - name: Install MUSL
-      if: matrix.target == 'x86_64-unknown-linux-musl'
-      run: sudo apt install musl-tools
-
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release --target ${{ matrix.target }}
-
-    - name: Rename
-      run: mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
-
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ${{ matrix.asset_name }}
