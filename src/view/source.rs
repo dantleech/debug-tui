@@ -94,10 +94,11 @@ impl View for SourceComponent {
         frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, app.session_view.source_scroll.1)), rows[0]);
 
         for (line_no, line_length, line) in annotations {
+            let x_offset =  rows[0].x + (line_length as u16).saturating_sub(app.session_view.source_scroll.1);
             let area = Rect {
-                x: rows[0].x + (line_length as u16).saturating_sub(app.session_view.source_scroll.1),
+                x: x_offset,
                 y: (line_no as u32).saturating_sub(scroll as u32) as u16 + 1,
-                width: rows[0].width,
+                width: rows[0].width.saturating_sub(x_offset),
                 height: 1,
             };
 

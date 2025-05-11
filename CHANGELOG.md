@@ -1,8 +1,13 @@
 CHANGELOG
 =========
 
-main
-----
+0.0.4
+-----
+
+- Fix out-of-bounds rendering issue
+
+0.0.3
+-----
 
 - Horizontal scrolling
 - Improved property rendering
