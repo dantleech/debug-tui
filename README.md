@@ -1,7 +1,7 @@
 Debug-TUI
 =========
 
-Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
+Interactive [Xdebug](https://xdebug.org) step-debugging client for your terminal.
 
 ![Image](https://github.com/user-attachments/assets/21627682-b2f1-4622-b67d-ff6cd32e4363)
 
