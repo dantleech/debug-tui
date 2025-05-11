@@ -13,7 +13,7 @@ Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
 
 ## Installation
 
-- Download the [latest release](https://github.com/dantleech/debug-tui/releases/tag/0.0.1)
+- Download the [latest release](https://github.com/dantleech/debug-tui/releases/latest)
 - Compile it yourself `cargo build`
 
 ## CLI options
