@@ -24,6 +24,11 @@ impl Theme {
 
                 scheme.widget_active = Style::default().fg(Solarized::Green.to_color()).bg(Solarized::Base2.to_color());
                 scheme.widget_inactive = Style::default().fg(Solarized::Base03.to_color()).bg(Solarized::Base3.to_color());
+
+                scheme.pane_border_active = Style::default().fg(Solarized::Base01.to_color()).bg(Solarized::Base3.to_color());
+
+                scheme.pane_border_inactive = Style::default().fg(Solarized::Base02.to_color()).bg(Solarized::Base3.to_color());
+
                 scheme.source_line = scheme.source_line.fg(Solarized::Base00.to_color());
                 scheme.source_line_highlight = scheme.source_line_highlight.bg(Solarized::Base2.to_color()).fg(Solarized::Base01.to_color());
 
