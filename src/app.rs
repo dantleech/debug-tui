@@ -411,7 +411,7 @@ impl App {
                     amount,
                     self.take_motion() as i16,
                 );
-                self.populate_context().await?;
+                self.populate_stack_context().await?;
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -582,26 +582,20 @@ impl App {
         self.theme.scheme()
     }
 
-    async fn populate_context(&mut self) -> Result<()> {
+    async fn populate_stack_context(&mut self) -> Result<()> {
         if !self.history.is_current() {
             return Ok(());
         }
         let level = self.session_view.stack_scroll.0 as usize;
-        match self.history.current_mut() {
-            Some(c) => {
-                let stack = c.stacks.get_mut(level);
-                match stack {
-                    Some(s) => {
-                        if s.context.is_none() {
-                            let mut client = self.client.lock().await;
-                            let context = client.deref_mut().context_get(level as u16).await?;
-                            s.context = Some(context);
-                        }
-                    }
-                    None => (),
-                };
-            }
-            None => (),
+        if let Some(c) = self.history.current_mut() {
+            let stack = c.stacks.get_mut(level);
+            if let Some(s) = stack {
+                if s.context.is_none() {
+                    let mut client = self.client.lock().await;
+                    let context = client.deref_mut().context_get(level as u16).await?;
+                    s.context = Some(context);
+                }
+            };
         };
         Ok(())
     }
