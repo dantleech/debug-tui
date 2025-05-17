@@ -37,6 +37,10 @@ impl View for StackComponent {
                 false => app.theme().widget_inactive,
             }));
         }
+        let y_scroll = match (app.session_view.stack_depth() + 1) > area.height {
+            true => (app.session_view.stack_depth() + 1) - area.height,
+            false => 0,
+        };
         frame.render_widget(
             Paragraph::new(lines)
                 .alignment(if app.session_view.full_screen {
@@ -45,7 +49,7 @@ impl View for StackComponent {
                     Alignment::Right
                 })
                 .style(app.theme.scheme().stack_line)
-                .scroll((0, app.session_view.stack_scroll.1)),
+                .scroll((y_scroll, app.session_view.stack_scroll.1)),
             area,
         );
     }

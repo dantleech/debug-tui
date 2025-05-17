@@ -530,8 +530,8 @@ impl App {
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
-            let context = match level == 0 {
-                true => Some(client.deref_mut().context_get(0).await.unwrap()),
+            let context = match true {
+                true => Some(client.deref_mut().context_get(level as u16).await.unwrap()),
                 false => None,
             };
             let source_code = client
