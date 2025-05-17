@@ -33,8 +33,8 @@ impl View for StackComponent {
                     [entry_string.len().saturating_sub(area.width as usize)..entry_string.len()]
                     .to_string(),
             ).style(match stack.level == app.session_view.stack_depth() {
-                true => app.theme().widget_active,
-                false => app.theme().widget_inactive,
+                true => app.theme().source_line_highlight,
+                false => app.theme().source_line,
             }));
         }
         let y_scroll = match (app.session_view.stack_depth() + 1) > area.height {

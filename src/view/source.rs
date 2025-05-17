@@ -117,11 +117,7 @@ impl View for SourceComponent {
             frame.render_widget(
                 Paragraph::new(line.clone()).scroll((
                     0,
-                    if app.session_view.source_scroll.1 > line_length as u16 {
-                        app.session_view.source_scroll.1 - line_length as u16
-                    } else {
-                        0
-                    })
+                    app.session_view.source_scroll.1.saturating_sub(line_length as u16))
                 ),
                 area
             );

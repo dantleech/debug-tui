@@ -131,7 +131,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 None => "".to_string(),
             },
             ComponentType::Context => format!("Context({})", app.context_depth),
-            ComponentType::Stack => format!("Stack ({})", app.session_view.stack_depth()),
+            ComponentType::Stack => format!("Stack({})", app.session_view.stack_depth()),
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,

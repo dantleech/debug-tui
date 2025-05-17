@@ -6,8 +6,6 @@ use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
 use crate::dbgp::client::Property;
-use crate::dbgp::client::StackEntry;
-use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
@@ -55,18 +53,15 @@ pub struct StackFrame {
 impl StackFrame {
     pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
         match &self.context {
-            Some(c) => c.properties
-                .iter()
-                .find(|&property| property.name == name),
+            Some(c) => c.properties.iter().find(|&property| property.name == name),
             None => None,
         }
-            
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
-    pub stacks: Vec<StackFrame>
+    pub stacks: Vec<StackFrame>,
 }
 
 impl HistoryEntry {
@@ -74,16 +69,22 @@ impl HistoryEntry {
         self.stacks.push(frame);
     }
     fn new() -> Self {
-        let stacks  = Vec::new();
+        let stacks = Vec::new();
         HistoryEntry { stacks }
     }
 
     fn initial(filename: String, source: String) -> HistoryEntry {
-        HistoryEntry{stacks: vec![StackFrame {
-            level: 0,
-            source: SourceContext { source, filename, line_no: 0 },
-            context: None,
-        }]}
+        HistoryEntry {
+            stacks: vec![StackFrame {
+                level: 0,
+                source: SourceContext {
+                    source,
+                    filename,
+                    line_no: 0,
+                },
+                context: None,
+            }],
+        }
     }
 
     pub fn source(&self, level: u16) -> SourceContext {
@@ -97,7 +98,6 @@ impl HistoryEntry {
     pub(crate) fn stack(&self, stack_depth: u16) -> Option<&StackFrame> {
         self.stacks.get(stack_depth as usize)
     }
-
 }
 
 pub struct History {
@@ -155,7 +155,11 @@ pub struct SourceContext {
 }
 impl SourceContext {
     fn default() -> SourceContext {
-        SourceContext { source: "".to_string(), filename: "".to_string(), line_no: 0 }
+        SourceContext {
+            source: "".to_string(),
+            filename: "".to_string(),
+            line_no: 0,
+        }
     }
 }
 
@@ -352,7 +356,8 @@ impl App {
                 let source = client.source(response.fileuri.clone()).await.unwrap();
 
                 self.history = History::default();
-                self.history.push(HistoryEntry::initial(response.fileuri.clone(), source));
+                self.history
+                    .push(HistoryEntry::initial(response.fileuri.clone(), source));
             }
             AppEvent::Snapshot() => {
                 self.snapshot().await?;
@@ -552,7 +557,11 @@ impl App {
                 }
             };
 
-            entry.push(StackFrame{level: (level as u16), source, context});
+            entry.push(StackFrame {
+                level: (level as u16),
+                source,
+                context,
+            });
         }
         self.history.push(entry);
         self.session_view.reset();

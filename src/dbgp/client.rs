@@ -151,10 +151,6 @@ impl StackGetResponse {
             .first()
             .expect("Expected at least one stack entry")
     }
-
-    pub(crate) fn top_or_none(&self) -> Option<&StackEntry> {
-        self.entries.first()
-    }
 }
 
 #[derive(Debug, Clone)]
