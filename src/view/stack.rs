@@ -18,6 +18,7 @@ impl View for StackComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
+        log::info!("Stack: {:?}", app.session_view.stack_scroll);
         let stack = match app.history.current() {
             Some(s) => &s.stack,
             None => return,
@@ -32,7 +33,10 @@ impl View for StackComponent {
                 entry_string
                     [entry_string.len().saturating_sub(area.width as usize)..entry_string.len()]
                     .to_string(),
-            ));
+            ).style(match entry.level == app.session_view.stack_depth() as u32 {
+                true => app.theme().widget_active,
+                false => app.theme().widget_inactive,
+            }));
         }
         frame.render_widget(
             Paragraph::new(lines)
@@ -42,7 +46,7 @@ impl View for StackComponent {
                     Alignment::Right
                 })
                 .style(app.theme.scheme().stack_line)
-                .scroll(app.session_view.stack_scroll),
+                .scroll((0, app.session_view.stack_scroll.1)),
             area,
         );
     }

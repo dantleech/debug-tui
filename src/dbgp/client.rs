@@ -161,6 +161,7 @@ impl StackGetResponse {
 pub struct StackEntry {
     pub filename: String,
     pub line: u32,
+    pub level: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -479,6 +480,12 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
                 .attributes
                 .get("lineno")
                 .expect("Expected lineno to be set")
+                .parse()
+                .unwrap(),
+            level: stack_el
+                .attributes
+                .get("level")
+                .expect("Expected level to be set")
                 .parse()
                 .unwrap(),
         };
