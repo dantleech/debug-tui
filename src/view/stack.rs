@@ -25,7 +25,7 @@ impl View for StackComponent {
 
         let mut lines: Vec<Line> = Vec::new();
 
-        for (_, stack) in &entry.stacks {
+        for stack in &entry.stacks {
             let entry_string = format!("{}:{}", stack.source.filename, stack.source.line_no);
 
             lines.push(Line::from(

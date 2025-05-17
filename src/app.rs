@@ -66,31 +66,28 @@ impl StackFrame {
 
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
-    pub stacks: HashMap<u16,StackFrame>
+    pub stacks: Vec<StackFrame>
 }
 
 impl HistoryEntry {
     fn push(&mut self, frame: StackFrame) {
-        let entry = self.stacks.entry(frame.level);
-        entry.insert_entry(frame);
+        self.stacks.push(frame);
     }
     fn new() -> Self {
-        let stacks  = HashMap::new();
+        let stacks  = Vec::new();
         HistoryEntry { stacks }
     }
 
     fn initial(filename: String, source: String) -> HistoryEntry {
-        let mut entry = HistoryEntry::new();
-        entry.push(StackFrame {
+        HistoryEntry{stacks: vec![StackFrame {
             level: 0,
             source: SourceContext { source, filename, line_no: 0 },
             context: None,
-        });
-        entry
+        }]}
     }
 
     pub fn source(&self, level: u16) -> SourceContext {
-        let entry = self.stacks.get(&level);
+        let entry = self.stacks.get(level as usize);
         match entry {
             Some(e) => e.source.clone(),
             None => SourceContext::default(),
@@ -98,7 +95,7 @@ impl HistoryEntry {
     }
 
     pub(crate) fn stack(&self, stack_depth: u16) -> Option<&StackFrame> {
-        self.stacks.get(&stack_depth)
+        self.stacks.get(stack_depth as usize)
     }
 
 }
