@@ -130,8 +130,16 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 Some(c) => c.source(app.session_view.stack_depth()).filename.to_string(),
                 None => "".to_string(),
             },
-            ComponentType::Context => format!("Context({})", app.context_depth),
-            ComponentType::Stack => format!("Stack({})", app.session_view.stack_depth()),
+            ComponentType::Context => format!("Context(fetch-depth: {})", app.context_depth),
+            ComponentType::Stack => format!(
+                "Stack({}/{}, fetch-depth: {})",
+                app.session_view.stack_depth(),
+                match app.history.current() {
+                    Some(e) => e.stacks.len() - 1,
+                    None => 0,
+                },
+                app.stack_max_context_fetch,
+            ),
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,

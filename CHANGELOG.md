@@ -1,6 +1,12 @@
 CHANGELOG
 =========
 
+main
+----
+
+- Stack traversal - select stack and inspect stack frames in current mode.
+- Fixed light theme.
+
 0.0.4
 -----
 

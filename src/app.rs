@@ -219,7 +219,7 @@ impl App {
             client: Arc::new(Mutex::new(client)),
             counter: 0,
             context_depth: 4,
-            stack_max_context_fetch: 4,
+            stack_max_context_fetch: 1,
 
             theme: Theme::SolarizedDark,
             server_status: None,
