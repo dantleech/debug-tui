@@ -490,7 +490,7 @@ impl App {
                 filename: filename.to_string(),
                 line_no,
             };
-            let context = client.deref_mut().context_get().await.unwrap();
+            let context = client.deref_mut().context_get(0).await.unwrap();
             match self.analyzed_files.entry(source.filename.clone()) {
                 Entry::Occupied(_) => (),
                 Entry::Vacant(vacant_entry) => {

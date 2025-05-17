@@ -235,8 +235,8 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn context_get(&mut self) -> Result<ContextGetResponse> {
-        match self.command("context_get", &mut vec![]).await? {
+    pub(crate) async fn context_get(&mut self, depth: u16) -> Result<ContextGetResponse> {
+        match self.command("context_get", &mut vec!["-d", format!("{}", depth).as_str()]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::ContextGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
