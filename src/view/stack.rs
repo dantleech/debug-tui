@@ -18,22 +18,29 @@ impl View for StackComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        let stack = match app.history.current() {
-            Some(s) => &s.stack,
+        let entry = match app.history.current() {
+            Some(s) => s,
             None => return,
         };
 
         let mut lines: Vec<Line> = Vec::new();
 
-        for entry in &stack.entries {
-            let entry_string = format!("{}:{}", entry.filename, entry.line);
+        for stack in &entry.stacks {
+            let entry_string = format!("{}:{}", stack.source.filename, stack.source.line_no);
 
             lines.push(Line::from(
                 entry_string
                     [entry_string.len().saturating_sub(area.width as usize)..entry_string.len()]
                     .to_string(),
-            ));
+            ).style(match stack.level == app.session_view.stack_depth() {
+                true => app.theme().source_line_highlight,
+                false => app.theme().source_line,
+            }));
         }
+        let y_scroll = match (app.session_view.stack_depth() + 1) > area.height {
+            true => (app.session_view.stack_depth() + 1) - area.height,
+            false => 0,
+        };
         frame.render_widget(
             Paragraph::new(lines)
                 .alignment(if app.session_view.full_screen {
@@ -42,7 +49,7 @@ impl View for StackComponent {
                     Alignment::Right
                 })
                 .style(app.theme.scheme().stack_line)
-                .scroll(app.session_view.stack_scroll),
+                .scroll((y_scroll, app.session_view.stack_scroll.1)),
             area,
         );
     }

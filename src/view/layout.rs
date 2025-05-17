@@ -63,7 +63,7 @@ fn status_widget(app: &App) -> Paragraph {
             format!(
                 "   {:<3} ",
                 app.history.current().map_or("n/a".to_string(), |entry| {
-                    entry.stack.depth().to_string()
+                    entry.stacks.len().to_string()
                 })
             ),
             app.theme().widget_inactive,

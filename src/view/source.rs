@@ -37,12 +37,17 @@ impl View for SourceComponent {
         let mut annotations = vec![];
         let mut lines: Vec<Line> = Vec::new();
 
+        let stack = match history_entry.stack(app.session_view.stack_depth()) {
+            None => return,
+            Some(stack) => stack
+        };
+
         let analysis = app
             .analyzed_files
-            .get(&history_entry.source.filename.to_string());
+            .get(&stack.source.filename.to_string());
 
-        for (line_no, line) in history_entry.source.source.lines().enumerate() {
-            let is_current_line = history_entry.source.line_no == line_no as u32 + 1;
+        for (line_no, line) in stack.source.source.lines().enumerate() {
+            let is_current_line = stack.source.line_no == line_no as u32 + 1;
 
             lines.push(Line::from(vec![
                 Span::styled(format!("{:<6}", line_no), app.theme().source_line_no),
@@ -59,7 +64,7 @@ impl View for SourceComponent {
             if is_current_line {
                 if let Some(analysis) = analysis {
                     for (_, var) in analysis.row(line_no) {
-                        let property = history_entry.get_property(var.name.as_str());
+                        let property = stack.get_property(var.name.as_str());
                         if property.is_none() {
                             continue;
                         }
@@ -81,8 +86,8 @@ impl View for SourceComponent {
             }
         }
 
-        let scroll: u16 = if history_entry.source.line_no as u16 > area.height {
-            let center = (history_entry.source.line_no as u16)
+        let scroll: u16 = if stack.source.line_no as u16 > area.height {
+            let center = (stack.source.line_no as u16)
                 .saturating_sub(area.height.div_ceil(2)) as i16;
             center
                 .saturating_add(app.session_view.source_scroll.0 as i16)
@@ -112,11 +117,7 @@ impl View for SourceComponent {
             frame.render_widget(
                 Paragraph::new(line.clone()).scroll((
                     0,
-                    if app.session_view.source_scroll.1 > line_length as u16 {
-                        app.session_view.source_scroll.1 - line_length as u16
-                    } else {
-                        0
-                    })
+                    app.session_view.source_scroll.1.saturating_sub(line_length as u16))
                 ),
                 area
             );

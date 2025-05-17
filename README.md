@@ -8,6 +8,7 @@ Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
 - **Travel forwards**: step over, into and out.
 - **Travel backwards**: it's not quite time travel, but you can revisit
   previous steps in _history mode_.
+- **Jump the stack**: jump up and down the stack.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
 - **Inline values**: Show variable values inline with the source code.
 
@@ -30,14 +31,14 @@ Prefix with number to repeat:
 - `N`     step over
 - `p`     previous (switches to history mode if in current mode)
 - `o`     step out
-- `j`     scroll down
-- `J`     scroll down 10
-- `k`     scroll up
-- `K`     scroll up 10
-- `h`     scroll left
-- `H`     scroll left 10
-- `l`     scroll right
-- `L`     scroll right 10
+- `j`     down
+- `J`     down 10
+- `k`     up
+- `K`     up 10
+- `h`     left
+- `H`     left 10
+- `l`     right
+- `L`     right 10
 - `+`     increase context depth
 - `-`     decrease context depth
 - `tab`   switch pane

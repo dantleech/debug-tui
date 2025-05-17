@@ -151,16 +151,13 @@ impl StackGetResponse {
             .first()
             .expect("Expected at least one stack entry")
     }
-
-    pub(crate) fn top_or_none(&self) -> Option<&StackEntry> {
-        self.entries.first()
-    }
 }
 
 #[derive(Debug, Clone)]
 pub struct StackEntry {
     pub filename: String,
     pub line: u32,
+    pub level: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -235,8 +232,8 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn context_get(&mut self) -> Result<ContextGetResponse> {
-        match self.command("context_get", &mut vec![]).await? {
+    pub(crate) async fn context_get(&mut self, depth: u16) -> Result<ContextGetResponse> {
+        match self.command("context_get", &mut vec!["-d", format!("{}", depth).as_str()]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::ContextGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -479,6 +476,12 @@ fn parse_stack_get(element: &Element) -> StackGetResponse {
                 .attributes
                 .get("lineno")
                 .expect("Expected lineno to be set")
+                .parse()
+                .unwrap(),
+            level: stack_el
+                .attributes
+                .get("level")
+                .expect("Expected level to be set")
                 .parse()
                 .unwrap(),
         };

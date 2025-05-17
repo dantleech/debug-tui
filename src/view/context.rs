@@ -21,8 +21,15 @@ impl View for ContextComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        let context = match app.history.current() {
-            Some(e) => &e.context,
+        let entry = match app.history.current() {
+            Some(e) => e,
+            None => return,
+        };
+        let context = match entry.stack(app.session_view.stack_depth()) {
+            Some(stack) => match &stack.context {
+                Some(context) => context,
+                None => return,
+            },
             None => return,
         };
         let mut lines: Vec<Line> = vec![];
