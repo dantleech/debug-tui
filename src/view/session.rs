@@ -127,7 +127,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         .borders(Borders::all())
         .title(match pane.component_type {
             ComponentType::Source => match app.history.current() {
-                Some(c) => c.source.filename.to_string(),
+                Some(c) => c.source(app.session_view.stack_depth()).filename.to_string(),
                 None => "".to_string(),
             },
             ComponentType::Context => format!("Context({})", app.context_depth),
@@ -211,8 +211,8 @@ impl SessionViewState {
         self.source_scroll = (0, 0);
     }
 
-    pub(crate) fn stack_depth(&self) -> u32 {
-        self.stack_scroll.0 as u32
+    pub(crate) fn stack_depth(&self) -> u16 {
+        self.stack_scroll.0
     }
 }
 

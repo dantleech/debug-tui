@@ -6,6 +6,7 @@ use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
 use crate::dbgp::client::Property;
+use crate::dbgp::client::StackEntry;
 use crate::dbgp::client::StackGetResponse;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
@@ -30,7 +31,6 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
-use tokio::sync::Notify;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -40,22 +40,67 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
+use tokio::sync::Notify;
 use tokio::task;
 use tui_input::Input;
 
-type AnalyzedFiles = HashMap<String,Analysis>;
+type AnalyzedFiles = HashMap<String, Analysis>;
+
+#[derive(Clone, Debug)]
+pub struct StackFrame {
+    pub level: u16,
+    pub source: SourceContext,
+    pub context: Option<ContextGetResponse>,
+}
+impl StackFrame {
+    pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
+        match &self.context {
+            Some(c) => c.properties
+                .iter()
+                .find(|&property| property.name == name),
+            None => None,
+        }
+            
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
-    pub source: SourceContext,
-    pub stack: StackGetResponse,
-    pub context: ContextGetResponse,
+    pub stacks: HashMap<u16,StackFrame>
 }
+
 impl HistoryEntry {
-    // todo: this is inefficient!
-    pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
-        self.context.properties.iter().find(|&property| property.name == name)
+    fn push(&mut self, frame: StackFrame) {
+        let entry = self.stacks.entry(frame.level);
+        entry.insert_entry(frame);
     }
+    fn new() -> Self {
+        let stacks  = HashMap::new();
+        HistoryEntry { stacks }
+    }
+
+    fn initial(filename: String, source: String) -> HistoryEntry {
+        let mut entry = HistoryEntry::new();
+        entry.push(StackFrame {
+            level: 0,
+            source: SourceContext { source, filename, line_no: 0 },
+            context: None,
+        });
+        entry
+    }
+
+    pub fn source(&self, level: u16) -> SourceContext {
+        let entry = self.stacks.get(&level);
+        match entry {
+            Some(e) => e.source.clone(),
+            None => SourceContext::default(),
+        }
+    }
+
+    pub(crate) fn stack(&self, stack_depth: u16) -> Option<&StackFrame> {
+        self.stacks.get(&stack_depth)
+    }
+
 }
 
 pub struct History {
@@ -103,18 +148,6 @@ impl History {
         self.entries.push(entry);
         self.offset = self.entries.len() - 1;
     }
-
-    fn push_source(&mut self, filename: String, source: String) {
-        self.push(HistoryEntry {
-            source: SourceContext {
-                source,
-                filename,
-                line_no: 1,
-            },
-            context: ContextGetResponse { properties: vec![] },
-            stack: StackGetResponse { entries: vec![] },
-        });
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -122,6 +155,11 @@ pub struct SourceContext {
     pub source: String,
     pub filename: String,
     pub line_no: u32,
+}
+impl SourceContext {
+    fn default() -> SourceContext {
+        SourceContext { source: "".to_string(), filename: "".to_string(), line_no: 0 }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -304,8 +342,8 @@ impl App {
                 let mut client = self.client.lock().await;
                 let response = client.deref_mut().connect(s).await?;
                 for (feature, value) in [
-                    ("max_depth",self.context_depth.to_string().as_str()),
-                    ("extended_properties","1"),
+                    ("max_depth", self.context_depth.to_string().as_str()),
+                    ("extended_properties", "1"),
                 ] {
                     info!("setting feature {} to {:?}", feature, value);
                     client.feature_set(feature, value).await?;
@@ -317,7 +355,7 @@ impl App {
                 let source = client.source(response.fileuri.clone()).await.unwrap();
 
                 self.history = History::default();
-                self.history.push_source(response.fileuri.clone(), source);
+                self.history.push(HistoryEntry::initial(response.fileuri.clone(), source));
             }
             AppEvent::Snapshot() => {
                 self.snapshot().await?;
@@ -338,19 +376,32 @@ impl App {
             AppEvent::ContextDepth(inc) => {
                 let depth = self.context_depth as i8;
                 self.context_depth = depth.wrapping_add(inc).max(0) as u8;
-                self.client.lock().await.feature_set(
-                    "max_depth",
-                    self.context_depth.to_string().as_str()
-                ).await?;
-            },
+                self.client
+                    .lock()
+                    .await
+                    .feature_set("max_depth", self.context_depth.to_string().as_str())
+                    .await?;
+            }
             AppEvent::ScrollSource(amount) => {
-                self.session_view.source_scroll = apply_scroll(self.session_view.source_scroll, amount, self.take_motion() as i16);
+                self.session_view.source_scroll = apply_scroll(
+                    self.session_view.source_scroll,
+                    amount,
+                    self.take_motion() as i16,
+                );
             }
             AppEvent::ScrollContext(amount) => {
-                self.session_view.context_scroll = apply_scroll(self.session_view.context_scroll, amount, self.take_motion() as i16);
+                self.session_view.context_scroll = apply_scroll(
+                    self.session_view.context_scroll,
+                    amount,
+                    self.take_motion() as i16,
+                );
             }
             AppEvent::ScrollStack(amount) => {
-                self.session_view.stack_scroll = apply_scroll(self.session_view.stack_scroll, amount, self.take_motion() as i16);
+                self.session_view.stack_scroll = apply_scroll(
+                    self.session_view.stack_scroll,
+                    amount,
+                    self.take_motion() as i16,
+                );
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -369,17 +420,19 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
-            AppEvent::Input(key_event) => {
-                match key_event.code {
-                    KeyCode::Char('t') => {
-                        self.theme = self.theme.next();
-                        self.notification = Notification::info(format!("Switched to theme: {:?}", self.theme));
-                    },
-                    KeyCode::Char('?') => {
-                        self.sender.send(AppEvent::ChangeView(CurrentView::Help)).await.unwrap();
-                    },
-                    _ => self.send_event_to_current_view(event).await
+            AppEvent::Input(key_event) => match key_event.code {
+                KeyCode::Char('t') => {
+                    self.theme = self.theme.next();
+                    self.notification =
+                        Notification::info(format!("Switched to theme: {:?}", self.theme));
                 }
+                KeyCode::Char('?') => {
+                    self.sender
+                        .send(AppEvent::ChangeView(CurrentView::Help))
+                        .await
+                        .unwrap();
+                }
+                _ => self.send_event_to_current_view(event).await,
             },
             _ => self.send_event_to_current_view(event).await,
         };
@@ -400,7 +453,6 @@ impl App {
         tokio::spawn(async move {
             let mut last_response: Option<ContinuationResponse> = None;
             for i in 0..count {
-
                 // we need to wait for the snapshot to complete before running a further
                 // continuation.
                 snapshot_notify.notified().await;
@@ -477,9 +529,14 @@ impl App {
     pub async fn snapshot(&mut self) -> Result<()> {
         let mut client = self.client.lock().await;
         let stack = client.deref_mut().get_stack().await?;
-        if let Some(top) = stack.top_or_none() {
-            let filename = &top.filename;
-            let line_no = top.line;
+        let mut entry = HistoryEntry::new();
+        for (level, frame) in stack.entries.iter().enumerate() {
+            let filename = &frame.filename;
+            let line_no = frame.line;
+            let context = match level == 0 {
+                true => Some(client.deref_mut().context_get(0).await.unwrap()),
+                false => None,
+            };
             let source_code = client
                 .deref_mut()
                 .source(filename.to_string())
@@ -490,22 +547,18 @@ impl App {
                 filename: filename.to_string(),
                 line_no,
             };
-            let context = client.deref_mut().context_get(0).await.unwrap();
-            match self.analyzed_files.entry(source.filename.clone()) {
+            match self.analyzed_files.entry(filename.clone()) {
                 Entry::Occupied(_) => (),
                 Entry::Vacant(vacant_entry) => {
                     let mut analyser = Analyser::new();
                     vacant_entry.insert(analyser.analyze(source.source.as_str()).unwrap());
                 }
             };
-            let entry = HistoryEntry {
-                source,
-                stack,
-                context,
-            };
-            self.history.push(entry);
-            self.session_view.reset();
+
+            entry.push(StackFrame{level: (level as u16), source, context});
         }
+        self.history.push(entry);
+        self.session_view.reset();
         Ok(())
     }
 
