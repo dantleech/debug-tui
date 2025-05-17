@@ -141,6 +141,10 @@ impl History {
         self.entries.get(self.offset)
     }
 
+    pub(crate) fn current_mut(&mut self) -> Option<&mut HistoryEntry> {
+        self.entries.get_mut(self.offset)
+    }
+
     fn push(&mut self, entry: HistoryEntry) {
         self.entries.push(entry);
         self.offset = self.entries.len() - 1;
@@ -196,6 +200,8 @@ pub struct App {
     pub theme: Theme,
 
     pub analyzed_files: AnalyzedFiles,
+
+    pub stack_max_context_fetch: u16,
 }
 
 impl App {
@@ -213,6 +219,7 @@ impl App {
             client: Arc::new(Mutex::new(client)),
             counter: 0,
             context_depth: 4,
+            stack_max_context_fetch: 4,
 
             theme: Theme::SolarizedDark,
             server_status: None,
@@ -404,6 +411,7 @@ impl App {
                     amount,
                     self.take_motion() as i16,
                 );
+                self.populate_context().await?;
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -535,7 +543,7 @@ impl App {
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
-            let context = match true {
+            let context = match (level as u16) < self.stack_max_context_fetch {
                 true => Some(client.deref_mut().context_get(level as u16).await.unwrap()),
                 false => None,
             };
@@ -544,11 +552,13 @@ impl App {
                 .source(filename.to_string())
                 .await
                 .unwrap();
+
             let source = SourceContext {
                 source: source_code,
                 filename: filename.to_string(),
                 line_no,
             };
+
             match self.analyzed_files.entry(filename.clone()) {
                 Entry::Occupied(_) => (),
                 Entry::Vacant(vacant_entry) => {
@@ -570,6 +580,30 @@ impl App {
 
     pub(crate) fn theme(&self) -> Scheme {
         self.theme.scheme()
+    }
+
+    async fn populate_context(&mut self) -> Result<()> {
+        if !self.history.is_current() {
+            return Ok(());
+        }
+        let level = self.session_view.stack_scroll.0 as usize;
+        match self.history.current_mut() {
+            Some(c) => {
+                let stack = c.stacks.get_mut(level);
+                match stack {
+                    Some(s) => {
+                        if s.context.is_none() {
+                            let mut client = self.client.lock().await;
+                            let context = client.deref_mut().context_get(level as u16).await?;
+                            s.context = Some(context);
+                        }
+                    }
+                    None => (),
+                };
+            }
+            None => (),
+        };
+        Ok(())
     }
 }
 
