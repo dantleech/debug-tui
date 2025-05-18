@@ -23,18 +23,16 @@ impl Workspace {
     }
 
     pub async fn open(&mut self, filename: String) -> &Document {
-        let client = Arc::clone(&self.client);
-
         let entry = self.documents.entry(filename.clone());
         if let Entry::Vacant(entry) = entry {
-            let source = client
+            let source = self.client
                 .lock()
                 .await
                 .source(filename.to_string())
                 .await
                 .expect("Could not retrieve source");
             entry.insert(Document {
-                filename: "".to_string(),
+                filename: filename.clone(),
                 text: source.clone(),
             });
         };
