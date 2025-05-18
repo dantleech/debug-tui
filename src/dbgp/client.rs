@@ -170,6 +170,7 @@ pub struct DbgpClient {
     tid: u32,
     stream: Option<TcpStream>,
 }
+
 impl DbgpClient {
     pub(crate) fn new(s: Option<TcpStream>) -> Self {
         Self { stream: s, tid: 0 }

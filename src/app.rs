@@ -17,6 +17,7 @@ use crate::view::session::SessionView;
 use crate::view::session::SessionViewMode;
 use crate::view::session::SessionViewState;
 use crate::view::View;
+use crate::workspace::Workspace;
 use anyhow::Result;
 use crossterm::event::KeyCode;
 use log::info;
@@ -186,6 +187,7 @@ pub struct App {
     pub command_input: Input,
     pub command_response: Option<String>,
     pub client: Arc<Mutex<DbgpClient>>,
+    pub workspace: Workspace,
 
     pub history: History,
 
@@ -206,7 +208,7 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
-        let client = DbgpClient::new(None);
+        let client = Arc::new(Mutex::new(DbgpClient::new(None)));
         App {
             is_connected: false,
             config,
@@ -216,7 +218,9 @@ impl App {
             sender: sender.clone(),
             quit: false,
             history: History::default(),
-            client: Arc::new(Mutex::new(client)),
+            client: Arc::clone(&client),
+            workspace: Workspace::new(Arc::clone(&client)),
+
             counter: 0,
             context_depth: 4,
             stack_max_context_fetch: 1,
@@ -347,24 +351,27 @@ impl App {
                 }
             }
             AppEvent::ClientConnected(s) => {
-                let mut client = self.client.lock().await;
-                let response = client.deref_mut().connect(s).await?;
-                for (feature, value) in [
-                    ("max_depth", self.context_depth.to_string().as_str()),
-                    ("extended_properties", "1"),
-                ] {
-                    info!("setting feature {} to {:?}", feature, value);
-                    client.feature_set(feature, value).await?;
-                }
+                let filepath = {
+                    let mut client = self.client.lock().await;
+                    let response = client.deref_mut().connect(s).await?;
+                    for (feature, value) in [
+                        ("max_depth", self.context_depth.to_string().as_str()),
+                        ("extended_properties", "1"),
+                    ] {
+                        info!("setting feature {} to {:?}", feature, value);
+                        client.feature_set(feature, value).await?;
+                    }
+                    response.fileuri.clone()
+                };
                 self.is_connected = true;
                 self.server_status = None;
                 self.view_current = CurrentView::Session;
                 self.session_view.mode = SessionViewMode::Current;
-                let source = client.source(response.fileuri.clone()).await.unwrap();
 
+                let source = self.workspace.open(filepath.clone()).await;
                 self.history = History::default();
                 self.history
-                    .push(HistoryEntry::initial(response.fileuri.clone(), source));
+                    .push(HistoryEntry::initial(filepath.clone(), source.text.clone()));
             }
             AppEvent::Snapshot() => {
                 self.snapshot().await?;
@@ -537,25 +544,24 @@ impl App {
 
     /// capture the current status and push it onto the history stack
     pub async fn snapshot(&mut self) -> Result<()> {
-        let mut client = self.client.lock().await;
-        let stack = client.deref_mut().get_stack().await?;
+        let stack = {
+            self.client.lock().await.deref_mut().get_stack().await?
+        };
         let mut entry = HistoryEntry::new();
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
-            let context = match (level as u16) < self.stack_max_context_fetch {
-                true => Some(client.deref_mut().context_get(level as u16).await.unwrap()),
-                false => None,
+            let context = {
+                match (level as u16) < self.stack_max_context_fetch {
+                    true => Some(self.client.lock().await.deref_mut().context_get(level as u16).await.unwrap()),
+                    false => None,
+                }
             };
-            let source_code = client
-                .deref_mut()
-                .source(filename.to_string())
-                .await
-                .unwrap();
 
+            let document = self.workspace.open(filename.to_string()).await;
             let source = SourceContext {
-                source: source_code,
-                filename: filename.to_string(),
+                source: document.text.to_string(),
+                filename: document.filename.to_string(),
                 line_no,
             };
 

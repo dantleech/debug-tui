@@ -6,6 +6,7 @@ pub mod notification;
 pub mod view;
 pub mod analyzer;
 pub mod theme;
+pub mod workspace;
 
 use app::App;
 use better_panic::Settings;
