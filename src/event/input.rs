@@ -38,6 +38,7 @@ pub enum AppEvent {
     UpdateSourceContext(String, String, u32),
     UpdateStatus(ContinuationStatus),
     NextPane,
+    PreviousPane,
     Scroll(Scroll),
     ScrollSource(Scroll),
     ScrollContext(Scroll),

@@ -321,6 +321,11 @@ impl App {
                     self.session_view.next_pane();
                 }
             }
+            AppEvent::PreviousPane => {
+                for _ in 0..self.take_motion() {
+                    self.session_view.prev_pane();
+                }
+            }
             AppEvent::Panic(message) => {
                 terminal.clear().unwrap();
                 terminal

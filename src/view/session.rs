@@ -8,6 +8,7 @@ use crate::app::App;
 use crate::app::CurrentView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -24,10 +25,11 @@ impl View for SessionView {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
         };
-
+        
         // handle global session events
         match input_event.code {
             KeyCode::Tab => return Some(AppEvent::NextPane),
+            KeyCode::BackTab => return Some(AppEvent::PreviousPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
                 'j' => return Some(AppEvent::Scroll((1, 0))),
@@ -207,6 +209,15 @@ impl SessionViewState {
     pub fn next_pane(&mut self) {
         let next = self.current_pane + 1;
         self.current_pane = next % self.panes.len();
+    }
+
+    pub(crate) fn prev_pane(&mut self) {
+        if self.current_pane == 0 {
+            self.current_pane = self.panes.len() - 1;
+        } else {
+            let next = self.current_pane - 1;
+            self.current_pane = next % self.panes.len();
+        }
     }
 
     fn current_pane(&self) -> &Pane {
