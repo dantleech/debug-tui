@@ -38,11 +38,12 @@ pub struct ContextGetResponse {
     pub properties: Vec<Property>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Default)]
 pub enum PropertyType {
     Bool,
     Int,
     Float,
+    #[default]
     String,
     Null,
     Array,
@@ -90,7 +91,7 @@ impl PropertyType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Property {
     pub name: String,
     pub fullname: String,

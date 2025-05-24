@@ -4,6 +4,7 @@ CHANGELOG
 main
 ----
 
+- Filter properties with dot notation in context pane (`f`)
 - Stack traversal - select stack and inspect stack frames in current mode.
 - Fixed light theme.
 

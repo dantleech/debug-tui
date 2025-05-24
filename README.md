@@ -45,6 +45,7 @@ Prefix with number to repeat:
 - `enter` toggle pane focus (full screen)
 - `t`     rotate the theme
 - `?`     Show help
+- `f`     Filter (context pane) - use dot notation to filter on multiple levels.
 
 ## Setting Breakpoints
 

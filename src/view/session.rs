@@ -5,7 +5,7 @@ use super::ComponentType;
 use super::Pane;
 use super::View;
 use crate::app::App;
-use crate::app::CurrentView;
+use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
@@ -19,12 +19,16 @@ use ratatui::Frame;
 pub struct SessionView {}
 
 impl View for SessionView {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
         };
-        
+
+        if app.focus_view {
+            return delegate_event_to_pane(app, event);
+        }
+
         // handle global session events
         match input_event.code {
             KeyCode::Tab => return Some(AppEvent::NextPane),
@@ -60,7 +64,7 @@ impl View for SessionView {
                 _ => None,
             },
             SessionViewMode::History => match input_event.code {
-                KeyCode::Esc => Some(AppEvent::ChangeView(CurrentView::Session)),
+                KeyCode::Esc => Some(AppEvent::ChangeView(SelectedView::Session)),
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
@@ -113,7 +117,7 @@ impl View for SessionView {
     }
 }
 
-fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
+fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
     let focused_pane = app.session_view.current_pane();
 
     match focused_pane.component_type {
@@ -128,10 +132,20 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         .borders(Borders::all())
         .title(match pane.component_type {
             ComponentType::Source => match app.history.current() {
-                Some(c) => c.source(app.session_view.stack_depth()).filename.to_string(),
+                Some(c) => c
+                    .source(app.session_view.stack_depth())
+                    .filename
+                    .to_string(),
                 None => "".to_string(),
             },
-            ComponentType::Context => format!("Context(fetch-depth: {})", app.context_depth),
+            ComponentType::Context => format!(
+                "Context(fetch-depth: {}, filter: {})",
+                app.context_depth,
+                match app.session_view.context_filter.input.value() {
+                    "" => "n/a",
+                    _ => app.session_view.context_filter.input.value(),
+                }
+            ),
             ComponentType::Stack => format!(
                 "Stack({}/{}, fetch-depth: {})",
                 app.session_view.stack_depth(),
@@ -163,10 +177,23 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
     };
 }
 
+pub struct SearchState {
+    pub show: bool,
+    pub search: String,
+    pub input: tui_input::Input,
+}
+
+impl SearchState {
+    pub(crate) fn segments(&self) -> Vec<&str> {
+        self.input.value().rsplit(".").collect()
+    }
+}
+
 pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: (u16, u16),
     pub context_scroll: (u16, u16),
+    pub context_filter: SearchState,
     pub stack_scroll: (u16, u16),
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
@@ -185,6 +212,11 @@ impl SessionViewState {
             full_screen: false,
             source_scroll: (0, 0),
             context_scroll: (0, 0),
+            context_filter: SearchState {
+                show: false,
+                search: String::new(),
+                input: tui_input::Input::default(),
+            },
             stack_scroll: (0, 0),
             current_pane: 0,
             mode: SessionViewMode::Current,

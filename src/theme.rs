@@ -61,6 +61,7 @@ impl Theme {
                 widget_mode_history: Style::default().fg(Solarized::Red.to_color()).bg(Solarized::Base03.to_color()),
 
                 background: Style::default().bg(Color::Black),
+                cursor: Style::default().bg(Color::White),
             },
             Theme::Dark => Scheme {
                 syntax_variable: Style::default().fg(Color::LightBlue),
@@ -89,6 +90,7 @@ impl Theme {
                 widget_mode_debug: Style::default().bg(Color::Blue),
                 widget_mode_history: Style::default().bg(Color::Red),
                 background: Style::default().bg(Color::Black),
+                cursor: Style::default().bg(Color::White)
             },
         }
     }
@@ -121,6 +123,7 @@ pub struct Scheme {
     pub widget_inactive: Style,
     pub widget_mode_debug: Style,
     pub widget_mode_history: Style,
+    pub cursor: Style,
 }
 
 pub enum Role {}
