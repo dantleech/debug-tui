@@ -1,5 +1,5 @@
 use super::View;
-use crate::app::{App, CurrentView};
+use crate::app::{App, SelectedView};
 use crate::event::input::AppEvent;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
@@ -8,13 +8,13 @@ use ratatui::Frame;
 pub struct HelpView {}
 
 impl View for HelpView {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Input(_) => {
                 if app.is_connected {
-                    Some(AppEvent::ChangeView(CurrentView::Session))
+                    Some(AppEvent::ChangeView(SelectedView::Session))
                 } else {
-                    Some(AppEvent::ChangeView(CurrentView::Listen))
+                    Some(AppEvent::ChangeView(SelectedView::Listen))
                 }
             },
             _ => None

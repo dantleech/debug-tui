@@ -169,7 +169,7 @@ impl SourceContext {
 }
 
 #[derive(Debug, Clone)]
-pub enum CurrentView {
+pub enum SelectedView {
     Listen,
     Session,
     Help,
@@ -191,7 +191,8 @@ pub struct App {
 
     pub history: History,
 
-    pub view_current: CurrentView,
+    pub view_current: SelectedView,
+    pub focus_view: bool,
     pub session_view: SessionViewState,
     pub input_plurality: Vec<char>,
 
@@ -229,7 +230,8 @@ impl App {
             server_status: None,
             command_input: Input::default(),
             command_response: None,
-            view_current: CurrentView::Listen,
+            view_current: SelectedView::Listen,
+            focus_view: false,
             session_view: SessionViewState::new(),
 
             snapshot_notify: Arc::new(Notify::new()),
@@ -370,7 +372,7 @@ impl App {
                 };
                 self.is_connected = true;
                 self.server_status = None;
-                self.view_current = CurrentView::Session;
+                self.view_current = SelectedView::Session;
                 self.session_view.mode = SessionViewMode::Current;
 
                 let source = self.workspace.open(filepath.clone()).await;
@@ -403,6 +405,14 @@ impl App {
                     .feature_set("max_depth", self.context_depth.to_string().as_str())
                     .await?;
             }
+            AppEvent::ContextSearchOpen => {
+                self.session_view.context_search.show = true;
+                self.focus_view = true;
+            },
+            AppEvent::ContextSearchClose => {
+                self.session_view.context_search.show = false;
+                self.focus_view = false;
+            },
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = apply_scroll(
                     self.session_view.source_scroll,
@@ -442,19 +452,27 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
-            AppEvent::Input(key_event) => match key_event.code {
-                KeyCode::Char('t') => {
-                    self.theme = self.theme.next();
-                    self.notification =
-                        Notification::info(format!("Switched to theme: {:?}", self.theme));
+            AppEvent::Input(key_event) => {
+                if self.focus_view {
+                    // event shandled exclusively by view (e.g. input needs focus)
+                    self.send_event_to_current_view(event).await;
+                } else {
+                    // global events
+                    match key_event.code {
+                        KeyCode::Char('t') => {
+                            self.theme = self.theme.next();
+                            self.notification =
+                                Notification::info(format!("Switched to theme: {:?}", self.theme));
+                        }
+                        KeyCode::Char('?') => {
+                            self.sender
+                                .send(AppEvent::ChangeView(SelectedView::Help))
+                                .await
+                                .unwrap();
+                        }
+                        _ => self.send_event_to_current_view(event).await,
+                    }
                 }
-                KeyCode::Char('?') => {
-                    self.sender
-                        .send(AppEvent::ChangeView(CurrentView::Help))
-                        .await
-                        .unwrap();
-                }
-                _ => self.send_event_to_current_view(event).await,
             },
             _ => self.send_event_to_current_view(event).await,
         };
@@ -522,9 +540,9 @@ impl App {
     // route the event to the currently selected view
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
-            CurrentView::Help => HelpView::handle(self, event),
-            CurrentView::Listen => ListenView::handle(self, event),
-            CurrentView::Session => SessionView::handle(self, event),
+            SelectedView::Help => HelpView::handle(self, event),
+            SelectedView::Listen => ListenView::handle(self, event),
+            SelectedView::Session => SessionView::handle(self, event),
         };
         if let Some(event) = subsequent_event {
             self.sender.send(event).await.unwrap()

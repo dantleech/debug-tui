@@ -10,7 +10,7 @@ use ratatui::Frame;
 pub struct StackComponent {}
 
 impl View for StackComponent {
-    fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(_: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(amount) => Some(AppEvent::ScrollStack(amount)),
             _ => None,

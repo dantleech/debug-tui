@@ -5,10 +5,9 @@ use super::ComponentType;
 use super::Pane;
 use super::View;
 use crate::app::App;
-use crate::app::CurrentView;
+use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
-use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -20,11 +19,15 @@ use ratatui::Frame;
 pub struct SessionView {}
 
 impl View for SessionView {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
         };
+
+        if app.focus_view {
+            return delegate_event_to_pane(app, event);
+        }
         
         // handle global session events
         match input_event.code {
@@ -61,7 +64,7 @@ impl View for SessionView {
                 _ => None,
             },
             SessionViewMode::History => match input_event.code {
-                KeyCode::Esc => Some(AppEvent::ChangeView(CurrentView::Session)),
+                KeyCode::Esc => Some(AppEvent::ChangeView(SelectedView::Session)),
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
@@ -114,7 +117,7 @@ impl View for SessionView {
     }
 }
 
-fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
+fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
     let focused_pane = app.session_view.current_pane();
 
     match focused_pane.component_type {
@@ -164,10 +167,17 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
     };
 }
 
+pub struct SearchState {
+    pub show: bool,
+    pub search: String,
+    pub input: tui_input::Input,
+}
+
 pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: (u16, u16),
     pub context_scroll: (u16, u16),
+    pub context_search: SearchState,
     pub stack_scroll: (u16, u16),
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
@@ -186,6 +196,11 @@ impl SessionViewState {
             full_screen: false,
             source_scroll: (0, 0),
             context_scroll: (0, 0),
+            context_search: SearchState {
+                show: false,
+                search: String::new(),
+                input: tui_input::Input::default(),
+            },
             stack_scroll: (0, 0),
             current_pane: 0,
             mode: SessionViewMode::Current,
