@@ -406,6 +406,9 @@ impl App {
             AppEvent::ContextSearchOpen => {
                 self.session_view.context_search.show = true;
             },
+            AppEvent::ContextSearchClose => {
+                self.session_view.context_search.show = false;
+            },
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = apply_scroll(
                     self.session_view.source_scroll,

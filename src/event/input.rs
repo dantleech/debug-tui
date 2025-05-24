@@ -48,6 +48,7 @@ pub enum AppEvent {
     ContextDepth(i8),
     NextTheme,
     ContextSearchOpen,
+    ContextSearchClose,
 }
 
 pub type EventSender = Sender<AppEvent>;

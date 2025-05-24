@@ -5,6 +5,8 @@ use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
 use crate::theme::Scheme;
 use crossterm::event::KeyCode;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
@@ -16,6 +18,18 @@ pub struct ContextComponent {}
 
 impl View for ContextComponent {
     fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
+        if app.session_view.context_search.show {
+            return match event {
+                AppEvent::Input(e) => {
+                    if e.code == KeyCode::Esc {
+                        return Some(AppEvent::ContextSearchClose);
+                    }
+                    app.session_view.context_search.input.handle_event(&crossterm::event::Event::Key(e));
+                    return None;
+                },
+                _ => None,
+            }
+        }
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
             AppEvent::Input(e) => {
@@ -23,7 +37,7 @@ impl View for ContextComponent {
                     KeyCode::Char('/') => Some(AppEvent::ContextSearchOpen),
                     _ => None,
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -41,12 +55,20 @@ impl View for ContextComponent {
             None => return,
         };
         let mut lines: Vec<Line> = vec![];
+        let layout = Layout::default()
+            .constraints([Constraint::Length(
+                if app.session_view.context_search.show { 1 } else { 0 }
+            ), Constraint::Min(1)]);
+        let areas = layout.split(area);
+
+        frame.render_widget(Paragraph::new(app.session_view.context_search.input.value()), areas[0]);
+            
         draw_properties(&app.theme(), &context.properties, &mut lines, 0);
+
 
         frame.render_widget(
             Paragraph::new(lines).scroll(app.session_view.context_scroll),
-
-            area,
+            areas[1],
         );
     }
 }
