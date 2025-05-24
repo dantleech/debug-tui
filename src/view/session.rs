@@ -167,6 +167,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 pub struct SearchState {
     pub show: bool,
     pub search: String,
+    pub input: tui_input::Input,
 }
 
 pub struct SessionViewState {
@@ -192,7 +193,11 @@ impl SessionViewState {
             full_screen: false,
             source_scroll: (0, 0),
             context_scroll: (0, 0),
-            context_search: SearchState { show: false, search: String::new() },
+            context_search: SearchState {
+                show: false,
+                search: String::new(),
+                input: tui_input::Input::default(),
+            },
             stack_scroll: (0, 0),
             current_pane: 0,
             mode: SessionViewMode::Current,

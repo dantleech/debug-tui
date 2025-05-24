@@ -10,16 +10,19 @@ use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
+use tui_input::backend::crossterm::EventHandler;
 
 pub struct ContextComponent {}
 
 impl View for ContextComponent {
-    fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
-            AppEvent::Input(e) => match e.code {
-                KeyCode::Char('/') => Some(AppEvent::ContextSearchOpen),
-                _ => None,
+            AppEvent::Input(e) => {
+                match e.code {
+                    KeyCode::Char('/') => Some(AppEvent::ContextSearchOpen),
+                    _ => None,
+                }
             }
             _ => None,
         }
