@@ -13,7 +13,7 @@ use ratatui::layout::{Constraint, Rect};
 use ratatui::Frame;
 
 pub trait View {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent>;
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent>;
     fn draw(app: &App, frame: &mut Frame, area: Rect);
 }
 

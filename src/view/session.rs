@@ -20,7 +20,7 @@ use ratatui::Frame;
 pub struct SessionView {}
 
 impl View for SessionView {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         let input_event = match event {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
@@ -114,7 +114,7 @@ impl View for SessionView {
     }
 }
 
-fn delegate_event_to_pane(app: &App, event: AppEvent) -> Option<AppEvent> {
+fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
     let focused_pane = app.session_view.current_pane();
 
     match focused_pane.component_type {

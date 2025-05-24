@@ -6,7 +6,7 @@ use ratatui::Frame;
 pub struct ListenView {}
 
 impl View for ListenView {
-    fn handle(_app: &App, _key: AppEvent) -> Option<AppEvent> {
+    fn handle(_app: &mut App, _key: AppEvent) -> Option<AppEvent> {
         None
     }
 

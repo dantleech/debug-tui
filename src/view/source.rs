@@ -15,7 +15,7 @@ use ratatui::Frame;
 pub struct SourceComponent {}
 
 impl View for SourceComponent {
-    fn handle(_: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(_: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(amount) => Some(AppEvent::ScrollSource(amount)),
             _ => None,

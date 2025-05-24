@@ -8,7 +8,7 @@ use ratatui::Frame;
 pub struct HelpView {}
 
 impl View for HelpView {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Input(_) => {
                 if app.is_connected {

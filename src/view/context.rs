@@ -15,7 +15,7 @@ use tui_input::backend::crossterm::EventHandler;
 pub struct ContextComponent {}
 
 impl View for ContextComponent {
-    fn handle(app: &App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
             AppEvent::Input(e) => {
