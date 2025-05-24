@@ -47,6 +47,7 @@ pub enum AppEvent {
     PushInputPlurality(char),
     ContextDepth(i8),
     NextTheme,
+    ContextSearchOpen,
 }
 
 pub type EventSender = Sender<AppEvent>;

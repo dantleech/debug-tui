@@ -403,6 +403,9 @@ impl App {
                     .feature_set("max_depth", self.context_depth.to_string().as_str())
                     .await?;
             }
+            AppEvent::ContextSearchOpen => {
+                self.session_view.context_search.show = true;
+            },
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = apply_scroll(
                     self.session_view.source_scroll,

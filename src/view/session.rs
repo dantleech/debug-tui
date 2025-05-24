@@ -164,10 +164,16 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
     };
 }
 
+pub struct SearchState {
+    pub show: bool,
+    pub search: String,
+}
+
 pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: (u16, u16),
     pub context_scroll: (u16, u16),
+    pub context_search: SearchState,
     pub stack_scroll: (u16, u16),
     pub mode: SessionViewMode,
     pub panes: Vec<Pane>,
@@ -186,6 +192,7 @@ impl SessionViewState {
             full_screen: false,
             source_scroll: (0, 0),
             context_scroll: (0, 0),
+            context_search: SearchState { show: false, search: String::new() },
             stack_scroll: (0, 0),
             current_pane: 0,
             mode: SessionViewMode::Current,

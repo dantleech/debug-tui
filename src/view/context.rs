@@ -4,6 +4,7 @@ use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
 use crate::theme::Scheme;
+use crossterm::event::KeyCode;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
@@ -16,6 +17,10 @@ impl View for ContextComponent {
     fn handle(_app: &App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
+            AppEvent::Input(e) => match e.code {
+                KeyCode::Char('/') => Some(AppEvent::ContextSearchOpen),
+                _ => None,
+            }
             _ => None,
         }
     }
