@@ -453,7 +453,7 @@ impl App {
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::Input(key_event) => {
-                if self.focus_view == true {
+                if self.focus_view {
                     // event shandled exclusively by view (e.g. input needs focus)
                     self.send_event_to_current_view(event).await;
                 } else {

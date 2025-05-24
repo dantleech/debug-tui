@@ -87,7 +87,7 @@ pub fn draw_properties(
 ) {
     for property in properties {
         if let Some(filter) = filter {
-            if false == property.name.contains(filter) {
+            if !property.name.contains(filter) {
                 continue;
             }
         }

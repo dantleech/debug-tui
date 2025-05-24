@@ -8,7 +8,6 @@ use crate::app::App;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
-use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -26,7 +25,7 @@ impl View for SessionView {
             _ => return delegate_event_to_pane(app, event),
         };
 
-        if app.focus_view == true {
+        if app.focus_view {
             return delegate_event_to_pane(app, event);
         }
         
