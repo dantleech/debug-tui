@@ -5,7 +5,7 @@ use super::ComponentType;
 use super::Pane;
 use super::View;
 use crate::app::App;
-use crate::app::CurrentView;
+use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
@@ -25,6 +25,10 @@ impl View for SessionView {
             AppEvent::Input(key_event) => key_event,
             _ => return delegate_event_to_pane(app, event),
         };
+
+        if app.focus_view == true {
+            return delegate_event_to_pane(app, event);
+        }
         
         // handle global session events
         match input_event.code {
@@ -61,7 +65,7 @@ impl View for SessionView {
                 _ => None,
             },
             SessionViewMode::History => match input_event.code {
-                KeyCode::Esc => Some(AppEvent::ChangeView(CurrentView::Session)),
+                KeyCode::Esc => Some(AppEvent::ChangeView(SelectedView::Session)),
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),

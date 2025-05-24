@@ -10,6 +10,8 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 use tui_input::backend::crossterm::EventHandler;
@@ -22,6 +24,9 @@ impl View for ContextComponent {
             return match event {
                 AppEvent::Input(e) => {
                     if e.code == KeyCode::Esc {
+                        return Some(AppEvent::ContextSearchClose);
+                    }
+                    if e.code == KeyCode::Enter {
                         return Some(AppEvent::ContextSearchClose);
                     }
                     app.session_view.context_search.input.handle_event(&crossterm::event::Event::Key(e));
@@ -57,13 +62,13 @@ impl View for ContextComponent {
         let mut lines: Vec<Line> = vec![];
         let layout = Layout::default()
             .constraints([Constraint::Length(
-                if app.session_view.context_search.show { 1 } else { 0 }
+                if app.session_view.context_search.show { 3 } else { 0 }
             ), Constraint::Min(1)]);
         let areas = layout.split(area);
 
-        frame.render_widget(Paragraph::new(app.session_view.context_search.input.value()), areas[0]);
+        frame.render_widget(Paragraph::new(app.session_view.context_search.input.value()).block(Block::default().borders(Borders::all())), areas[0]);
             
-        draw_properties(&app.theme(), &context.properties, &mut lines, 0);
+        draw_properties(&app.theme(), &context.properties, &mut lines, 0, Some(app.session_view.context_search.input.value()));
 
 
         frame.render_widget(
@@ -78,8 +83,14 @@ pub fn draw_properties(
     properties: &Vec<Property>,
     lines: &mut Vec<Line>,
     level: usize,
+    filter: Option<&str>,
 ) {
     for property in properties {
+        if let Some(filter) = filter {
+            if false == property.name.contains(filter) {
+                continue;
+            }
+        }
         let mut spans = vec![
             Span::raw("  ".repeat(level)),
             Span::styled(property.name.to_string(), theme.syntax_label),
@@ -107,7 +118,7 @@ pub fn draw_properties(
         lines.push(Line::from(spans));
 
         if !property.children.is_empty() {
-            draw_properties(theme, &property.children, lines, level + 1);
+            draw_properties(theme, &property.children, lines, level + 1, None);
             lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
         }
     }
