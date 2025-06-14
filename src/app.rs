@@ -369,9 +369,7 @@ impl App {
                     response.fileuri.clone()
                 };
                 self.is_connected = true;
-                self.server_status = None;
-                self.view_current = CurrentView::Session;
-                self.session_view.mode = SessionViewMode::Current;
+                self.reset();
 
                 let source = self.workspace.open(filepath.clone()).await;
                 self.history = History::default();
@@ -609,6 +607,14 @@ impl App {
             };
         };
         Ok(())
+    }
+
+    fn reset(&mut self) {
+        self.server_status = None;
+        self.view_current = CurrentView::Session;
+        self.session_view.mode = SessionViewMode::Current;
+        self.analyzed_files = HashMap::new();
+        self.workspace.reset();
     }
 }
 

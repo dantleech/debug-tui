@@ -39,4 +39,8 @@ impl Workspace {
 
         self.documents.get(filename.as_str()).unwrap()
     }
+
+    pub(crate) fn reset(&mut self) {
+        self.documents = HashMap::new();
+    }
 }
