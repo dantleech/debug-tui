@@ -4,7 +4,7 @@ use super::session::SessionView;
 use super::session::SessionViewMode;
 use super::View;
 use crate::app::App;
-use crate::app::CurrentView;
+use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crate::notification::NotificationLevel;
 use ratatui::layout::Constraint;
@@ -20,7 +20,7 @@ use ratatui::Frame;
 pub struct LayoutView {}
 
 impl View for LayoutView {
-    fn handle(_app: &App, _key: AppEvent) -> Option<AppEvent> {
+    fn handle(_app: &mut App, _key: AppEvent) -> Option<AppEvent> {
         None
     }
 
@@ -36,9 +36,9 @@ impl View for LayoutView {
         f.render_widget(status_widget(app), rows[0]);
 
         match app.view_current {
-            CurrentView::Listen => ListenView::draw(app, f, rows[1]),
-            CurrentView::Session => SessionView::draw(app, f, rows[1]),
-            CurrentView::Help => HelpView::draw(app, f, rows[1]),
+            SelectedView::Listen => ListenView::draw(app, f, rows[1]),
+            SelectedView::Session => SessionView::draw(app, f, rows[1]),
+            SelectedView::Help => HelpView::draw(app, f, rows[1]),
         }
     }
 }

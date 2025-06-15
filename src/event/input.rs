@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 
-use crate::app::CurrentView;
+use crate::app::SelectedView;
 use crate::dbgp::client::ContinuationStatus;
 use crate::view::session::SessionViewMode;
 use crate::view::Scroll;
@@ -19,7 +19,7 @@ use crate::view::Scroll;
 #[derive(Debug)]
 pub enum AppEvent {
     ChangeSessionViewMode(SessionViewMode),
-    ChangeView(CurrentView),
+    ChangeView(SelectedView),
     ClientConnected(TcpStream),
     Disconnect,
     HistoryNext,
@@ -47,6 +47,8 @@ pub enum AppEvent {
     PushInputPlurality(char),
     ContextDepth(i8),
     NextTheme,
+    ContextFilterOpen,
+    ContextSearchClose,
 }
 
 pub type EventSender = Sender<AppEvent>;
