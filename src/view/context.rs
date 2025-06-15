@@ -100,7 +100,7 @@ pub fn draw_properties(
 
     for property in properties {
         if let Some(filter) = filter {
-            if !property.name.contains(filter) {
+            if !property.name.starts_with(filter) {
                 continue;
             }
         }
