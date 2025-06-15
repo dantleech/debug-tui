@@ -97,11 +97,9 @@ pub fn draw_properties(
     filter_path: &mut Vec<&str>,
 ) {
     let filter = filter_path.pop();
-        println!("{:?}", filter_path);
 
     for property in properties {
         if let Some(filter) = filter {
-            println!("{} = {}", property.name, filter);
             if !property.name.contains(filter) {
                 continue;
             }
