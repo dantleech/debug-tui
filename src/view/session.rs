@@ -150,7 +150,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 "Stack({}/{}, fetch-depth: {})",
                 app.session_view.stack_depth(),
                 match app.history.current() {
-                    Some(e) => e.stacks.len() - 1,
+                    Some(e) => e.stacks.len().saturating_sub(1),
                     None => 0,
                 },
                 app.stack_max_context_fetch,
