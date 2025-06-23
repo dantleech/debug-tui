@@ -4,6 +4,7 @@ use super::session::SessionView;
 use super::session::SessionViewMode;
 use super::View;
 use crate::app::App;
+use crate::app::ListenStatus;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crate::notification::NotificationLevel;
@@ -48,13 +49,14 @@ fn status_widget(app: &App) -> Paragraph {
         Span::styled(
             format!(
                 " 󱘖 {} ",
-                if app.is_connected {
-                    "connected".to_string()
-                } else {
-                    app.config.listen.to_string()
-                }
+                match app.listening_status {
+                    ListenStatus::Connected => "connected".to_string(),
+                    
+                    ListenStatus::Listening => app.config.listen.to_string(),
+                    ListenStatus::Refusing => "refusing".to_string(),
+                },
             ),
-            match app.is_connected {
+            match app.listening_status.is_connected() {
                 false => app.theme().widget_inactive,
                 true => app.theme().widget_active,
             },
@@ -70,15 +72,25 @@ fn status_widget(app: &App) -> Paragraph {
         ),
         Span::styled(
             (match app.session_view.mode {
-                SessionViewMode::Current => match app.is_connected {
+                SessionViewMode::Current => match app.listening_status.is_connected() {
                     true => format!("   {} / ∞", app.history.offset + 1),
                     false => "   0 / 0".to_string(),
                 },
-                SessionViewMode::History => format!(
-                    "   {} / {} history [p] to go back [n] to go forwards [b] to return",
-                    app.history.offset + 1,
-                    app.history.len()
-                ),
+                SessionViewMode::History => {
+                    match app.listening_status {
+                        ListenStatus::Connected => format!(
+                            "   {} / {} history [p] to go back [n] to go forwards [b] to return",
+                            app.history.offset + 1,
+                            app.history.len()
+                        ),
+                        ListenStatus::Refusing => format!(
+                            "   {} / {} terminated [p] to go back [n] to go forwards [b] to listen",
+                            app.history.offset + 1,
+                            app.history.len()
+                        ),
+                        ListenStatus::Listening => String::new(),
+                    }
+                }
             })
             .to_string(),
             match app.session_view.mode {
@@ -93,6 +105,7 @@ fn status_widget(app: &App) -> Paragraph {
             },
             match app.notification.level {
                 NotificationLevel::Error => app.theme().notification_error,
+                NotificationLevel::Warning => app.theme().notification_warning,
                 NotificationLevel::Info => app.theme().notification_info,
                 NotificationLevel::None => Style::default(),
             },

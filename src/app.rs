@@ -175,12 +175,26 @@ pub enum SelectedView {
     Help,
 }
 
+#[derive(PartialEq)]
+pub enum ListenStatus {
+    Connected,
+    Listening,
+    Refusing,
+}
+
+impl ListenStatus {
+    pub fn is_connected(&self) -> bool {
+        *self == ListenStatus::Connected
+    }
+    
+}
+
 pub struct App {
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
 
-    pub is_connected: bool,
+    pub listening_status: ListenStatus,
     pub notification: Notification,
     pub config: Config,
 
@@ -212,7 +226,7 @@ impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
         App {
-            is_connected: false,
+            listening_status: ListenStatus::Listening,
             config,
             input_plurality: vec![],
             notification: Notification::none(),
@@ -346,7 +360,7 @@ impl App {
             AppEvent::HistoryNext => {
                 for _ in 0..self.take_motion() {
                     self.history.next();
-                    if self.history.is_current() && self.is_connected {
+                    if self.history.is_current() && (self.listening_status == ListenStatus::Connected) {
                         self.sender
                             .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
                             .await?;
@@ -358,26 +372,36 @@ impl App {
                     self.history.previous();
                 }
             }
+            AppEvent::Listen => {
+                self.listening_status = ListenStatus::Listening;
+                self.view_current = SelectedView::Listen;
+                self.session_view.mode = SessionViewMode::Current;
+                self.notification = Notification::info("listening for next connection".to_string())
+            },
             AppEvent::ClientConnected(s) => {
-                let filepath = {
-                    let mut client = self.client.lock().await;
-                    let response = client.deref_mut().connect(s).await?;
-                    for (feature, value) in [
-                        ("max_depth", self.context_depth.to_string().as_str()),
-                        ("extended_properties", "1"),
-                    ] {
-                        info!("setting feature {} to {:?}", feature, value);
-                        client.feature_set(feature, value).await?;
-                    }
-                    response.fileuri.clone()
-                };
-                self.is_connected = true;
-                self.reset();
+                if self.listening_status != ListenStatus::Listening {
+                    self.notification = Notification::warning("refused incoming connection".to_string());
+                } else {
+                    let filepath = {
+                        let mut client = self.client.lock().await;
+                        let response = client.deref_mut().connect(s).await?;
+                        for (feature, value) in [
+                            ("max_depth", self.context_depth.to_string().as_str()),
+                            ("extended_properties", "1"),
+                        ] {
+                            info!("setting feature {} to {:?}", feature, value);
+                            client.feature_set(feature, value).await?;
+                        }
+                        response.fileuri.clone()
+                    };
+                    self.listening_status = ListenStatus::Connected;
+                    self.reset();
 
-                let source = self.workspace.open(filepath.clone()).await;
-                self.history = History::default();
-                self.history
-                    .push(HistoryEntry::initial(filepath.clone(), source.text.clone()));
+                    let source = self.workspace.open(filepath.clone()).await;
+                    self.history = History::default();
+                    self.history
+                        .push(HistoryEntry::initial(filepath.clone(), source.text.clone()));
+                }
             }
             AppEvent::Snapshot() => {
                 self.snapshot().await?;
@@ -445,7 +469,7 @@ impl App {
             }
             AppEvent::Disconnect => {
                 let _ = self.client.lock().await.deref_mut().disonnect().await;
-                self.is_connected = false;
+                self.listening_status = ListenStatus::Refusing;
                 self.sender
                     .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
@@ -575,7 +599,7 @@ impl App {
             let line_no = frame.line;
             let context = {
                 match (level as u16) < self.stack_max_context_fetch {
-                    true => Some(self.client.lock().await.deref_mut().context_get(level as u16).await.unwrap()),
+                    true => Some(self.client.lock().await.deref_mut().context_get(level as u16).await?),
                     false => None,
                 }
             };
