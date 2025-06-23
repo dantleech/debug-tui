@@ -49,6 +49,7 @@ pub enum AppEvent {
     NextTheme,
     ContextFilterOpen,
     ContextSearchClose,
+    Listen,
 }
 
 pub type EventSender = Sender<AppEvent>;

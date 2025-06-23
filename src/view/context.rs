@@ -232,7 +232,7 @@ mod test {
             ],
             &mut lines,
             0,
-            &mut filter,
+            filter,
         );
 
         assert_eq!(vec![

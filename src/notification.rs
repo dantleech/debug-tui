@@ -5,6 +5,7 @@ pub enum NotificationLevel {
     Error,
     None,
     Info,
+    Warning,
 }
 pub struct Notification {
     pub message: String,
@@ -39,6 +40,17 @@ impl Notification {
         Notification {
             message,
             level: NotificationLevel::Info,
+            expires: SystemTime::now()
+                .checked_add(Duration::from_secs(5))
+                .unwrap(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn warning(message: String) -> Notification {
+        Notification {
+            message,
+            level: NotificationLevel::Warning,
             expires: SystemTime::now()
                 .checked_add(Duration::from_secs(5))
                 .unwrap(),

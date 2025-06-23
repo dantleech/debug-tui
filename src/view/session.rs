@@ -5,6 +5,7 @@ use super::ComponentType;
 use super::Pane;
 use super::View;
 use crate::app::App;
+use crate::app::ListenStatus;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
@@ -68,7 +69,13 @@ impl View for SessionView {
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
-                    'b' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current)),
+                    'b' => {
+                        if app.listening_status == ListenStatus::Refusing {
+                            Some(AppEvent::Listen)
+                        } else {
+                            Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
+                        }
+                    }
                     _ => None,
                 },
                 _ => None,
