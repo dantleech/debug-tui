@@ -3,7 +3,7 @@ Debug-TUI
 
 Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
 
-![Image](https://github.com/user-attachments/assets/21627682-b2f1-4622-b67d-ff6cd32e4363)
+![Demo](https://github.com/user-attachments/assets/1a8a1d1b-d01b-4d71-9d35-c65e546e8c24)
 
 - **Travel forwards**: step over, into and out.
 - **Travel backwards**: it's not quite time travel, but you can revisit

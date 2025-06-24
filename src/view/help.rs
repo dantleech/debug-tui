@@ -14,7 +14,7 @@ impl View for HelpView {
                 if app.listening_status == ListenStatus::Connected{
                     Some(AppEvent::ChangeView(SelectedView::Session))
                 } else {
-                    Some(AppEvent::ChangeView(SelectedView::Listen))
+                    Some(AppEvent::Listen)
                 }
             },
             _ => None

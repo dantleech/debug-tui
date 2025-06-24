@@ -22,6 +22,7 @@ use anyhow::Result;
 use crossterm::event::KeyCode;
 use log::info;
 use log::warn;
+use log::error;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
@@ -190,6 +191,7 @@ impl ListenStatus {
 }
 
 pub struct App {
+    tick: u8,
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
@@ -226,6 +228,7 @@ impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
         App {
+            tick: 0,
             listening_status: ListenStatus::Listening,
             config,
             input_plurality: vec![],
@@ -281,7 +284,13 @@ impl App {
             loop {
                 match listener.accept().await {
                     Ok(s) => {
-                        sender.send(AppEvent::ClientConnected(s.0)).await.unwrap();
+                        match sender.send(AppEvent::ClientConnected(s.0)).await {
+                            Ok(_) => (),
+                            Err(e) => error!(
+                                "Could not send connection event: {}",
+                                e.to_string()
+                            ),
+                        }
                     }
                     Err(_) => panic!("Could not connect"),
                 }
@@ -321,7 +330,9 @@ impl App {
         event: AppEvent,
     ) -> Result<()> {
         match event {
-            AppEvent::Tick => (),
+            AppEvent::Tick => {
+                self.tick = self.tick.wrapping_add(1);
+            },
             _ => info!("Handling event {:?}", event),
         };
         match event {
@@ -382,6 +393,7 @@ impl App {
                 if self.listening_status != ListenStatus::Listening {
                     self.notification = Notification::warning("refused incoming connection".to_string());
                 } else {
+                    self.notification = Notification::info("connected".to_string());
                     let filepath = {
                         let mut client = self.client.lock().await;
                         let response = client.deref_mut().connect(s).await?;

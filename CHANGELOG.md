@@ -4,6 +4,7 @@ CHANGELOG
 main
 ----
 
+- Improve notification display
 - Do not accept connections while an existing session is running
 - Filter properties with dot notation in context pane (`f`)
 - Stack traversal - select stack and inspect stack frames in current mode.
