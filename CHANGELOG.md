@@ -6,6 +6,7 @@ main
 
 - Improve notification display
 - Do not accept connections while an existing session is running
+- Do not immediately switch back to listen mode when server disconnects.
 - Filter properties with dot notation in context pane (`f`)
 - Stack traversal - select stack and inspect stack frames in current mode.
 - Fixed light theme.
