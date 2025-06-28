@@ -48,7 +48,7 @@ impl Theme {
                 syntax_brace: Style::default().fg(Solarized::Base01.to_color()),
                 notification_info: Style::default().fg(Solarized::Green.to_color()),
                 notification_error: Style::default().fg(Solarized::Red.to_color()),
-                notification_warning: Style::default().fg(Color::Yellow),
+                notification_warning: Style::default().fg(Solarized::Yellow.to_color()),
                 pane_border_active: Style::default().fg(Solarized::Base01.to_color()),
                 pane_border_inactive: Style::default().fg(Solarized::Base02.to_color()),
                 source_line: Style::default().fg(Solarized::Base1.to_color()),

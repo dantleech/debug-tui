@@ -219,7 +219,7 @@ mod test {
         prop1.name = "foo".to_string();
 
         // segments are reversed
-        let mut filter = &mut vec![
+        let filter = &mut vec![
             "bar",
             "foo",
         ];

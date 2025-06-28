@@ -35,6 +35,7 @@ impl View for LayoutView {
 
         f.render_widget(Block::default().style(app.theme().background), area);
         f.render_widget(status_widget(app), rows[0]);
+        f.render_widget(notification_widget(app), rows[0]);
 
         match app.view_current {
             SelectedView::Listen => ListenView::draw(app, f, rows[1]),
@@ -44,6 +45,26 @@ impl View for LayoutView {
     }
 }
 
+fn notification_widget(app: &App) -> Paragraph<'_> {
+    Paragraph::new(vec![Line::from(Span::styled(
+        match app.notification.is_visible() {
+            true => format!(
+                "{} {}",
+                app.notification.message.clone(),
+                app.notification.countdown_char()
+            ),
+            false => "".to_string(),
+        },
+        match app.notification.level {
+            NotificationLevel::Error => app.theme().notification_error,
+            NotificationLevel::Warning => app.theme().notification_warning,
+            NotificationLevel::Info => app.theme().notification_info,
+            NotificationLevel::None => Style::default(),
+        },
+    ))
+    .alignment(ratatui::layout::Alignment::Right)])
+}
+
 fn status_widget(app: &App) -> Paragraph {
     Paragraph::new(vec![Line::from(vec![
         Span::styled(
@@ -51,7 +72,7 @@ fn status_widget(app: &App) -> Paragraph {
                 " 󱘖 {} ",
                 match app.listening_status {
                     ListenStatus::Connected => "connected".to_string(),
-                    
+
                     ListenStatus::Listening => app.config.listen.to_string(),
                     ListenStatus::Refusing => "refusing".to_string(),
                 },
@@ -76,38 +97,24 @@ fn status_widget(app: &App) -> Paragraph {
                     true => format!("   {} / ∞", app.history.offset + 1),
                     false => "   0 / 0".to_string(),
                 },
-                SessionViewMode::History => {
-                    match app.listening_status {
-                        ListenStatus::Connected => format!(
-                            "   {} / {} history [p] to go back [n] to go forwards [b] to return",
-                            app.history.offset + 1,
-                            app.history.len()
-                        ),
-                        ListenStatus::Refusing => format!(
-                            "   {} / {} terminated [p] to go back [n] to go forwards [b] to listen",
-                            app.history.offset + 1,
-                            app.history.len()
-                        ),
-                        ListenStatus::Listening => String::new(),
-                    }
-                }
+                SessionViewMode::History => match app.listening_status {
+                    ListenStatus::Connected => format!(
+                        "   {} / {} history [p] to go back [n] to go forwards [b] to return",
+                        app.history.offset + 1,
+                        app.history.len()
+                    ),
+                    ListenStatus::Refusing => format!(
+                        "   {} / {} terminated [p] to go back [n] to go forwards [b] to listen",
+                        app.history.offset + 1,
+                        app.history.len()
+                    ),
+                    ListenStatus::Listening => String::new(),
+                },
             })
             .to_string(),
             match app.session_view.mode {
                 SessionViewMode::Current => app.theme().widget_mode_debug,
                 SessionViewMode::History => app.theme().widget_mode_history,
-            },
-        ),
-        Span::styled(
-            match app.notification.is_visible() {
-                true => format!(" {} ", app.notification.message.clone()),
-                false => "".to_string(),
-            },
-            match app.notification.level {
-                NotificationLevel::Error => app.theme().notification_error,
-                NotificationLevel::Warning => app.theme().notification_warning,
-                NotificationLevel::Info => app.theme().notification_info,
-                NotificationLevel::None => Style::default(),
             },
         ),
     ])])
