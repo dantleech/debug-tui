@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-main
-----
+0.1.0
+-----
 
 - Improve notification display
 - Do not accept connections while an existing session is running
