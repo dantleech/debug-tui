@@ -34,6 +34,11 @@ impl View for SourceComponent {
             .constraints(constraints)
             .split(area);
 
+        // make the app aware of the source area so we can
+        // center the source code on the releant line when
+        // setpping into code
+        app.session_view.source_area.set(rows[0]);
+
         let mut annotations = vec![];
         let mut lines: Vec<Line> = Vec::new();
 
@@ -86,23 +91,16 @@ impl View for SourceComponent {
             }
         }
 
-        let scroll: u16 = if stack.source.line_no as u16 > area.height {
-            let center = (stack.source.line_no as u16)
-                .saturating_sub(area.height.div_ceil(2)) as i16;
-            center
-                .saturating_add(app.session_view.source_scroll.0 as i16)
-                .max(0) as u16
-        } else {
-            app.session_view.source_scroll.0
-        };
-
-        frame.render_widget(Paragraph::new(lines.clone()).scroll((scroll, app.session_view.source_scroll.1)), rows[0]);
+        frame.render_widget(
+            Paragraph::new(lines.clone()).scroll(app.session_view.source_scroll),
+            rows[0],
+        );
 
         for (line_no, line_length, line) in annotations {
             let x_offset =  rows[0].x + (line_length as u16).saturating_sub(app.session_view.source_scroll.1);
             let area = Rect {
                 x: x_offset,
-                y: (line_no as u32).saturating_sub(scroll as u32) as u16 + 1,
+                y: (line_no as u32).saturating_sub(app.session_view.source_scroll.0 as u32) as u16 + 1,
                 width: rows[0].width.saturating_sub(x_offset),
                 height: 1,
             };

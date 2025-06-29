@@ -371,6 +371,7 @@ impl App {
             AppEvent::HistoryNext => {
                 for _ in 0..self.take_motion() {
                     self.history.next();
+                    self.recenter();
                     if self.history.is_current() && (self.listening_status == ListenStatus::Connected) {
                         self.sender
                             .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
@@ -381,6 +382,7 @@ impl App {
             AppEvent::HistoryPrevious => {
                 for _ in 0..self.take_motion() {
                     self.history.previous();
+                    self.recenter();
                 }
             }
             AppEvent::Listen => {
@@ -469,6 +471,7 @@ impl App {
                     self.take_motion() as i16,
                 );
                 self.populate_stack_context().await?;
+                self.recenter();
             }
             AppEvent::ToggleFullscreen => {
                 self.session_view.full_screen = !self.session_view.full_screen;
@@ -637,8 +640,9 @@ impl App {
                 context,
             });
         }
-        self.history.push(entry);
         self.session_view.reset();
+        self.history.push(entry);
+        self.recenter();
         Ok(())
     }
 
@@ -670,6 +674,14 @@ impl App {
         self.session_view.mode = SessionViewMode::Current;
         self.analyzed_files = HashMap::new();
         self.workspace.reset();
+    }
+
+    fn recenter(&mut self) -> () {
+        let entry = self.history.current();
+        match entry {
+            Some(entry) => self.session_view.scroll_to_line(entry.source(self.session_view.stack_depth()).line_no),
+            None => (),
+        }
     }
 }
 
