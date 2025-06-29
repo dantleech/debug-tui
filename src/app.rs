@@ -637,8 +637,9 @@ impl App {
                 context,
             });
         }
-        self.history.push(entry);
         self.session_view.reset();
+        self.session_view.scroll_to_line(entry.source(0).line_no);
+        self.history.push(entry);
         Ok(())
     }
 

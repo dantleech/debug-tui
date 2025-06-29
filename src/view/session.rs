@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use super::context::ContextComponent;
 use super::source::SourceComponent;
 use super::stack::StackComponent;
@@ -184,6 +186,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
     };
 }
 
+#[derive(Default)]
 pub struct SearchState {
     pub show: bool,
     pub search: String,
@@ -196,9 +199,11 @@ impl SearchState {
     }
 }
 
+#[derive(Default)]
 pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: (u16, u16),
+    pub source_area: Cell<Rect>,
     pub context_scroll: (u16, u16),
     pub context_filter: SearchState,
     pub stack_scroll: (u16, u16),
@@ -207,17 +212,12 @@ pub struct SessionViewState {
     pub current_pane: usize,
 }
 
-impl Default for SessionViewState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl SessionViewState {
     pub fn new() -> Self {
         Self {
             full_screen: false,
             source_scroll: (0, 0),
+            source_area: Cell::new(Rect::new(0, 0, 0, 0)),
             context_scroll: (0, 0),
             context_filter: SearchState {
                 show: false,
@@ -271,10 +271,56 @@ impl SessionViewState {
     pub(crate) fn stack_depth(&self) -> u16 {
         self.stack_scroll.0
     }
+
+    pub(crate) fn scroll_to_line(&mut self, line_no: u32) -> () {
+        let area = self.source_area.get();
+        let mid_point = (area.height as u32).div_ceil(2);
+        let offset = if line_no > mid_point {
+            line_no - mid_point
+        } else {
+            0
+        };
+        self.source_scroll.0 = offset as u16;
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum SessionViewMode {
+    #[default]
     Current,
     History,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn scroll_to_line() -> () {
+        let mut view = SessionViewState::default();
+        view.source_area = Cell::new(Rect{
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 10, 
+        });
+        view.scroll_to_line(0);
+
+        assert_eq!(0, view.source_scroll.0);
+
+        view.scroll_to_line(5);
+        assert_eq!(0, view.source_scroll.0);
+
+        view.scroll_to_line(6);
+        assert_eq!(1, view.source_scroll.0);
+
+        view.scroll_to_line(10);
+        assert_eq!(5, view.source_scroll.0);
+
+        view.scroll_to_line(20);
+        assert_eq!(15, view.source_scroll.0);
+
+        view.scroll_to_line(100);
+        assert_eq!(95, view.source_scroll.0);
+    }
 }

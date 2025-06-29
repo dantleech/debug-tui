@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+0.1.1
+-----
+
+- Fix scroll limitation in source view #41
+
 0.1.0
 -----
 
