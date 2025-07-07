@@ -1,12 +1,12 @@
 Debug-TUI
 =========
 
-Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
+Interactive [Xdebug](https://xdebug.org) step-debugging client for your terminal.
 
 ![Demo](https://github.com/user-attachments/assets/1a8a1d1b-d01b-4d71-9d35-c65e546e8c24)
 
 - **Travel forwards**: step over, into and out.
-- **Travel backwards**: it's not quite time travel, but you can revisit
+- **Travel backwards**: it's not quite time travel - but you can revisit
   previous steps in _history mode_.
 - **Jump the stack**: jump up and down the stack.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
@@ -14,8 +14,8 @@ Interactive [Xdebug](https://xdebug.org) step-debugging client your terminal.
 
 ## Installation
 
-- Download the [latest release](https://github.com/dantleech/debug-tui/releases/latest)
-- Compile it yourself `cargo build`
+- Download the [latest release](https://github.com/dantleech/debug-tui/releases/latest).
+- Compile it yourself `cargo build`.
 
 ## CLI options
 
