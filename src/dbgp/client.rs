@@ -212,7 +212,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn run(&mut self) -> Result<ContinuationResponse> {
-        match self.command("run", &mut vec![]).await? {
+        match self.command("run", &mut []).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::Run(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -223,7 +223,7 @@ impl DbgpClient {
 
     pub(crate) async fn feature_set(&mut self, feature: &str, value: &str) -> Result<()> {
         match self
-            .command("feature_set", &mut vec!["-n", feature, "-v", value])
+            .command("feature_set", &mut ["-n", feature, "-v", value])
             .await?
         {
             Message::Response(r) => match r.command {
@@ -235,7 +235,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn context_get(&mut self, depth: u16) -> Result<ContextGetResponse> {
-        match self.command("context_get", &mut vec!["-d", format!("{}", depth).as_str()]).await? {
+        match self.command("context_get", &mut ["-d", format!("{}", depth).as_str()]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::ContextGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -245,7 +245,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn step_into(&mut self) -> Result<ContinuationResponse> {
-        match self.command("step_into", &mut vec![]).await? {
+        match self.command("step_into", &mut []).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepInto(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -255,7 +255,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn step_out(&mut self) -> Result<ContinuationResponse> {
-        match self.command("step_out", &mut vec![]).await? {
+        match self.command("step_out", &mut []).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepInto(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -265,7 +265,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn step_over(&mut self) -> Result<ContinuationResponse> {
-        match self.command("step_over", &mut vec![]).await? {
+        match self.command("step_over", &mut []).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StepOver(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -275,7 +275,7 @@ impl DbgpClient {
     }
 
     pub(crate) async fn get_stack(&mut self) -> Result<StackGetResponse> {
-        match self.command("stack_get", &mut vec!["-n 0"]).await? {
+        match self.command("stack_get", &mut ["-n 0"]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::StackGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -286,7 +286,7 @@ impl DbgpClient {
 
     pub(crate) async fn source(&mut self, filename: String) -> Result<String> {
         match self
-            .command("source", &mut vec![format!("-f {}", filename).as_str()])
+            .command("source", &mut [format!("-f {}", filename).as_str()])
             .await?
         {
             Message::Response(r) => match r.command {
@@ -297,12 +297,12 @@ impl DbgpClient {
         }
     }
 
-    async fn command(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<Message> {
+    async fn command(&mut self, cmd: &str, args: &mut [&str]) -> Result<Message> {
         self.command_raw(cmd, args).await?;
         self.read_and_parse().await
     }
 
-    async fn command_raw(&mut self, cmd: &str, args: &mut Vec<&str>) -> Result<usize> {
+    async fn command_raw(&mut self, cmd: &str, args: &mut [&str]) -> Result<usize> {
         let cmd_str = format!("{} -i {} {}", cmd, self.tid, args.join(" "));
         debug!("[dbgp] >> {}", cmd_str);
         let bytes = [cmd_str.trim_end(), "\0"].concat();

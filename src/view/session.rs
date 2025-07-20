@@ -12,7 +12,6 @@ use crate::app::App;
 use crate::app::ListenStatus;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
-use clap::builder::ArgPredicate;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -137,7 +136,7 @@ fn split_rows(panes: &Vec<&Pane>, area: Rect) -> Rc<[Rect]> {
             vertical_constraints.push(pane.constraint);
         }
 
-        return Layout::vertical(vertical_constraints).split(area);
+        Layout::vertical(vertical_constraints).split(area)
 }
 
 fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
@@ -294,7 +293,7 @@ impl SessionViewState {
         self.stack_scroll.0
     }
 
-    pub(crate) fn scroll_to_line(&mut self, line_no: u32) -> () {
+    pub(crate) fn scroll_to_line(&mut self, line_no: u32) {
         let area = self.source_area.get();
         let mid_point = (area.height as u32).div_ceil(2);
         let offset = if line_no > mid_point {
@@ -318,7 +317,7 @@ mod test {
     use super::*;
 
     #[test]
-    pub fn panes() -> () {
+    pub fn panes() {
         let mut view = SessionViewState::default();
         view.panes = vec![
             Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Left},
@@ -330,7 +329,7 @@ mod test {
     }
 
     #[test]
-    pub fn scroll_to_line() -> () {
+    pub fn scroll_to_line() {
         let mut view = SessionViewState::default();
         view.source_area = Cell::new(Rect{
             x: 0,

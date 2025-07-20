@@ -78,7 +78,7 @@ mod test {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_countdown_char() -> () {
+    fn test_countdown_char() {
         let notification = Notification::info("hello".to_string());
         assert_eq!('█', notification.countdown_char());
 

@@ -40,7 +40,7 @@ mod test {
     use crate::notification::Notification;
 
     #[test]
-    fn test_countdown_char() -> () {
+    fn test_countdown_char() {
         let notification = Notification::info("Hello".to_string());
         notification.countdown_char();
     }

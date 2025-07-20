@@ -676,12 +676,9 @@ impl App {
         self.workspace.reset();
     }
 
-    fn recenter(&mut self) -> () {
+    fn recenter(&mut self) {
         let entry = self.history.current();
-        match entry {
-            Some(entry) => self.session_view.scroll_to_line(entry.source(self.session_view.stack_depth()).line_no),
-            None => (),
-        }
+        if let Some(entry) = entry { self.session_view.scroll_to_line(entry.source(self.session_view.stack_depth()).line_no) }
     }
 }
 
