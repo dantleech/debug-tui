@@ -24,10 +24,17 @@ pub enum ComponentType {
     Stack,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Col {
+    Left,
+    Right,
+}
+
 #[derive(Debug)]
 pub struct Pane {
     pub component_type: ComponentType,
     pub constraint: Constraint,
+    pub col: Col,
 }
 
 pub type Scroll = (i16,i16);

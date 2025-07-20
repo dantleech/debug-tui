@@ -1,8 +1,10 @@
 use std::cell::Cell;
+use std::rc::Rc;
 
 use super::context::ContextComponent;
 use super::source::SourceComponent;
 use super::stack::StackComponent;
+use super::Col;
 use super::ComponentType;
 use super::Pane;
 use super::View;
@@ -10,6 +12,7 @@ use crate::app::App;
 use crate::app::ListenStatus;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
+use clap::builder::ArgPredicate;
 use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -109,21 +112,32 @@ impl View for SessionView {
         };
 
         let cols = Layout::horizontal(vec![main_pane.constraint, Constraint::Min(1)]).split(area);
+        let mut pane_index = 0;
 
-        build_pane_widget(frame, app, main_pane, cols[0], 0);
+        let left_panes = app.session_view.panes(Col::Left);
+        let left_rows = split_rows(&left_panes, cols[0]);
+        for (row_index, pane) in left_panes.iter().enumerate() {
+            build_pane_widget(frame, app, pane, left_rows[row_index], pane_index);
+            pane_index += 1;
+        }
 
+        let right_panes = app.session_view.panes(Col::Right);
+        let right_rows = split_rows(&right_panes, cols[1]);
+        for (row_index, pane) in right_panes.iter().enumerate() {
+            build_pane_widget(frame, app, pane, right_rows[row_index], pane_index);
+            pane_index += 1;
+        }
+    }
+}
+
+fn split_rows(panes: &Vec<&Pane>, area: Rect) -> Rc<[Rect]> {
         let mut vertical_constraints = Vec::new();
 
-        for pane in &app.session_view.panes[1..] {
+        for pane in panes {
             vertical_constraints.push(pane.constraint);
         }
 
-        let rows = Layout::vertical(vertical_constraints).split(cols[1]);
-
-        for (row_index, pane) in app.session_view.panes[1..].iter().enumerate() {
-            build_pane_widget(frame, app, pane, rows[row_index], row_index + 1);
-        }
-    }
+        return Layout::vertical(vertical_constraints).split(area);
 }
 
 fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
@@ -156,13 +170,14 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 }
             ),
             ComponentType::Stack => format!(
-                "Stack({}/{}, fetch-depth: {})",
+                "Stack({}/{}, fetch-depth: {}): pane {:?}",
                 app.session_view.stack_depth(),
                 match app.history.current() {
                     Some(e) => e.stacks.len().saturating_sub(1),
                     None => 0,
                 },
                 app.stack_max_context_fetch,
+                app.session_view.current_pane,
             ),
         })
         .style(match index == app.session_view.current_pane {
@@ -231,17 +246,24 @@ impl SessionViewState {
                 Pane {
                     component_type: ComponentType::Source,
                     constraint: ratatui::layout::Constraint::Percentage(70),
+                    col: Col::Left,
                 },
                 Pane {
                     component_type: ComponentType::Context,
                     constraint: ratatui::layout::Constraint::Percentage(70),
+                    col: Col::Right,
                 },
                 Pane {
                     component_type: ComponentType::Stack,
                     constraint: ratatui::layout::Constraint::Min(1),
+                    col: Col::Right,
                 },
             ],
         }
+    }
+
+    fn panes(&self, col: Col) -> Vec<&Pane> {
+        self.panes.iter().filter(|p|p.col == col).collect()
     }
 
     pub fn next_pane(&mut self) {
@@ -294,6 +316,18 @@ pub enum SessionViewMode {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    pub fn panes() -> () {
+        let mut view = SessionViewState::default();
+        view.panes = vec![
+            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Left},
+            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Right},
+            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Right}
+        ];
+        assert_eq!(1, view.panes(Col::Left).len());
+        assert_eq!(2, view.panes(Col::Right).len());
+    }
 
     #[test]
     pub fn scroll_to_line() -> () {
