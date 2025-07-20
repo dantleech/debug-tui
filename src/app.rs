@@ -490,6 +490,18 @@ impl App {
                     .await?;
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
+            AppEvent::EvalStart => {
+                self.session_view.eval_state.active = true;
+                self.focus_view = true;
+            },
+            AppEvent::EvalCancel => {
+                self.session_view.eval_state.active = false;
+                self.focus_view = false;
+            },
+            AppEvent::EvalExecute => {
+                self.session_view.eval_state.active = false;
+                self.focus_view = false;
+            },
             AppEvent::Input(key_event) => {
                 if self.focus_view {
                     // event shandled exclusively by view (e.g. input needs focus)

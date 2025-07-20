@@ -2,6 +2,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use super::context::ContextComponent;
+use super::eval::EvalComponent;
+use super::eval::EvalState;
 use super::source::SourceComponent;
 use super::stack::StackComponent;
 use super::Col;
@@ -146,6 +148,7 @@ fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         ComponentType::Source => SourceComponent::handle(app, event),
         ComponentType::Context => ContextComponent::handle(app, event),
         ComponentType::Stack => StackComponent::handle(app, event),
+        ComponentType::Eval => EvalComponent::handle(app, event),
     }
 }
 
@@ -169,15 +172,15 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 }
             ),
             ComponentType::Stack => format!(
-                "Stack({}/{}, fetch-depth: {}): pane {:?}",
+                "Stack({}/{}, fetch-depth: {})",
                 app.session_view.stack_depth(),
                 match app.history.current() {
                     Some(e) => e.stacks.len().saturating_sub(1),
                     None => 0,
                 },
                 app.stack_max_context_fetch,
-                app.session_view.current_pane,
             ),
+            ComponentType::Eval => format!("Eval"),
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,
@@ -196,6 +199,9 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         }
         ComponentType::Stack => {
             StackComponent::draw(app, frame, block.inner(area));
+        }
+        ComponentType::Eval => {
+            EvalComponent::draw(app, frame, block.inner(area));
         }
     };
 }
@@ -218,6 +224,7 @@ pub struct SessionViewState {
     pub full_screen: bool,
     pub source_scroll: (u16, u16),
     pub source_area: Cell<Rect>,
+    pub eval_state: EvalState,
     pub context_scroll: (u16, u16),
     pub context_filter: SearchState,
     pub stack_scroll: (u16, u16),
@@ -233,6 +240,7 @@ impl SessionViewState {
             source_scroll: (0, 0),
             source_area: Cell::new(Rect::new(0, 0, 0, 0)),
             context_scroll: (0, 0),
+            eval_state: EvalState::default(),
             context_filter: SearchState {
                 show: false,
                 search: String::new(),
@@ -244,7 +252,12 @@ impl SessionViewState {
             panes: vec![
                 Pane {
                     component_type: ComponentType::Source,
-                    constraint: ratatui::layout::Constraint::Percentage(70),
+                    constraint: ratatui::layout::Constraint::Percentage(50),
+                    col: Col::Left,
+                },
+                Pane {
+                    component_type: ComponentType::Eval,
+                    constraint: ratatui::layout::Constraint::Percentage(50),
                     col: Col::Left,
                 },
                 Pane {
