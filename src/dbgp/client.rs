@@ -258,9 +258,9 @@ impl DbgpClient {
         }
     }
 
-    pub(crate) async fn eval(&mut self, expression: String) -> Result<EvalResponse> {
+    pub(crate) async fn eval(&mut self, expression: String, depth: u16) -> Result<EvalResponse> {
         let base64 = general_purpose::STANDARD.encode(expression.as_bytes());
-        match self.command("eval", &mut ["--", &base64]).await? {
+        match self.command("eval", &mut ["-d", format!("{}", depth).as_str(), "--", &base64]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::Eval(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),

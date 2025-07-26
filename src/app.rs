@@ -10,6 +10,7 @@ use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
 use crate::theme::Theme;
+use crate::view::eval::draw_properties;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -27,6 +28,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
@@ -216,7 +218,7 @@ pub struct App {
     pub counter: u16,
 
     pub snapshot_notify: Arc<Notify>,
-    pub context_depth: u8,
+    pub context_depth: u16,
     pub theme: Theme,
 
     pub analyzed_files: AnalyzedFiles,
@@ -434,8 +436,8 @@ impl App {
                 self.exec_continuation(AppEvent::Run).await;
             }
             AppEvent::ContextDepth(inc) => {
-                let depth = self.context_depth as i8;
-                self.context_depth = depth.wrapping_add(inc).max(0) as u8;
+                let depth = self.context_depth;
+                self.context_depth = depth.wrapping_add(inc as u16).max(0);
                 self.client
                     .lock()
                     .await
@@ -501,11 +503,16 @@ impl App {
             AppEvent::EvalExecute => {
                 self.session_view.eval_state.active = false;
                 self.focus_view = false;
-                let _ = self.client
+                let response = self.client
                     .lock()
                     .await
-                    .eval(self.session_view.eval_state.input.to_string())
+                    .eval(
+                        self.session_view.eval_state.input.to_string(),
+                        self.session_view.stack_depth()
+                    )
                     .await?;
+
+                self.session_view.eval_state.properties = response.properties;
             },
             AppEvent::Input(key_event) => {
                 if self.focus_view {
@@ -671,7 +678,7 @@ impl App {
         if !self.history.is_current() {
             return Ok(());
         }
-        let level = self.session_view.stack_scroll.0 as usize;
+        let level = self.session_view.stack_level();
         if let Some(c) = self.history.current_mut() {
             let stack = c.stacks.get_mut(level);
             if let Some(s) = stack {

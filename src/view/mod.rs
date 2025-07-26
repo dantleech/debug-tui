@@ -4,6 +4,8 @@ pub mod session;
 pub mod stack;
 pub mod help;
 pub mod eval;
+pub mod common;
+pub mod properties;
 
 pub mod source;
 pub mod context;

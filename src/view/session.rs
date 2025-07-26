@@ -312,6 +312,10 @@ impl SessionViewState {
         let offset = line_no.saturating_sub(mid_point);
         self.source_scroll.0 = offset as u16;
     }
+
+    pub(crate) fn stack_level(&self) -> usize {
+        self.stack_scroll.0 as usize
+    }
 }
 
 #[derive(Debug, Clone, Default)]

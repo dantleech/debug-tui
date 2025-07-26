@@ -1,76 +1,8 @@
-use super::View;
-use crate::app::App;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
-use crate::event::input::AppEvent;
 use crate::theme::Scheme;
-use crossterm::event::KeyCode;
-use ratatui::layout::Constraint;
-use ratatui::layout::Layout;
-use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
-use ratatui::widgets::Paragraph;
-use ratatui::Frame;
-use tui_input::backend::crossterm::EventHandler;
-
-pub struct EvalComponent {}
-
-#[derive(Default)]
-pub struct EvalState {
-    pub active: bool,
-    pub properties: Vec<Property>,
-    pub input: tui_input::Input,
-}
-
-impl View for EvalComponent {
-    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
-        if app.session_view.eval_state.active {
-            return match event {
-                AppEvent::Input(e) => {
-                    if e.code == KeyCode::Esc {
-                        return Some(AppEvent::EvalCancel);
-                    }
-                    if e.code == KeyCode::Enter {
-                        return Some(AppEvent::EvalExecute);
-                    }
-                    app.session_view.eval_state.input.handle_event(&crossterm::event::Event::Key(e));
-                    return None;
-                },
-                _ => None,
-            }
-        }
-        match event {
-            AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
-            AppEvent::Input(e) => {
-                match e.code {
-                    KeyCode::Char('i') => Some(AppEvent::EvalStart),
-                    _ => None,
-                }
-            },
-            _ => None,
-        }
-    }
-
-    fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        let layout = Layout::default()
-            .constraints([Constraint::Length(1), Constraint::Fill(1)]);
-
-        let areas = layout.split(area);
-        frame.render_widget(Paragraph::new(Line::from(vec![
-            Span::raw(app.session_view.eval_state.input.value()),
-            Span::raw(" ").style(app.theme().cursor),  
-        ])
-        ), areas[0]);
-
-        let mut lines: Vec<Line> = Vec::new();
-        draw_properties(&app.theme(), &app.session_view.eval_state.properties, &mut lines, 0, &mut Vec::new());
-        frame.render_widget(
-            Paragraph::new(lines).scroll(app.session_view.context_scroll),
-            areas[1],
-        );
-    }
-}
 
 pub fn draw_properties(
     theme: &Scheme,
