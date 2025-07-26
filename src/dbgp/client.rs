@@ -31,6 +31,13 @@ pub enum CommandResponse {
     StackGet(StackGetResponse),
     Source(String),
     ContextGet(ContextGetResponse),
+    Eval(EvalResponse),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DbgpError {
+    pub message: String,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -133,6 +140,13 @@ pub enum ContinuationStatus {
 pub struct ContinuationResponse {
     pub status: ContinuationStatus,
     pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EvalResponse {
+    pub success: bool,
+    pub error: Option<DbgpError>,
+    pub properties: Vec<Property>,
 }
 
 #[derive(Debug, Clone)]
@@ -238,6 +252,17 @@ impl DbgpClient {
         match self.command("context_get", &mut ["-d", format!("{}", depth).as_str()]).await? {
             Message::Response(r) => match r.command {
                 CommandResponse::ContextGet(s) => Ok(s),
+                _ => anyhow::bail!("Unexpected response"),
+            },
+            _ => anyhow::bail!("Unexpected response"),
+        }
+    }
+
+    pub(crate) async fn eval(&mut self, expression: String) -> Result<EvalResponse> {
+        let base64 = general_purpose::STANDARD.encode(expression.as_bytes());
+        match self.command("eval", &mut ["--", &base64]).await? {
+            Message::Response(r) => match r.command {
+                CommandResponse::Eval(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
             },
             _ => anyhow::bail!("Unexpected response"),
@@ -368,6 +393,7 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
                 "stack_get" => CommandResponse::StackGet(parse_stack_get(&root)),
                 "source" => CommandResponse::Source(parse_source(&root)?),
                 "context_get" => CommandResponse::ContextGet(parse_context_get(&mut root)?),
+                "eval" => CommandResponse::Eval(parse_eval(&mut root)?),
                 _ => CommandResponse::Unknown,
             },
         })),
@@ -377,13 +403,40 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.first() {
         Some(XMLNode::CData(e)) => {
-            Ok(String::from_utf8(general_purpose::STANDARD.decode(e).unwrap()).unwrap())
+            Ok(String::from_utf8(general_purpose::STANDARD.decode(e)?)?)
         }
         _ => anyhow::bail!("Expected CDATA"),
     }
 }
 
+
 fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow::Error> {
+    Ok(ContextGetResponse { properties: parse_properties(element)?})
+}
+
+fn parse_eval(element: &mut Element) -> Result<EvalResponse, anyhow::Error> {
+
+    let error = if let Some(mut error_el) = element.take_child("error") {
+        let code = error_el.attributes.get("code").map_or("".to_string(), |v|v.to_string());
+        let message = match error_el.take_child("message") {
+            Some(m) => match m.children.first() {
+                Some(XMLNode::CData(e)) => {
+                    e.to_string()
+                },
+                _ => String::new(),
+            },
+            _ => "".to_string()
+        };
+        
+        Some(DbgpError{message, code: code.to_string()})
+    } else {
+        None
+    };
+
+    Ok(EvalResponse { success: true, properties: parse_properties(element)?, error })
+}
+
+fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Error> {
     let mut properties: Vec<Property> = vec![];
     while let Some(mut child) = element.take_child("property") {
         let encoding = child.attributes.get("encoding").map(|s| s.to_string());
@@ -428,12 +481,12 @@ fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow
             key: child.attributes.get("key").map(|name| name.to_string()),
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
-            children: parse_context_get(&mut child).unwrap().properties,
+            children: parse_properties(&mut child)?,
             value: decode_element(Some(&child)),
         };
         properties.push(p);
     }
-    Ok(ContextGetResponse { properties })
+    Ok(properties)
 }
 
 fn decode_element(element: Option<&Element>) -> Option<String> {
@@ -594,6 +647,79 @@ function call_function(string $hello) {
                         assert_eq!(expected, source)
                     }
                     _ => panic!("Could not parse get_stack"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_eval() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"
+            <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="eval" transaction_id="28"><property type="int"><![CDATA[2]]></property></response>
+            "#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::Eval(response) => {
+                        let expected = EvalResponse {
+                            success: true,
+                            error: None,
+                            properties: vec![
+                                Property {
+                                    name: "".to_string(),
+                                    fullname: "".to_string(),
+                                    classname: None,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: PropertyType::Int,
+                                    facet: None,
+                                    size: None,
+                                    children: vec![],
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                    value: Some(2.to_string()),
+                                },
+                            ],
+                        };
+                        assert_eq!(expected, response)
+                    }
+                    _ => panic!("Could not parse context_get"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_eval_error() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"
+            <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="eval" transaction_id="6" status="break" reason="ok"><error code="206"><message><![CDATA[error evaluating code: Undefined constant "asda"]]></message></error></response>
+            "#,
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::Eval(response) => {
+                        let expected = EvalResponse {
+                            success: true,
+                            error: Some(DbgpError {
+                                message: "error evaluating code: Undefined constant \"asda\"".to_string(),
+                                code: "206".to_string()
+                            }),
+                            properties: vec![],
+                        };
+                        assert_eq!(expected, response)
+                    }
+                    _ => panic!("Could not parse context_get"),
                 };
             }
             _ => panic!("Did not parse"),

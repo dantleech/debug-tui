@@ -180,7 +180,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 },
                 app.stack_max_context_fetch,
             ),
-            ComponentType::Eval => format!("Eval"),
+            ComponentType::Eval => "Eval".to_string(),
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,
@@ -309,11 +309,7 @@ impl SessionViewState {
     pub(crate) fn scroll_to_line(&mut self, line_no: u32) {
         let area = self.source_area.get();
         let mid_point = (area.height as u32).div_ceil(2);
-        let offset = if line_no > mid_point {
-            line_no - mid_point
-        } else {
-            0
-        };
+        let offset = line_no.saturating_sub(mid_point);
         self.source_scroll.0 = offset as u16;
     }
 }

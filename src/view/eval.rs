@@ -10,8 +10,6 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
-use ratatui::widgets::Block;
-use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 use tui_input::backend::crossterm::EventHandler;

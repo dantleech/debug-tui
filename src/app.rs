@@ -288,7 +288,7 @@ impl App {
                             Ok(_) => (),
                             Err(e) => error!(
                                 "Could not send connection event: {}",
-                                e.to_string()
+                                e
                             ),
                         }
                     }
@@ -501,6 +501,11 @@ impl App {
             AppEvent::EvalExecute => {
                 self.session_view.eval_state.active = false;
                 self.focus_view = false;
+                let _ = self.client
+                    .lock()
+                    .await
+                    .eval(self.session_view.eval_state.input.to_string())
+                    .await?;
             },
             AppEvent::Input(key_event) => {
                 if self.focus_view {
