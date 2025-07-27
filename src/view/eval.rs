@@ -1,5 +1,6 @@
 use super::View;
 use crate::app::App;
+use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
@@ -10,6 +11,8 @@ use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 use tui_input::backend::crossterm::EventHandler;
@@ -19,8 +22,9 @@ pub struct EvalComponent {}
 #[derive(Default)]
 pub struct EvalState {
     pub active: bool,
-    pub properties: Vec<Property>,
+    pub response: Option<EvalResponse>,
     pub input: tui_input::Input,
+    pub scroll: (u16, u16),
 }
 
 impl View for EvalComponent {
@@ -41,10 +45,10 @@ impl View for EvalComponent {
             }
         }
         match event {
-            AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
+            AppEvent::Scroll(scroll) => Some(AppEvent::ScrollEval(scroll)),
             AppEvent::Input(e) => {
                 match e.code {
-                    KeyCode::Char('i') => Some(AppEvent::EvalStart),
+                    KeyCode::Char('e') => Some(AppEvent::EvalStart),
                     _ => None,
                 }
             },
@@ -53,22 +57,40 @@ impl View for EvalComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
+        let mut constraints = Vec::new();
+        constraints.push(Constraint::Length(if app.session_view.eval_state.active == true { 3 } else { 0 }));
+        constraints.push(Constraint::Fill(1));
         let layout = Layout::default()
-            .constraints([Constraint::Length(1), Constraint::Fill(1)]);
+            .constraints(constraints);
 
         let areas = layout.split(area);
-        frame.render_widget(Paragraph::new(Line::from(vec![
-            Span::raw(app.session_view.eval_state.input.value()),
-            Span::raw(" ").style(app.theme().cursor),  
-        ])
-        ), areas[0]);
 
-        let mut lines: Vec<Line> = Vec::new();
-        draw_properties(&app.theme(), &app.session_view.eval_state.properties, &mut lines, 0, &mut Vec::new());
-        frame.render_widget(
-            Paragraph::new(lines).scroll(app.session_view.context_scroll),
-            areas[1],
-        );
+        frame.render_widget(Paragraph::new(Line::from(vec![
+            Span::raw(app.session_view.eval_state.input.value()).style(app.theme().text_input),
+        ])).block(Block::default().borders(Borders::all())), areas[0]);
+
+        if app.session_view.eval_state.active == true {
+            let width = area.width.max(3);
+            let scroll = app.session_view.eval_state.input.visual_scroll(width as usize);
+            let x = app.session_view.eval_state.input.visual_cursor().max(scroll) - scroll + 1;
+            frame.set_cursor_position((area.x + x as u16, area.y + 1));
+        }
+
+        if let Some(response) = &app.session_view.eval_state.response {
+            if let Some(error) = &response.error {
+                frame.render_widget(
+                    Paragraph::new(error.message.clone()).style(app.theme().notification_error),
+                    areas[1],
+                );
+            } else {
+                let mut lines: Vec<Line> = Vec::new();
+                draw_properties(&app.theme(), &response.properties, &mut lines, 0, &mut Vec::new());
+                frame.render_widget(
+                    Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
+                    areas[1],
+                );
+            }
+        }
     }
 }
 

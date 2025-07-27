@@ -10,7 +10,6 @@ use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
 use crate::theme::Theme;
-use crate::view::eval::draw_properties;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -466,6 +465,13 @@ impl App {
                     self.take_motion() as i16,
                 );
             }
+            AppEvent::ScrollEval(amount) => {
+                self.session_view.eval_state.scroll = apply_scroll(
+                    self.session_view.eval_state.scroll,
+                    amount,
+                    self.take_motion() as i16,
+                );
+            }
             AppEvent::ScrollStack(amount) => {
                 self.session_view.stack_scroll = apply_scroll(
                     self.session_view.stack_scroll,
@@ -501,18 +507,36 @@ impl App {
                 self.focus_view = false;
             },
             AppEvent::EvalExecute => {
+                if self.session_view.eval_state.input.to_string().is_empty() {
+                    self.session_view.eval_state.response = None;
+                } else {
+                    let response = self.client
+                        .lock()
+                        .await
+                        .eval(
+                            self.session_view.eval_state.input.to_string(),
+                            self.session_view.stack_depth()
+                        )
+                        .await?;
+
+                    self.session_view.eval_state.response = Some(response);
+                }
                 self.session_view.eval_state.active = false;
                 self.focus_view = false;
-                let response = self.client
-                    .lock()
-                    .await
-                    .eval(
-                        self.session_view.eval_state.input.to_string(),
-                        self.session_view.stack_depth()
-                    )
-                    .await?;
+            },
+            AppEvent::EvalRefresh => {
+                if false == self.session_view.eval_state.input.to_string().is_empty() {
+                    let response = self.client
+                        .lock()
+                        .await
+                        .eval(
+                            self.session_view.eval_state.input.to_string(),
+                            self.session_view.stack_depth()
+                        )
+                        .await?;
 
-                self.session_view.eval_state.properties = response.properties;
+                    self.session_view.eval_state.response = Some(response);
+                }
             },
             AppEvent::Input(key_event) => {
                 if self.focus_view {
@@ -596,6 +620,7 @@ impl App {
                     .await
                     .unwrap();
             }
+            sender.send(AppEvent::EvalRefresh).await.unwrap();
         });
     }
 

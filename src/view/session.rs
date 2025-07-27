@@ -167,7 +167,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 "Context(fetch-depth: {}, filter: {})",
                 app.context_depth,
                 match app.session_view.context_filter.input.value() {
-                    "" => "n/a",
+                    "" => "press 'f' to filter with dot notation",
                     _ => app.session_view.context_filter.input.value(),
                 }
             ),
@@ -180,7 +180,14 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 },
                 app.stack_max_context_fetch,
             ),
-            ComponentType::Eval => "Eval".to_string(),
+            ComponentType::Eval => format!(
+                "Eval: {}",
+                if app.session_view.eval_state.input.value().is_empty() {
+                    "Press 'e' to enter an expression".to_string()
+                } else {
+                    app.session_view.eval_state.input.clone().to_string()
+                }
+            ),
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,
@@ -252,22 +259,22 @@ impl SessionViewState {
             panes: vec![
                 Pane {
                     component_type: ComponentType::Source,
-                    constraint: ratatui::layout::Constraint::Percentage(50),
+                    constraint: ratatui::layout::Constraint::Percentage(75),
                     col: Col::Left,
                 },
                 Pane {
                     component_type: ComponentType::Eval,
-                    constraint: ratatui::layout::Constraint::Percentage(50),
+                    constraint: ratatui::layout::Constraint::Fill(1),
                     col: Col::Left,
                 },
                 Pane {
                     component_type: ComponentType::Context,
-                    constraint: ratatui::layout::Constraint::Percentage(70),
+                    constraint: ratatui::layout::Constraint::Percentage(75),
                     col: Col::Right,
                 },
                 Pane {
                     component_type: ComponentType::Stack,
-                    constraint: ratatui::layout::Constraint::Min(1),
+                    constraint: ratatui::layout::Constraint::Fill(1),
                     col: Col::Right,
                 },
             ],

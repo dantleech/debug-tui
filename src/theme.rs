@@ -28,13 +28,14 @@ impl Theme {
 
                 scheme.pane_border_active = Style::default().fg(Solarized::Base01.to_color()).bg(Solarized::Base3.to_color());
 
-                scheme.pane_border_inactive = Style::default().fg(Solarized::Base02.to_color()).bg(Solarized::Base3.to_color());
+                scheme.pane_border_inactive = Style::default().fg(Solarized::Base02.to_color()).bg(Solarized::Base2.to_color());
 
                 scheme.source_line = scheme.source_line.fg(Solarized::Base00.to_color());
                 scheme.source_line_highlight = scheme.source_line_highlight.bg(Solarized::Base2.to_color()).fg(Solarized::Base01.to_color());
 
                 scheme.widget_mode_debug = scheme.widget_mode_debug.fg(Solarized::Base03.to_color()).bg(Solarized::Base3.to_color());
                 scheme.widget_mode_history = scheme.widget_mode_debug.bg(Solarized::Base3.to_color()).fg(Solarized::Red.to_color());
+                scheme.text_input = Style::default().fg(Solarized::Base0.to_color());
 
                 scheme
             }
@@ -61,6 +62,8 @@ impl Theme {
                 widget_inactive: Style::default().fg(Solarized::Base1.to_color()).bg(Solarized::Base03.to_color()),
                 widget_mode_debug: Style::default().fg(Solarized::Base1.to_color()).bg(Solarized::Base03.to_color()),
                 widget_mode_history: Style::default().fg(Solarized::Red.to_color()).bg(Solarized::Base03.to_color()),
+
+                text_input: Style::default().fg(Solarized::Base2.to_color()),
 
                 background: Style::default().bg(Color::Black),
                 cursor: Style::default().bg(Color::White),
@@ -92,6 +95,7 @@ impl Theme {
                 widget_inactive: Style::default().fg(Color::Black).bg(Color::Yellow),
                 widget_mode_debug: Style::default().bg(Color::Blue),
                 widget_mode_history: Style::default().bg(Color::Red),
+                text_input: Style::default().fg(Solarized::Red.to_color()).bg(Solarized::Green.to_color()),
                 background: Style::default().bg(Color::Black),
                 cursor: Style::default().bg(Color::White)
             },
@@ -127,6 +131,7 @@ pub struct Scheme {
     pub widget_inactive: Style,
     pub widget_mode_debug: Style,
     pub widget_mode_history: Style,
+    pub text_input: Style,
     pub cursor: Style,
 }
 

@@ -43,6 +43,7 @@ pub enum AppEvent {
     ScrollSource(Scroll),
     ScrollContext(Scroll),
     ScrollStack(Scroll),
+    ScrollEval(Scroll),
     ToggleFullscreen,
     PushInputPlurality(char),
     ContextDepth(i8),
@@ -52,6 +53,7 @@ pub enum AppEvent {
     Listen,
     EvalCancel,
     EvalExecute,
+    EvalRefresh,
     EvalStart,
 }
 

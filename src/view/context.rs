@@ -65,10 +65,16 @@ impl View for ContextComponent {
         let areas = layout.split(area);
 
         frame.render_widget(Paragraph::new(Line::from(vec![
-            Span::raw(app.session_view.context_filter.input.value()),
-            Span::raw(" ").style(app.theme().cursor),  
+            Span::raw(app.session_view.context_filter.input.value()).style(app.theme().text_input),
         ])
         ).block(Block::default().borders(Borders::all())), areas[0]);
+
+        if app.session_view.context_filter.show == true {
+            let width = area.width.max(3);
+            let scroll = app.session_view.context_filter.input.visual_scroll(width as usize);
+            let x = app.session_view.context_filter.input.visual_cursor().max(scroll) - scroll + 1;
+            frame.set_cursor_position((area.x + x as u16, area.y + 1));
+        }
             
         let mut filter_path = app.session_view.context_filter.segments().clone();
         draw_properties(
