@@ -1,6 +1,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use tui_input::backend::crossterm::EventHandler;
+use super::centered_rect_absolute;
 use super::context::ContextComponent;
 use super::eval::EvalComponent;
 use super::eval::EvalState;
@@ -18,9 +20,12 @@ use crossterm::event::KeyCode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
+use ratatui::text::Line;
+use ratatui::text::Span;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub struct SessionView {}
@@ -32,6 +37,25 @@ impl View for SessionView {
             _ => return delegate_event_to_pane(app, event),
         };
 
+        if app.session_view.eval_state.active {
+            return match event {
+                AppEvent::Input(e) => {
+                    if e.code == KeyCode::Esc {
+                        return Some(AppEvent::EvalCancel);
+                    }
+                    if e.code == KeyCode::Enter {
+                        return Some(AppEvent::EvalExecute);
+                    }
+                    app.session_view
+                        .eval_state
+                        .input
+                        .handle_event(&crossterm::event::Event::Key(e));
+                    return None;
+                }
+                _ => None,
+            };
+        }
+
         if app.focus_view {
             return delegate_event_to_pane(app, event);
         }
@@ -42,6 +66,7 @@ impl View for SessionView {
             KeyCode::BackTab => return Some(AppEvent::PreviousPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
+                'e' => return Some(AppEvent::EvalStart),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
                 'k' => return Some(AppEvent::Scroll((-1, 0))),
                 'J' => return Some(AppEvent::Scroll((10, 0))),
@@ -128,6 +153,22 @@ impl View for SessionView {
             build_pane_widget(frame, app, pane, right_rows[row_index], pane_index);
             pane_index += 1;
         }
+
+        if app.session_view.eval_state.active == true {
+            let darea = centered_rect_absolute(area.width - 10, 3, area);
+            frame.render_widget(Clear::default(), darea);
+            frame.render_widget(Paragraph::new(Line::from(vec![
+                Span::raw(app.session_view.eval_state.input.value()).style(app.theme().text_input),
+            ])).block(
+                Block::default().borders(Borders::all()).title("Enter expression").style(app.theme().pane_border_active)
+            ), darea);
+
+            let width = darea.width.max(3);
+            let scroll = app.session_view.eval_state.input.visual_scroll(width as usize);
+            let x = app.session_view.eval_state.input.visual_cursor().max(scroll) - scroll + 1;
+            frame.set_cursor_position((darea.x + x as u16, darea.y + 1));
+        }
+
     }
 }
 
@@ -180,14 +221,25 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 },
                 app.stack_max_context_fetch,
             ),
-            ComponentType::Eval => format!(
-                "Eval: {}",
-                if app.session_view.eval_state.input.value().is_empty() {
-                    "Press 'e' to enter an expression".to_string()
-                } else {
-                    app.session_view.eval_state.input.clone().to_string()
-                }
-            ),
+            ComponentType::Eval => match app.session_view.current_pane == index {
+                true => format!(
+                    "Eval: {}",
+                    if app.session_view.eval_state.input.value().is_empty() {
+                        "Press 'e' to enter an expression".to_string()
+                    } else {
+                        app.session_view.eval_state.input.clone().to_string()
+                    }
+                ),
+                false => format!(
+                    "Eval: {}",
+                    if app.session_view.eval_state.input.value().is_empty() {
+                        "".to_string()
+                    } else {
+                        app.session_view.eval_state.input.clone().to_string()
+                    },
+
+                ),
+            }
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,

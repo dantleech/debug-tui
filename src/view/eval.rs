@@ -6,16 +6,11 @@ use crate::dbgp::client::PropertyType;
 use crate::event::input::AppEvent;
 use crate::theme::Scheme;
 use crossterm::event::KeyCode;
-use ratatui::layout::Constraint;
-use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
-use ratatui::widgets::Block;
-use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
-use tui_input::backend::crossterm::EventHandler;
 
 pub struct EvalComponent {}
 
@@ -29,65 +24,31 @@ pub struct EvalState {
 
 impl View for EvalComponent {
     fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
-        if app.session_view.eval_state.active {
-            return match event {
-                AppEvent::Input(e) => {
-                    if e.code == KeyCode::Esc {
-                        return Some(AppEvent::EvalCancel);
-                    }
-                    if e.code == KeyCode::Enter {
-                        return Some(AppEvent::EvalExecute);
-                    }
-                    app.session_view.eval_state.input.handle_event(&crossterm::event::Event::Key(e));
-                    return None;
-                },
-                _ => None,
-            }
-        }
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollEval(scroll)),
-            AppEvent::Input(e) => {
-                match e.code {
-                    KeyCode::Char('e') => Some(AppEvent::EvalStart),
-                    _ => None,
-                }
-            },
             _ => None,
         }
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        let mut constraints = Vec::new();
-        constraints.push(Constraint::Length(if app.session_view.eval_state.active == true { 3 } else { 0 }));
-        constraints.push(Constraint::Fill(1));
-        let layout = Layout::default()
-            .constraints(constraints);
-
-        let areas = layout.split(area);
-
-        frame.render_widget(Paragraph::new(Line::from(vec![
-            Span::raw(app.session_view.eval_state.input.value()).style(app.theme().text_input),
-        ])).block(Block::default().borders(Borders::all())), areas[0]);
-
-        if app.session_view.eval_state.active == true {
-            let width = area.width.max(3);
-            let scroll = app.session_view.eval_state.input.visual_scroll(width as usize);
-            let x = app.session_view.eval_state.input.visual_cursor().max(scroll) - scroll + 1;
-            frame.set_cursor_position((area.x + x as u16, area.y + 1));
-        }
-
         if let Some(response) = &app.session_view.eval_state.response {
             if let Some(error) = &response.error {
                 frame.render_widget(
                     Paragraph::new(error.message.clone()).style(app.theme().notification_error),
-                    areas[1],
+                    area,
                 );
             } else {
                 let mut lines: Vec<Line> = Vec::new();
-                draw_properties(&app.theme(), &response.properties, &mut lines, 0, &mut Vec::new());
+                draw_properties(
+                    &app.theme(),
+                    &response.properties,
+                    &mut lines,
+                    0,
+                    &mut Vec::new(),
+                );
                 frame.render_widget(
                     Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
-                    areas[1],
+                    area,
                 );
             }
         }
@@ -160,10 +121,9 @@ pub fn render_value<'a>(theme: &Scheme, property: &Property) -> Span<'a> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::theme::Theme;
     use anyhow::Result;
-
-    use super::*;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -186,27 +146,23 @@ mod test {
         let mut prop1 = Property::default();
         let mut prop2 = Property::default();
         prop2.name = "bar".to_string();
-        prop1.children = vec![
-            prop2
-        ];
+        prop1.children = vec![prop2];
         prop1.name = "foo".to_string();
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &vec![
-                prop1
-            ],
+            &vec![prop1],
             &mut lines,
             0,
             &mut Vec::new(),
         );
-        assert_eq!(vec![
-            "foo string = \"\"{",
-            "  bar string = \"\"",
-            "}",
-        ], lines.iter().map(
-            |l| { l.to_string()}
-        ).collect::<Vec<String>>());
+        assert_eq!(
+            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
+            lines
+                .iter()
+                .map(|l| { l.to_string() })
+                .collect::<Vec<String>>()
+        );
         Ok(())
     }
 
@@ -218,35 +174,27 @@ mod test {
         let prop3 = Property::default();
 
         prop2.name = "bar".to_string();
-        prop1.children = vec![
-            prop2
-        ];
+        prop1.children = vec![prop2];
         prop1.name = "foo".to_string();
 
         // segments are reversed
-        let filter = &mut vec![
-            "bar",
-            "foo",
-        ];
+        let filter = &mut vec!["bar", "foo"];
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &vec![
-                prop1,
-                prop3
-            ],
+            &vec![prop1, prop3],
             &mut lines,
             0,
             filter,
         );
 
-        assert_eq!(vec![
-            "foo string = \"\"{",
-            "  bar string = \"\"",
-            "}",
-        ], lines.iter().map(
-            |l| { l.to_string()}
-        ).collect::<Vec<String>>());
+        assert_eq!(
+            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
+            lines
+                .iter()
+                .map(|l| { l.to_string() })
+                .collect::<Vec<String>>()
+        );
 
         Ok(())
     }
