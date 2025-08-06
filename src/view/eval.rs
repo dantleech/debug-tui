@@ -1,3 +1,4 @@
+use super::centered_rect_absolute;
 use super::View;
 use crate::app::App;
 use crate::dbgp::client::EvalResponse;
@@ -9,21 +10,26 @@ use crossterm::event::KeyCode;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Clear;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 
 pub struct EvalComponent {}
+pub struct EvalDialog {}
 
 #[derive(Default)]
 pub struct EvalState {
-    pub active: bool,
     pub response: Option<EvalResponse>,
-    pub input: tui_input::Input,
+    pub input: Input,
     pub scroll: (u16, u16),
 }
 
 impl View for EvalComponent {
-    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
+    fn handle(_app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollEval(scroll)),
             _ => None,
@@ -52,6 +58,61 @@ impl View for EvalComponent {
                 );
             }
         }
+    }
+}
+
+impl View for EvalDialog {
+    fn handle(app: &mut App, event: AppEvent) -> Option<AppEvent> {
+        match event {
+            AppEvent::Input(e) => {
+                if e.code == KeyCode::Esc {
+                    return Some(AppEvent::EvalCancel);
+                }
+                if e.code == KeyCode::Enter {
+                    return Some(AppEvent::EvalExecute);
+                }
+                app.session_view
+                    .eval_state
+                    .input
+                    .handle_event(&crossterm::event::Event::Key(e));
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn draw(app: &App, frame: &mut Frame, area: Rect) {
+        let darea = centered_rect_absolute(area.width - 10, 3, area);
+        frame.render_widget(Clear, darea);
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![Span::raw(
+                app.session_view.eval_state.input.value(),
+            )
+            .style(app.theme().text_input)]))
+            .block(
+                Block::default()
+                    .borders(Borders::all())
+                    .title("Enter expression")
+                    .style(app.theme().pane_border_active),
+            ),
+            darea,
+        );
+
+        let width = darea.width.max(3);
+        let scroll = app
+            .session_view
+            .eval_state
+            .input
+            .visual_scroll(width as usize);
+        let x = app
+            .session_view
+            .eval_state
+            .input
+            .visual_cursor()
+            .max(scroll)
+            - scroll
+            + 1;
+        frame.set_cursor_position((darea.x + x as u16, darea.y + 1));
     }
 }
 

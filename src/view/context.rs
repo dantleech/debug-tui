@@ -69,7 +69,7 @@ impl View for ContextComponent {
         ])
         ).block(Block::default().borders(Borders::all())), areas[0]);
 
-        if app.session_view.context_filter.show == true {
+        if app.session_view.context_filter.show {
             let width = area.width.max(3);
             let scroll = app.session_view.context_filter.input.visual_scroll(width as usize);
             let x = app.session_view.context_filter.input.visual_cursor().max(scroll) - scroll + 1;

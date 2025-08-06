@@ -10,6 +10,7 @@ use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
 use crate::theme::Theme;
+use crate::view::eval::EvalDialog;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -20,14 +21,13 @@ use crate::view::View;
 use crate::workspace::Workspace;
 use anyhow::Result;
 use crossterm::event::KeyCode;
+use log::error;
 use log::info;
 use log::warn;
-use log::error;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
-use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
@@ -177,6 +177,11 @@ pub enum SelectedView {
     Help,
 }
 
+#[derive(Debug, Clone)]
+pub enum ActiveDialog {
+    Eval,
+}
+
 #[derive(PartialEq)]
 pub enum ListenStatus {
     Connected,
@@ -188,7 +193,6 @@ impl ListenStatus {
     pub fn is_connected(&self) -> bool {
         *self == ListenStatus::Connected
     }
-    
 }
 
 pub struct App {
@@ -212,6 +216,7 @@ pub struct App {
     pub view_current: SelectedView,
     pub focus_view: bool,
     pub session_view: SessionViewState,
+    pub active_dialog: Option<ActiveDialog>,
     pub input_plurality: Vec<char>,
 
     pub counter: u16,
@@ -250,6 +255,7 @@ impl App {
             command_input: Input::default(),
             command_response: None,
             view_current: SelectedView::Listen,
+            active_dialog: None,
             focus_view: false,
             session_view: SessionViewState::new(),
 
@@ -284,15 +290,10 @@ impl App {
 
             loop {
                 match listener.accept().await {
-                    Ok(s) => {
-                        match sender.send(AppEvent::ClientConnected(s.0)).await {
-                            Ok(_) => (),
-                            Err(e) => error!(
-                                "Could not send connection event: {}",
-                                e
-                            ),
-                        }
-                    }
+                    Ok(s) => match sender.send(AppEvent::ClientConnected(s.0)).await {
+                        Ok(_) => (),
+                        Err(e) => error!("Could not send connection event: {}", e),
+                    },
                     Err(_) => panic!("Could not connect"),
                 }
             }
@@ -310,6 +311,7 @@ impl App {
             let event = event.unwrap();
 
             if let Err(e) = self.handle_event(terminal, event).await {
+                self.active_dialog = None;
                 self.notification = Notification::error(e.to_string());
                 continue;
             };
@@ -333,7 +335,7 @@ impl App {
         match event {
             AppEvent::Tick => {
                 self.tick = self.tick.wrapping_add(1);
-            },
+            }
             _ => info!("Handling event {:?}", event),
         };
         match event {
@@ -373,7 +375,9 @@ impl App {
                 for _ in 0..self.take_motion() {
                     self.history.next();
                     self.recenter();
-                    if self.history.is_current() && (self.listening_status == ListenStatus::Connected) {
+                    if self.history.is_current()
+                        && (self.listening_status == ListenStatus::Connected)
+                    {
                         self.sender
                             .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
                             .await?;
@@ -391,10 +395,11 @@ impl App {
                 self.view_current = SelectedView::Listen;
                 self.session_view.mode = SessionViewMode::Current;
                 self.notification = Notification::info("listening for next connection".to_string())
-            },
+            }
             AppEvent::ClientConnected(s) => {
                 if self.listening_status != ListenStatus::Listening {
-                    self.notification = Notification::warning("refused incoming connection".to_string());
+                    self.notification =
+                        Notification::warning("refused incoming connection".to_string());
                 } else {
                     self.notification = Notification::info("connected".to_string());
                     let filepath = {
@@ -436,7 +441,7 @@ impl App {
             }
             AppEvent::ContextDepth(inc) => {
                 let depth = self.context_depth;
-                self.context_depth = depth.wrapping_add(inc as u16).max(0);
+                self.context_depth = depth.wrapping_add(inc as u16);
                 self.client
                     .lock()
                     .await
@@ -446,11 +451,11 @@ impl App {
             AppEvent::ContextFilterOpen => {
                 self.session_view.context_filter.show = true;
                 self.focus_view = true;
-            },
+            }
             AppEvent::ContextSearchClose => {
                 self.session_view.context_filter.show = false;
                 self.focus_view = false;
-            },
+            }
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = apply_scroll(
                     self.session_view.source_scroll,
@@ -499,47 +504,48 @@ impl App {
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::EvalStart => {
-                self.session_view.eval_state.active = true;
-                self.focus_view = true;
-            },
+                self.active_dialog = Some(ActiveDialog::Eval);
+            }
             AppEvent::EvalCancel => {
-                self.session_view.eval_state.active = false;
-                self.focus_view = false;
-            },
+                self.active_dialog = None;
+            }
             AppEvent::EvalExecute => {
                 if self.session_view.eval_state.input.to_string().is_empty() {
                     self.session_view.eval_state.response = None;
                 } else {
-                    let response = self.client
+                    let response = self
+                        .client
                         .lock()
                         .await
                         .eval(
                             self.session_view.eval_state.input.to_string(),
-                            self.session_view.stack_depth()
+                            self.session_view.stack_depth(),
                         )
                         .await?;
 
                     self.session_view.eval_state.response = Some(response);
                 }
-                self.session_view.eval_state.active = false;
-                self.focus_view = false;
-            },
+                self.active_dialog = None;
+            }
             AppEvent::EvalRefresh => {
-                if false == self.session_view.eval_state.input.to_string().is_empty() {
-                    let response = self.client
+                if !self.session_view.eval_state.input.to_string().is_empty() {
+                    let response = self
+                        .client
                         .lock()
                         .await
                         .eval(
                             self.session_view.eval_state.input.to_string(),
-                            self.session_view.stack_depth()
+                            self.session_view.stack_depth(),
                         )
                         .await?;
 
                     self.session_view.eval_state.response = Some(response);
                 }
-            },
+            }
             AppEvent::Input(key_event) => {
-                if self.focus_view {
+                if self.active_dialog.is_some() {
+                    self.send_event_to_current_dialog(event).await;
+                } else if self.focus_view {
                     // event shandled exclusively by view (e.g. input needs focus)
                     self.send_event_to_current_view(event).await;
                 } else {
@@ -559,7 +565,7 @@ impl App {
                         _ => self.send_event_to_current_view(event).await,
                     }
                 }
-            },
+            }
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -624,6 +630,17 @@ impl App {
         });
     }
 
+    async fn send_event_to_current_dialog(&mut self, event: AppEvent) {
+        if let Some(dialog) = &self.active_dialog {
+            let subsequent_event = match &dialog {
+                ActiveDialog::Eval => EvalDialog::handle(self, event),
+            };
+            if let Some(event) = subsequent_event {
+                self.sender.send(event).await.unwrap()
+            };
+        }
+    }
+
     // route the event to the currently selected view
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
@@ -654,16 +671,21 @@ impl App {
 
     /// capture the current status and push it onto the history stack
     pub async fn snapshot(&mut self) -> Result<()> {
-        let stack = {
-            self.client.lock().await.deref_mut().get_stack().await?
-        };
+        let stack = { self.client.lock().await.deref_mut().get_stack().await? };
         let mut entry = HistoryEntry::new();
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
             let context = {
                 match (level as u16) < self.stack_max_context_fetch {
-                    true => Some(self.client.lock().await.deref_mut().context_get(level as u16).await?),
+                    true => Some(
+                        self.client
+                            .lock()
+                            .await
+                            .deref_mut()
+                            .context_get(level as u16)
+                            .await?,
+                    ),
                     false => None,
                 }
             };
@@ -727,7 +749,10 @@ impl App {
 
     fn recenter(&mut self) {
         let entry = self.history.current();
-        if let Some(entry) = entry { self.session_view.scroll_to_line(entry.source(self.session_view.stack_depth()).line_no) }
+        if let Some(entry) = entry {
+            self.session_view
+                .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
+        }
     }
 }
 
