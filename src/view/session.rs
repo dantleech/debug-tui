@@ -1,6 +1,3 @@
-use std::cell::Cell;
-use std::rc::Rc;
-
 use super::context::ContextComponent;
 use super::eval::EvalComponent;
 use super::eval::EvalState;
@@ -22,6 +19,8 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
 use ratatui::Frame;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct SessionView {}
 
@@ -42,6 +41,7 @@ impl View for SessionView {
             KeyCode::BackTab => return Some(AppEvent::PreviousPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
             KeyCode::Char(char) => match char {
+                'e' => return Some(AppEvent::EvalStart),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
                 'k' => return Some(AppEvent::Scroll((-1, 0))),
                 'J' => return Some(AppEvent::Scroll((10, 0))),
@@ -132,13 +132,13 @@ impl View for SessionView {
 }
 
 fn split_rows(panes: &Vec<&Pane>, area: Rect) -> Rc<[Rect]> {
-        let mut vertical_constraints = Vec::new();
+    let mut vertical_constraints = Vec::new();
 
-        for pane in panes {
-            vertical_constraints.push(pane.constraint);
-        }
+    for pane in panes {
+        vertical_constraints.push(pane.constraint);
+    }
 
-        Layout::vertical(vertical_constraints).split(area)
+    Layout::vertical(vertical_constraints).split(area)
 }
 
 fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
@@ -167,7 +167,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 "Context(fetch-depth: {}, filter: {})",
                 app.context_depth,
                 match app.session_view.context_filter.input.value() {
-                    "" => "n/a",
+                    "" => "press 'f' to filter with dot notation",
                     _ => app.session_view.context_filter.input.value(),
                 }
             ),
@@ -180,7 +180,17 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 },
                 app.stack_max_context_fetch,
             ),
-            ComponentType::Eval => "Eval".to_string(),
+            ComponentType::Eval => match app.history.current() {
+                Some(entry) => format!(
+                    "Eval: {}",
+                    if let Some(eval) = &entry.eval {
+                        eval.expr.clone()
+                    } else {
+                        "Press 'e' to enter an expression".to_string()
+                    }
+                ),
+                None => "".to_string(),
+            },
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,
@@ -252,22 +262,22 @@ impl SessionViewState {
             panes: vec![
                 Pane {
                     component_type: ComponentType::Source,
-                    constraint: ratatui::layout::Constraint::Percentage(50),
+                    constraint: ratatui::layout::Constraint::Percentage(75),
                     col: Col::Left,
                 },
                 Pane {
                     component_type: ComponentType::Eval,
-                    constraint: ratatui::layout::Constraint::Percentage(50),
+                    constraint: ratatui::layout::Constraint::Fill(1),
                     col: Col::Left,
                 },
                 Pane {
                     component_type: ComponentType::Context,
-                    constraint: ratatui::layout::Constraint::Percentage(70),
+                    constraint: ratatui::layout::Constraint::Percentage(75),
                     col: Col::Right,
                 },
                 Pane {
                     component_type: ComponentType::Stack,
-                    constraint: ratatui::layout::Constraint::Min(1),
+                    constraint: ratatui::layout::Constraint::Fill(1),
                     col: Col::Right,
                 },
             ],
@@ -275,7 +285,7 @@ impl SessionViewState {
     }
 
     fn panes(&self, col: Col) -> Vec<&Pane> {
-        self.panes.iter().filter(|p|p.col == col).collect()
+        self.panes.iter().filter(|p| p.col == col).collect()
     }
 
     pub fn next_pane(&mut self) {
@@ -333,9 +343,21 @@ mod test {
     pub fn panes() {
         let mut view = SessionViewState::default();
         view.panes = vec![
-            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Left},
-            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Right},
-            Pane{ component_type: ComponentType::Stack, constraint: Constraint::Min(1), col: Col::Right}
+            Pane {
+                component_type: ComponentType::Stack,
+                constraint: Constraint::Min(1),
+                col: Col::Left,
+            },
+            Pane {
+                component_type: ComponentType::Stack,
+                constraint: Constraint::Min(1),
+                col: Col::Right,
+            },
+            Pane {
+                component_type: ComponentType::Stack,
+                constraint: Constraint::Min(1),
+                col: Col::Right,
+            },
         ];
         assert_eq!(1, view.panes(Col::Left).len());
         assert_eq!(2, view.panes(Col::Right).len());
@@ -344,11 +366,11 @@ mod test {
     #[test]
     pub fn scroll_to_line() {
         let mut view = SessionViewState::default();
-        view.source_area = Cell::new(Rect{
+        view.source_area = Cell::new(Rect {
             x: 0,
             y: 0,
             width: 0,
-            height: 10, 
+            height: 10,
         });
         view.scroll_to_line(0);
 

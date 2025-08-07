@@ -5,12 +5,13 @@ use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
 use crate::theme::Theme;
-use crate::view::eval::draw_properties;
+use crate::view::eval::EvalDialog;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
 use crate::view::listen::ListenView;
@@ -21,14 +22,13 @@ use crate::view::View;
 use crate::workspace::Workspace;
 use anyhow::Result;
 use crossterm::event::KeyCode;
+use log::error;
 use log::info;
 use log::warn;
-use log::error;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
-use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
@@ -66,6 +66,13 @@ impl StackFrame {
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
     pub stacks: Vec<StackFrame>,
+    pub eval: Option<EvalEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub struct EvalEntry {
+    pub expr: String,
+    pub response: EvalResponse,
 }
 
 impl HistoryEntry {
@@ -74,7 +81,7 @@ impl HistoryEntry {
     }
     fn new() -> Self {
         let stacks = Vec::new();
-        HistoryEntry { stacks }
+        HistoryEntry { stacks, eval: None }
     }
 
     fn initial(filename: String, source: String) -> HistoryEntry {
@@ -88,6 +95,7 @@ impl HistoryEntry {
                 },
                 context: None,
             }],
+            eval: None,
         }
     }
 
@@ -178,6 +186,11 @@ pub enum SelectedView {
     Help,
 }
 
+#[derive(Debug, Clone)]
+pub enum ActiveDialog {
+    Eval,
+}
+
 #[derive(PartialEq)]
 pub enum ListenStatus {
     Connected,
@@ -189,7 +202,6 @@ impl ListenStatus {
     pub fn is_connected(&self) -> bool {
         *self == ListenStatus::Connected
     }
-    
 }
 
 pub struct App {
@@ -213,6 +225,7 @@ pub struct App {
     pub view_current: SelectedView,
     pub focus_view: bool,
     pub session_view: SessionViewState,
+    pub active_dialog: Option<ActiveDialog>,
     pub input_plurality: Vec<char>,
 
     pub counter: u16,
@@ -251,6 +264,7 @@ impl App {
             command_input: Input::default(),
             command_response: None,
             view_current: SelectedView::Listen,
+            active_dialog: None,
             focus_view: false,
             session_view: SessionViewState::new(),
 
@@ -285,15 +299,10 @@ impl App {
 
             loop {
                 match listener.accept().await {
-                    Ok(s) => {
-                        match sender.send(AppEvent::ClientConnected(s.0)).await {
-                            Ok(_) => (),
-                            Err(e) => error!(
-                                "Could not send connection event: {}",
-                                e
-                            ),
-                        }
-                    }
+                    Ok(s) => match sender.send(AppEvent::ClientConnected(s.0)).await {
+                        Ok(_) => (),
+                        Err(e) => error!("Could not send connection event: {}", e),
+                    },
                     Err(_) => panic!("Could not connect"),
                 }
             }
@@ -311,6 +320,7 @@ impl App {
             let event = event.unwrap();
 
             if let Err(e) = self.handle_event(terminal, event).await {
+                self.active_dialog = None;
                 self.notification = Notification::error(e.to_string());
                 continue;
             };
@@ -334,7 +344,7 @@ impl App {
         match event {
             AppEvent::Tick => {
                 self.tick = self.tick.wrapping_add(1);
-            },
+            }
             _ => info!("Handling event {:?}", event),
         };
         match event {
@@ -374,7 +384,9 @@ impl App {
                 for _ in 0..self.take_motion() {
                     self.history.next();
                     self.recenter();
-                    if self.history.is_current() && (self.listening_status == ListenStatus::Connected) {
+                    if self.history.is_current()
+                        && (self.listening_status == ListenStatus::Connected)
+                    {
                         self.sender
                             .send(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
                             .await?;
@@ -392,10 +404,11 @@ impl App {
                 self.view_current = SelectedView::Listen;
                 self.session_view.mode = SessionViewMode::Current;
                 self.notification = Notification::info("listening for next connection".to_string())
-            },
+            }
             AppEvent::ClientConnected(s) => {
                 if self.listening_status != ListenStatus::Listening {
-                    self.notification = Notification::warning("refused incoming connection".to_string());
+                    self.notification =
+                        Notification::warning("refused incoming connection".to_string());
                 } else {
                     self.notification = Notification::info("connected".to_string());
                     let filepath = {
@@ -437,7 +450,7 @@ impl App {
             }
             AppEvent::ContextDepth(inc) => {
                 let depth = self.context_depth;
-                self.context_depth = depth.wrapping_add(inc as u16).max(0);
+                self.context_depth = depth.wrapping_add(inc as u16);
                 self.client
                     .lock()
                     .await
@@ -447,11 +460,11 @@ impl App {
             AppEvent::ContextFilterOpen => {
                 self.session_view.context_filter.show = true;
                 self.focus_view = true;
-            },
+            }
             AppEvent::ContextSearchClose => {
                 self.session_view.context_filter.show = false;
                 self.focus_view = false;
-            },
+            }
             AppEvent::ScrollSource(amount) => {
                 self.session_view.source_scroll = apply_scroll(
                     self.session_view.source_scroll,
@@ -462,6 +475,13 @@ impl App {
             AppEvent::ScrollContext(amount) => {
                 self.session_view.context_scroll = apply_scroll(
                     self.session_view.context_scroll,
+                    amount,
+                    self.take_motion() as i16,
+                );
+            }
+            AppEvent::ScrollEval(amount) => {
+                self.session_view.eval_state.scroll = apply_scroll(
+                    self.session_view.eval_state.scroll,
                     amount,
                     self.take_motion() as i16,
                 );
@@ -493,29 +513,39 @@ impl App {
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::EvalStart => {
-                self.session_view.eval_state.active = true;
-                self.focus_view = true;
-            },
+                if !self.history.is_current() {
+                    self.notification =
+                        Notification::warning("Cannot eval in history mode".to_string());
+                } else {
+                    self.active_dialog = Some(ActiveDialog::Eval);
+                }
+            }
             AppEvent::EvalCancel => {
-                self.session_view.eval_state.active = false;
-                self.focus_view = false;
-            },
+                self.active_dialog = None;
+            }
             AppEvent::EvalExecute => {
-                self.session_view.eval_state.active = false;
-                self.focus_view = false;
-                let response = self.client
-                    .lock()
-                    .await
-                    .eval(
-                        self.session_view.eval_state.input.to_string(),
-                        self.session_view.stack_depth()
-                    )
-                    .await?;
+                if self.session_view.eval_state.input.to_string().is_empty() {
+                    self.session_view.eval_state.response = None;
+                } else {
+                    let response = self
+                        .client
+                        .lock()
+                        .await
+                        .eval(
+                            self.session_view.eval_state.input.to_string(),
+                            self.session_view.stack_depth(),
+                        )
+                        .await?;
 
-                self.session_view.eval_state.properties = response.properties;
-            },
+                    self.session_view.eval_state.response = Some(response);
+                    self.sender.send(AppEvent::Snapshot()).await.unwrap();
+                }
+                self.active_dialog = None;
+            }
             AppEvent::Input(key_event) => {
-                if self.focus_view {
+                if self.active_dialog.is_some() {
+                    self.send_event_to_current_dialog(event).await;
+                } else if self.focus_view {
                     // event shandled exclusively by view (e.g. input needs focus)
                     self.send_event_to_current_view(event).await;
                 } else {
@@ -535,7 +565,7 @@ impl App {
                         _ => self.send_event_to_current_view(event).await,
                     }
                 }
-            },
+            }
             _ => self.send_event_to_current_view(event).await,
         };
 
@@ -599,6 +629,17 @@ impl App {
         });
     }
 
+    async fn send_event_to_current_dialog(&mut self, event: AppEvent) {
+        if let Some(dialog) = &self.active_dialog {
+            let subsequent_event = match &dialog {
+                ActiveDialog::Eval => EvalDialog::handle(self, event),
+            };
+            if let Some(event) = subsequent_event {
+                self.sender.send(event).await.unwrap()
+            };
+        }
+    }
+
     // route the event to the currently selected view
     async fn send_event_to_current_view(&mut self, event: AppEvent) {
         let subsequent_event = match self.view_current {
@@ -629,16 +670,21 @@ impl App {
 
     /// capture the current status and push it onto the history stack
     pub async fn snapshot(&mut self) -> Result<()> {
-        let stack = {
-            self.client.lock().await.deref_mut().get_stack().await?
-        };
+        let stack = { self.client.lock().await.deref_mut().get_stack().await? };
         let mut entry = HistoryEntry::new();
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
             let context = {
                 match (level as u16) < self.stack_max_context_fetch {
-                    true => Some(self.client.lock().await.deref_mut().context_get(level as u16).await?),
+                    true => Some(
+                        self.client
+                            .lock()
+                            .await
+                            .deref_mut()
+                            .context_get(level as u16)
+                            .await?,
+                    ),
                     false => None,
                 }
             };
@@ -664,6 +710,28 @@ impl App {
                 context,
             });
         }
+
+        // *xdebug* only evalutes expressions on the current stack frame
+        let eval = if !self.session_view.eval_state.input.to_string().is_empty() {
+            let response = self
+                .client
+                .lock()
+                .await
+                .eval(
+                    self.session_view.eval_state.input.to_string(),
+                    self.session_view.stack_depth(),
+                )
+                .await?;
+
+                Some(EvalEntry{
+                    expr: self.session_view.eval_state.input.to_string(),
+                    response
+                })
+        } else {
+            None
+        };
+
+        entry.eval = eval;
         self.session_view.reset();
         self.history.push(entry);
         self.recenter();
@@ -702,7 +770,10 @@ impl App {
 
     fn recenter(&mut self) {
         let entry = self.history.current();
-        if let Some(entry) = entry { self.session_view.scroll_to_line(entry.source(self.session_view.stack_depth()).line_no) }
+        if let Some(entry) = entry {
+            self.session_view
+                .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
+        }
     }
 }
 

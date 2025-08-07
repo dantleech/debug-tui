@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+main
+----
+
+- Introduce eval feature
+
 0.1.1
 -----
 

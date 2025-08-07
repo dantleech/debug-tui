@@ -1,8 +1,10 @@
+use super::eval::EvalDialog;
 use super::help::HelpView;
 use super::listen::ListenView;
 use super::session::SessionView;
 use super::session::SessionViewMode;
 use super::View;
+use crate::app::ActiveDialog;
 use crate::app::App;
 use crate::app::ListenStatus;
 use crate::app::SelectedView;
@@ -41,6 +43,12 @@ impl View for LayoutView {
             SelectedView::Listen => ListenView::draw(app, f, rows[1]),
             SelectedView::Session => SessionView::draw(app, f, rows[1]),
             SelectedView::Help => HelpView::draw(app, f, rows[1]),
+        }
+
+        if let Some(dialog) = &app.active_dialog {
+            match &dialog {
+                ActiveDialog::Eval => EvalDialog::draw(app, f, area),
+            }
         }
     }
 }
