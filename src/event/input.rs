@@ -50,6 +50,9 @@ pub enum AppEvent {
     ContextFilterOpen,
     ContextSearchClose,
     Listen,
+    EvalCancel,
+    EvalExecute,
+    EvalStart,
 }
 
 pub type EventSender = Sender<AppEvent>;
