@@ -37,25 +37,27 @@ impl View for EvalComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        if let Some(response) = &app.session_view.eval_state.response {
-            if let Some(error) = &response.error {
-                frame.render_widget(
-                    Paragraph::new(error.message.clone()).style(app.theme().notification_error),
-                    area,
-                );
-            } else {
-                let mut lines: Vec<Line> = Vec::new();
-                draw_properties(
-                    &app.theme(),
-                    &response.properties,
-                    &mut lines,
-                    0,
-                    &mut Vec::new(),
-                );
-                frame.render_widget(
-                    Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
-                    area,
-                );
+        if let Some(entry) = &app.history.current() {
+            if let Some(eval_entry) = &entry.eval {
+                if let Some(error) = &eval_entry.response.error {
+                    frame.render_widget(
+                        Paragraph::new(error.message.clone()).style(app.theme().notification_error),
+                        area,
+                    );
+                } else {
+                    let mut lines: Vec<Line> = Vec::new();
+                    draw_properties(
+                        &app.theme(),
+                        &eval_entry.response.properties,
+                        &mut lines,
+                        0,
+                        &mut Vec::new(),
+                    );
+                    frame.render_widget(
+                        Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
+                        area,
+                    );
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
 use crate::dbgp::client::DbgpClient;
+use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
@@ -65,6 +66,13 @@ impl StackFrame {
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
     pub stacks: Vec<StackFrame>,
+    pub eval: Option<EvalEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub struct EvalEntry {
+    pub expr: String,
+    pub response: EvalResponse,
 }
 
 impl HistoryEntry {
@@ -73,7 +81,7 @@ impl HistoryEntry {
     }
     fn new() -> Self {
         let stacks = Vec::new();
-        HistoryEntry { stacks }
+        HistoryEntry { stacks, eval: None }
     }
 
     fn initial(filename: String, source: String) -> HistoryEntry {
@@ -87,6 +95,7 @@ impl HistoryEntry {
                 },
                 context: None,
             }],
+            eval: None,
         }
     }
 
@@ -504,7 +513,12 @@ impl App {
             }
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::EvalStart => {
-                self.active_dialog = Some(ActiveDialog::Eval);
+                if !self.history.is_current() {
+                    self.notification =
+                        Notification::warning("Cannot eval in history mode".to_string());
+                } else {
+                    self.active_dialog = Some(ActiveDialog::Eval);
+                }
             }
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
@@ -524,23 +538,9 @@ impl App {
                         .await?;
 
                     self.session_view.eval_state.response = Some(response);
+                    self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;
-            }
-            AppEvent::EvalRefresh => {
-                if !self.session_view.eval_state.input.to_string().is_empty() {
-                    let response = self
-                        .client
-                        .lock()
-                        .await
-                        .eval(
-                            self.session_view.eval_state.input.to_string(),
-                            self.session_view.stack_depth(),
-                        )
-                        .await?;
-
-                    self.session_view.eval_state.response = Some(response);
-                }
             }
             AppEvent::Input(key_event) => {
                 if self.active_dialog.is_some() {
@@ -626,7 +626,6 @@ impl App {
                     .await
                     .unwrap();
             }
-            sender.send(AppEvent::EvalRefresh).await.unwrap();
         });
     }
 
@@ -711,6 +710,28 @@ impl App {
                 context,
             });
         }
+
+        // *xdebug* only evalutes expressions on the current stack frame
+        let eval = if !self.session_view.eval_state.input.to_string().is_empty() {
+            let response = self
+                .client
+                .lock()
+                .await
+                .eval(
+                    self.session_view.eval_state.input.to_string(),
+                    self.session_view.stack_depth(),
+                )
+                .await?;
+
+                Some(EvalEntry{
+                    expr: self.session_view.eval_state.input.to_string(),
+                    response
+                })
+        } else {
+            None
+        };
+
+        entry.eval = eval;
         self.session_view.reset();
         self.history.push(entry);
         self.recenter();

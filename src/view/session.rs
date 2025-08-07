@@ -180,14 +180,17 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
                 },
                 app.stack_max_context_fetch,
             ),
-            ComponentType::Eval => format!(
-                "Eval: {}",
-                if app.session_view.eval_state.input.value().is_empty() {
-                    "Press 'e' to enter an expression".to_string()
-                } else {
-                    app.session_view.eval_state.input.clone().to_string()
-                }
-            ),
+            ComponentType::Eval => match app.history.current() {
+                Some(entry) => format!(
+                    "Eval: {}",
+                    if let Some(eval) = &entry.eval {
+                        eval.expr.clone()
+                    } else {
+                        "Press 'e' to enter an expression".to_string()
+                    }
+                ),
+                None => "".to_string(),
+            },
         })
         .style(match index == app.session_view.current_pane {
             true => app.theme().pane_border_active,
