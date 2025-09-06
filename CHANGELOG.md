@@ -5,6 +5,8 @@ main
 ----
 
 - Introduce eval feature
+- Improve scrolling performance on large files and contexts
+- Fix position of closing braces in context view
 
 0.1.1
 -----

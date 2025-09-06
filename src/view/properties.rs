@@ -55,7 +55,9 @@ pub fn draw_properties(
         if !property.children.is_empty() {
             draw_properties(theme, &property.children, lines, level + 1, filter_path, truncate_until,  line_no);
             if *line_no >= *truncate_until {
-                lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
+                lines.push(Line::from(vec![
+                    Span::raw(format!("{}{}", "  ".repeat(level), delimiters.1))
+                ]).style(theme.syntax_brace));
             }
             *line_no += 1;
         }
