@@ -1,5 +1,6 @@
 use crate::analyzer::Analyser;
 use crate::analyzer::Analysis;
+use crate::analyzer::VariableRef;
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
@@ -54,10 +55,33 @@ pub struct StackFrame {
     pub source: SourceContext,
     pub context: Option<ContextGetResponse>,
 }
+#[derive(Clone,Debug)]
+pub struct Variable {
+    pub var_ref: VariableRef,
+    pub value: Property,
+}
+#[derive(Default)]
+pub struct DocumentVariables {
+    doclinemap: HashMap<String,Vec<Variable>>
+}
+impl DocumentVariables {
+    pub fn put(&mut self, context: &SourceContext, variables: Vec<Variable>) {
+        let entry = self.doclinemap.entry(format!("{}:{}", context.filename, context.line_no));
+        entry.insert_entry(variables);
+    }
+
+    pub fn get(&self, source_file: &String, line_no: u32) -> Vec<Variable> {
+        match self.doclinemap.get(&format!("{}:{}", source_file, line_no)) {
+            Some(v) => v.to_vec(),
+            None => vec![],
+        }
+
+    }
+}
 impl StackFrame {
     pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
         match &self.context {
-            Some(c) => c.properties.iter().find(|&property| property.name == name),
+            Some(c) => c.properties.get(name),
             None => None,
         }
     }
@@ -221,6 +245,7 @@ pub struct App {
     pub workspace: Workspace,
 
     pub history: History,
+    pub document_variables: DocumentVariables,
 
     pub view_current: SelectedView,
     pub focus_view: bool,
@@ -252,6 +277,7 @@ impl App {
             sender: sender.clone(),
             quit: false,
             history: History::default(),
+            document_variables: DocumentVariables::default(),
             client: Arc::clone(&client),
             workspace: Workspace::new(Arc::clone(&client)),
 
@@ -704,11 +730,30 @@ impl App {
                 }
             };
 
-            entry.push(StackFrame {
+            let analysis = self.analyzed_files.get(&filename.clone());
+
+            let stack = StackFrame {
                 level: (level as u16),
                 source,
                 context,
-            });
+            };
+
+            {
+                // populate inline variables with values
+                let mut vars = vec![];
+                if let Some(analysis) = analysis {
+                    for (_, var) in analysis.row(line_no as usize - 1) {
+                        let property = stack.get_property(var.name.as_str());
+                        if let Some(property) = property {
+                            vars.push(Variable{ var_ref: var, value: property.clone() });
+                        }
+                    }
+
+                    self.document_variables.put(&stack.source, vars);
+                }
+            }
+
+            entry.push(stack);
         }
 
         // *xdebug* only evalutes expressions on the current stack frame

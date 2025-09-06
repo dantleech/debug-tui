@@ -7,7 +7,7 @@ use ratatui::text::Span;
 
 pub fn draw_properties(
     theme: &Scheme,
-    properties: &Vec<Property>,
+    properties: Vec<&Property>,
     lines: &mut Vec<Line>,
     level: usize,
     filter_path: &mut Vec<&str>,
@@ -53,7 +53,7 @@ pub fn draw_properties(
         *line_no += 1;
 
         if !property.children.is_empty() {
-            draw_properties(theme, &property.children, lines, level + 1, filter_path, truncate_until,  line_no);
+            draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path, truncate_until,  line_no);
             if *line_no >= *truncate_until {
                 lines.push(Line::from(vec![
                     Span::raw(format!("{}{}", "  ".repeat(level), delimiters.1))
@@ -82,7 +82,7 @@ pub fn render_value<'a>(theme: &Scheme, property: &Property) -> Span<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::theme::Theme;
+    use crate::{dbgp::client::Properties, theme::Theme};
     use anyhow::Result;
 
     use super::*;
@@ -93,7 +93,7 @@ mod test {
         let mut lines = vec![];
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &Vec::new(),
+            vec![],
             &mut lines,
             0,
             &mut Vec::new(),
@@ -110,15 +110,15 @@ mod test {
         let mut prop1 = Property::default();
         let mut prop2 = Property::default();
         prop2.name = "bar".to_string();
-        prop1.children = vec![
+        prop1.children = Properties::from_properties(vec![
             prop2
-        ];
+        ]);
         prop1.name = "foo".to_string();
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &vec![
-                prop1
+            vec![
+                &prop1
             ],
             &mut lines,
             0,
@@ -144,9 +144,9 @@ mod test {
         let prop3 = Property::default();
 
         prop2.name = "bar".to_string();
-        prop1.children = vec![
+        prop1.children = Properties::from_properties(vec![
             prop2
-        ];
+        ]);
         prop1.name = "foo".to_string();
 
         // segments are reversed
@@ -157,9 +157,9 @@ mod test {
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &vec![
-                prop1,
-                prop3
+            vec![
+                &prop1,
+                &prop3
             ],
             &mut lines,
             0,

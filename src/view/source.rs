@@ -47,11 +47,6 @@ impl View for SourceComponent {
             Some(stack) => stack
         };
 
-        let analysis = app
-            .analyzed_files
-            .get(&stack.source.filename.to_string());
-
-
         // trunacte the hidden lines
         let truncate_until = app.session_view.source_scroll.0 as u32 + 1;
 
@@ -71,30 +66,28 @@ impl View for SourceComponent {
                 },
             ]));
 
-            // record annotations to add at the end of the line
-            let mut labels = vec![Span::raw("// ")];
-
-            if is_current_line {
-                if let Some(analysis) = analysis {
-                    for (_, var) in analysis.row(line_offset) {
-                        let property = stack.get_property(var.name.as_str());
-                        if property.is_none() {
-                            continue;
-                        }
-                        match render_label(property.unwrap()) {
-                            Some(label) => labels.push(Span::raw(label)),
-                            None => continue,
-                        };
-                        labels.push(Span::raw(","));
-                    }
-                    if labels.len() > 1 {
-                        labels.pop();
-                        annotations.push((
-                            line_offset,
-                            line.len() + 8,
-                            Line::from(labels).style(app.theme().source_annotation),
-                        ));
-                    }
+            {
+                // record annotations to add at the end of the line
+                let mut labels = vec![Span::raw("// ")];
+                for var in app.document_variables.get(&stack.source.filename, line_no as u32).iter() {
+                    match render_label(&var.value) {
+                        Some(label) => labels.push(Span::raw(label)),
+                        None => continue,
+                    };
+                    labels.push(Span::raw(","));
+                }
+                if labels.len() > 1 {
+                    labels.pop();
+                    annotations.push((
+                        line_offset,
+                        line.len() + 8,
+                        Line::from(labels).style(
+                            match is_current_line {
+                                true =>  app.theme().source_annotation,
+                                false => app.theme().source_annotation_historic,
+                            }
+                        ),
+                    ));
                 }
             }
         }
@@ -136,7 +129,7 @@ fn render_label(property: &Property) -> Option<String> {
         PropertyType::Object | PropertyType::Array | PropertyType::Hash => {
             format!("{}{{{}}}", property.type_name(), {
                 let mut labels: Vec<String> = Vec::new();
-                for child in &property.children {
+                for child in &property.children.defined_properties() {
                     let label = render_label(child);
                     if label.is_none() {
                         continue;
@@ -165,6 +158,8 @@ fn render_label(property: &Property) -> Option<String> {
 
 #[cfg(test)]
 mod test {
+    use crate::dbgp::client::Properties;
+
     use super::*;
     use pretty_assertions::assert_eq;
 
@@ -214,7 +209,7 @@ mod test {
             property_type,
             facet: None,
             size: None,
-            children: Vec::new(),
+            children: Properties::none(),
             key: None,
             address: None,
             encoding: None,
@@ -232,7 +227,7 @@ mod test {
             property_type: PropertyType::Resource,
             facet: Some("private".to_string()),
             size: None,
-            children: vec![],
+            children: Properties::none(),
             key: None,
             address: None,
             encoding: None,
@@ -250,7 +245,7 @@ mod test {
             property_type: PropertyType::Object,
             facet: None,
             size: None,
-            children: vec![
+            children: Properties::from_properties(vec![
                 Property {
                     name: "true".to_string(),
                     fullname: "true".to_string(),
@@ -260,7 +255,7 @@ mod test {
                     property_type: PropertyType::Bool,
                     facet: Some("public".to_string()),
                     size: None,
-                    children: vec![],
+                    children: Properties::none(),
                     key: None,
                     address: None,
                     encoding: None,
@@ -275,13 +270,13 @@ mod test {
                     property_type: PropertyType::String,
                     facet: Some("public".to_string()),
                     size: Some(3),
-                    children: vec![],
+                    children: Properties::none(),
                     key: None,
                     address: None,
                     encoding: Some("base64".to_string()),
                     value: Some("foo".to_string()),
                 },
-            ],
+            ]),
             key: None,
             address: None,
             encoding: None,

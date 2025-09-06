@@ -81,7 +81,7 @@ impl View for ContextComponent {
         let truncate_from = app.session_view.context_scroll.0 as u32;
         draw_properties(
             &app.theme(),
-            &context.properties,
+            context.properties.defined_properties(),
             &mut lines,
             0,
             &mut filter_path,

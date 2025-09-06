@@ -7,6 +7,8 @@ main
 - Introduce eval feature
 - Improve scrolling performance on large files and contexts
 - Fix position of closing braces in context view
+- Show historic inline values
+- Do not show "undefined" variables
 
 0.1.1
 -----

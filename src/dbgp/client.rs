@@ -42,7 +42,44 @@ pub struct DbgpError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContextGetResponse {
+    pub properties: Properties,
+}
+impl ContextGetResponse {
+}
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Properties {
     pub properties: Vec<Property>,
+}
+impl Properties {
+    pub fn is_empty(&self) -> bool {
+        self.properties.is_empty()
+    }
+    pub fn none() -> Self {
+        Self{properties:vec![]}
+    }
+    pub fn defined_properties(&self) -> Vec<&Property> {
+        let mut props = vec![];
+        for property in &self.properties {
+            if property.property_type == PropertyType::Undefined {
+                continue;
+            }
+            props.push(property);
+        }
+        props
+    }
+
+    pub(crate) fn get(&self, name: &str) -> Option<&Property> {
+        for property in self.defined_properties() {
+            if property.name == name {
+                return Some(property)
+            }
+        }
+        None
+    }
+
+    pub fn from_properties(vec: Vec<Property>) -> Properties {
+        Self{properties:vec}
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, Default)]
@@ -108,7 +145,7 @@ pub struct Property {
     pub property_type: PropertyType,
     pub facet: Option<String>,
     pub size: Option<u32>,
-    pub children: Vec<Property>,
+    pub children: Properties,
     pub key: Option<String>,
     pub address: Option<String>,
     pub encoding: Option<String>,
@@ -146,7 +183,7 @@ pub struct ContinuationResponse {
 pub struct EvalResponse {
     pub success: bool,
     pub error: Option<DbgpError>,
-    pub properties: Vec<Property>,
+    pub properties: Properties,
 }
 
 #[derive(Debug, Clone)]
@@ -411,7 +448,7 @@ fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
 
 
 fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow::Error> {
-    Ok(ContextGetResponse { properties: parse_properties(element)?})
+    Ok(ContextGetResponse { properties: Properties::from_properties(parse_properties(element)?)})
 }
 
 fn parse_eval(element: &mut Element) -> Result<EvalResponse, anyhow::Error> {
@@ -433,7 +470,7 @@ fn parse_eval(element: &mut Element) -> Result<EvalResponse, anyhow::Error> {
         None
     };
 
-    Ok(EvalResponse { success: true, properties: parse_properties(element)?, error })
+    Ok(EvalResponse { success: true, properties: Properties::from_properties(parse_properties(element)?), error})
 }
 
 fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Error> {
@@ -481,7 +518,7 @@ fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Erro
             key: child.attributes.get("key").map(|name| name.to_string()),
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
-            children: parse_properties(&mut child)?,
+            children: Properties::from_properties(parse_properties(&mut child)?),
             value: decode_element(Some(&child)),
         };
         properties.push(p);
@@ -669,7 +706,7 @@ function call_function(string $hello) {
                         let expected = EvalResponse {
                             success: true,
                             error: None,
-                            properties: vec![
+                            properties: Properties::from_properties(vec![
                                 Property {
                                     name: "".to_string(),
                                     fullname: "".to_string(),
@@ -679,13 +716,13 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
                                     value: Some(2.to_string()),
                                 },
-                            ],
+                            ]),
                         };
                         assert_eq!(expected, response)
                     }
@@ -715,7 +752,7 @@ function call_function(string $hello) {
                                 message: "error evaluating code: Undefined constant \"asda\"".to_string(),
                                 code: "206".to_string()
                             }),
-                            properties: vec![],
+                            properties: Properties::none(),
                         };
                         assert_eq!(expected, response)
                     }
@@ -750,7 +787,7 @@ function call_function(string $hello) {
                 match r.command {
                     CommandResponse::ContextGet(response) => {
                         let expected = ContextGetResponse {
-                            properties: vec![
+                            properties: Properties::from_properties(vec![
                                 Property {
                                     name: "$bar".to_string(),
                                     fullname: "$bar".to_string(),
@@ -760,7 +797,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::String,
                                     facet: None,
                                     size: Some(3),
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: Some("base64".to_string()),
@@ -775,7 +812,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Float,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -790,7 +827,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -805,7 +842,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Bool,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -820,7 +857,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Object,
                                     facet: None,
                                     size: None,
-                                    children: vec![
+                                    children: Properties::from_properties(vec![
                                         Property {
                                             name: "true".to_string(),
                                             fullname: "$this->true".to_string(),
@@ -830,7 +867,7 @@ function call_function(string $hello) {
                                             property_type: PropertyType::Bool,
                                             facet: Some("public".to_string()),
                                             size: None,
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: None,
@@ -845,7 +882,7 @@ function call_function(string $hello) {
                                             property_type: PropertyType::String,
                                             facet: Some("public".to_string()),
                                             size: Some(3),
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: Some("base64".to_string()),
@@ -860,13 +897,13 @@ function call_function(string $hello) {
                                             property_type: PropertyType::Resource,
                                             facet: Some("private".to_string()),
                                             size: None,
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: None,
                                             value: Some("resource id='18' type='stream'".to_string()),
                                         },
-                                    ],
+                                    ]),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -881,14 +918,14 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Array,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
                                     value: None,
                                 },
-                            ],
-                        };
+                            ]),
+                            };
                         assert_eq!(expected, response)
                     }
                     _ => panic!("Could not parse context_get"),
