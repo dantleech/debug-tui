@@ -57,7 +57,6 @@ impl View for ContextComponent {
             },
             None => return,
         };
-        let mut lines: Vec<Line> = vec![];
         let layout = Layout::default()
             .constraints([Constraint::Length(
                 if app.session_view.context_filter.show { 3 } else { 0 }
@@ -77,17 +76,22 @@ impl View for ContextComponent {
         }
             
         let mut filter_path = app.session_view.context_filter.segments().clone();
+
+        let mut lines: Vec<Line> = vec![];
+        let truncate_from = app.session_view.context_scroll.0 as u32;
         draw_properties(
             &app.theme(),
             &context.properties,
             &mut lines,
             0,
             &mut filter_path,
+            &truncate_from,
+            &mut 0
         );
 
 
         frame.render_widget(
-            Paragraph::new(lines).scroll(app.session_view.context_scroll),
+            Paragraph::new(lines.clone()),
             areas[1],
         );
     }
