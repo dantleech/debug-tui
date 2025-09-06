@@ -93,7 +93,7 @@ mod test {
         let mut lines = vec![];
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            Properties::none(),
+            vec![],
             &mut lines,
             0,
             &mut Vec::new(),
@@ -110,16 +110,16 @@ mod test {
         let mut prop1 = Property::default();
         let mut prop2 = Property::default();
         prop2.name = "bar".to_string();
-        prop1.children = vec![
+        prop1.children = Properties::from_properties(vec![
             prop2
-        ];
+        ]);
         prop1.name = "foo".to_string();
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            Properties::from_properties([
-                prop1
-            ]),
+            vec![
+                &prop1
+            ],
             &mut lines,
             0,
             &mut Vec::new(),
@@ -144,9 +144,9 @@ mod test {
         let prop3 = Property::default();
 
         prop2.name = "bar".to_string();
-        prop1.children = vec![
+        prop1.children = Properties::from_properties(vec![
             prop2
-        ];
+        ]);
         prop1.name = "foo".to_string();
 
         // segments are reversed
@@ -157,9 +157,9 @@ mod test {
 
         draw_properties(
             &Theme::SolarizedDark.scheme(),
-            &vec![
-                prop1,
-                prop3
+            vec![
+                &prop1,
+                &prop3
             ],
             &mut lines,
             0,

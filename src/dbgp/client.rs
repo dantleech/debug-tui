@@ -71,7 +71,7 @@ impl Properties {
     pub(crate) fn get(&self, name: &str) -> Option<&Property> {
         for property in self.defined_properties() {
             if property.name == name {
-                return Some(&property)
+                return Some(property)
             }
         }
         None
@@ -706,7 +706,7 @@ function call_function(string $hello) {
                         let expected = EvalResponse {
                             success: true,
                             error: None,
-                            properties: vec![
+                            properties: Properties::from_properties(vec![
                                 Property {
                                     name: "".to_string(),
                                     fullname: "".to_string(),
@@ -716,13 +716,13 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
-                                    children: Properties { properties: vec![] },
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
                                     value: Some(2.to_string()),
                                 },
-                            ],
+                            ]),
                         };
                         assert_eq!(expected, response)
                     }
@@ -752,7 +752,7 @@ function call_function(string $hello) {
                                 message: "error evaluating code: Undefined constant \"asda\"".to_string(),
                                 code: "206".to_string()
                             }),
-                            properties: vec![],
+                            properties: Properties::none(),
                         };
                         assert_eq!(expected, response)
                     }
@@ -812,7 +812,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Float,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -827,7 +827,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -842,7 +842,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Bool,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -857,7 +857,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Object,
                                     facet: None,
                                     size: None,
-                                    children: vec![
+                                    children: Properties::from_properties(vec![
                                         Property {
                                             name: "true".to_string(),
                                             fullname: "$this->true".to_string(),
@@ -867,7 +867,7 @@ function call_function(string $hello) {
                                             property_type: PropertyType::Bool,
                                             facet: Some("public".to_string()),
                                             size: None,
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: None,
@@ -882,7 +882,7 @@ function call_function(string $hello) {
                                             property_type: PropertyType::String,
                                             facet: Some("public".to_string()),
                                             size: Some(3),
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: Some("base64".to_string()),
@@ -897,13 +897,13 @@ function call_function(string $hello) {
                                             property_type: PropertyType::Resource,
                                             facet: Some("private".to_string()),
                                             size: None,
-                                            children: vec![],
+                                            children: Properties::none(),
                                             key: None,
                                             address: None,
                                             encoding: None,
                                             value: Some("resource id='18' type='stream'".to_string()),
                                         },
-                                    ],
+                                    ]),
                                     key: None,
                                     address: None,
                                     encoding: None,
@@ -918,7 +918,7 @@ function call_function(string $hello) {
                                     property_type: PropertyType::Array,
                                     facet: None,
                                     size: None,
-                                    children: vec![],
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,

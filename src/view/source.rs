@@ -158,6 +158,8 @@ fn render_label(property: &Property) -> Option<String> {
 
 #[cfg(test)]
 mod test {
+    use crate::dbgp::client::Properties;
+
     use super::*;
     use pretty_assertions::assert_eq;
 
@@ -207,7 +209,7 @@ mod test {
             property_type,
             facet: None,
             size: None,
-            children: Vec::new(),
+            children: Properties::none(),
             key: None,
             address: None,
             encoding: None,
@@ -225,7 +227,7 @@ mod test {
             property_type: PropertyType::Resource,
             facet: Some("private".to_string()),
             size: None,
-            children: vec![],
+            children: Properties::none(),
             key: None,
             address: None,
             encoding: None,
@@ -243,7 +245,7 @@ mod test {
             property_type: PropertyType::Object,
             facet: None,
             size: None,
-            children: vec![
+            children: Properties::from_properties(vec![
                 Property {
                     name: "true".to_string(),
                     fullname: "true".to_string(),
@@ -253,7 +255,7 @@ mod test {
                     property_type: PropertyType::Bool,
                     facet: Some("public".to_string()),
                     size: None,
-                    children: vec![],
+                    children: Properties::none(),
                     key: None,
                     address: None,
                     encoding: None,
@@ -268,13 +270,13 @@ mod test {
                     property_type: PropertyType::String,
                     facet: Some("public".to_string()),
                     size: Some(3),
-                    children: vec![],
+                    children: Properties::none(),
                     key: None,
                     address: None,
                     encoding: Some("base64".to_string()),
                     value: Some("foo".to_string()),
                 },
-            ],
+            ]),
             key: None,
             address: None,
             encoding: None,
