@@ -51,8 +51,16 @@ impl View for SourceComponent {
             .analyzed_files
             .get(&stack.source.filename.to_string());
 
-        for (line_no, line) in stack.source.source.lines().enumerate() {
-            let is_current_line = stack.source.line_no == line_no as u32 + 1;
+
+        // trunacte the hidden lines
+        let truncate_until = app.session_view.source_scroll.0 as u32 + 1;
+
+        for (line_offset, line) in stack.source.source.lines().enumerate() {
+            let line_no = line_offset + 1;
+            if (line_no as u32) < truncate_until {
+                continue
+            }
+            let is_current_line = stack.source.line_no == line_no as u32;
 
             lines.push(Line::from(vec![
                 Span::styled(format!("{:<6}", line_no), app.theme().source_line_no),
@@ -68,7 +76,7 @@ impl View for SourceComponent {
 
             if is_current_line {
                 if let Some(analysis) = analysis {
-                    for (_, var) in analysis.row(line_no) {
+                    for (_, var) in analysis.row(line_offset) {
                         let property = stack.get_property(var.name.as_str());
                         if property.is_none() {
                             continue;
@@ -82,7 +90,7 @@ impl View for SourceComponent {
                     if labels.len() > 1 {
                         labels.pop();
                         annotations.push((
-                            line_no + 1,
+                            line_offset,
                             line.len() + 8,
                             Line::from(labels).style(app.theme().source_annotation),
                         ));
@@ -92,15 +100,15 @@ impl View for SourceComponent {
         }
 
         frame.render_widget(
-            Paragraph::new(lines.clone()).scroll(app.session_view.source_scroll),
+            Paragraph::new(lines.clone()),
             rows[0],
         );
 
-        for (line_no, line_length, line) in annotations {
+        for (line_offset, line_length, line) in annotations {
             let x_offset =  rows[0].x + (line_length as u16).saturating_sub(app.session_view.source_scroll.1);
             let area = Rect {
                 x: x_offset,
-                y: (line_no as u32).saturating_sub(app.session_view.source_scroll.0 as u32) as u16 + 1,
+                y: rows[0].y + ((line_offset as u32).saturating_sub(app.session_view.source_scroll.0 as u32) as u16),
                 width: rows[0].width.saturating_sub(x_offset),
                 height: 1,
             };

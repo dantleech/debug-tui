@@ -1,3 +1,4 @@
+
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
 use crate::theme::Scheme;
@@ -10,6 +11,8 @@ pub fn draw_properties(
     lines: &mut Vec<Line>,
     level: usize,
     filter_path: &mut Vec<&str>,
+    truncate_until: &u32,
+    line_no: &mut u32,
 ) {
     let filter = filter_path.pop();
 
@@ -43,11 +46,18 @@ pub fn draw_properties(
             spans.push(Span::raw(delimiters.0).style(theme.syntax_brace));
         }
 
-        lines.push(Line::from(spans));
+        // only "render" lines that we need to
+        if *line_no >= *truncate_until {
+            lines.push(Line::from(spans));
+        }
+        *line_no += 1;
 
         if !property.children.is_empty() {
-            draw_properties(theme, &property.children, lines, level + 1, filter_path);
-            lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
+            draw_properties(theme, &property.children, lines, level + 1, filter_path, truncate_until,  line_no);
+            if *line_no >= *truncate_until {
+                lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
+            }
+            *line_no += 1;
         }
     }
 }
@@ -85,6 +95,8 @@ mod test {
             &mut lines,
             0,
             &mut Vec::new(),
+            &0,
+            &mut 0,
         );
         assert_eq!(0, lines.len());
         Ok(())
@@ -109,6 +121,8 @@ mod test {
             &mut lines,
             0,
             &mut Vec::new(),
+            &0,
+            &mut 0,
         );
         assert_eq!(vec![
             "foo string = \"\"{",
@@ -148,6 +162,8 @@ mod test {
             &mut lines,
             0,
             filter,
+            &0,
+            &mut 0,
         );
 
         assert_eq!(vec![
