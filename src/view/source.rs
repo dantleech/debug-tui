@@ -47,11 +47,6 @@ impl View for SourceComponent {
             Some(stack) => stack
         };
 
-        let analysis = app
-            .analyzed_files
-            .get(&stack.source.filename.to_string());
-
-
         // trunacte the hidden lines
         let truncate_until = app.session_view.source_scroll.0 as u32 + 1;
 
@@ -75,26 +70,20 @@ impl View for SourceComponent {
             let mut labels = vec![Span::raw("// ")];
 
             if is_current_line {
-                if let Some(analysis) = analysis {
-                    for (_, var) in analysis.row(line_offset) {
-                        let property = stack.get_property(var.name.as_str());
-                        if property.is_none() {
-                            continue;
-                        }
-                        match render_label(property.unwrap()) {
-                            Some(label) => labels.push(Span::raw(label)),
-                            None => continue,
-                        };
-                        labels.push(Span::raw(","));
-                    }
-                    if labels.len() > 1 {
-                        labels.pop();
-                        annotations.push((
-                            line_offset,
-                            line.len() + 8,
-                            Line::from(labels).style(app.theme().source_annotation),
-                        ));
-                    }
+                for var in stack.vars.iter() {
+                    match render_label(&var.value) {
+                        Some(label) => labels.push(Span::raw(label)),
+                        None => continue,
+                    };
+                    labels.push(Span::raw(","));
+                }
+                if labels.len() > 1 {
+                    labels.pop();
+                    annotations.push((
+                        line_offset,
+                        line.len() + 8,
+                        Line::from(labels).style(app.theme().source_annotation),
+                    ));
                 }
             }
         }

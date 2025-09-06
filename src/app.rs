@@ -1,5 +1,6 @@
 use crate::analyzer::Analyser;
 use crate::analyzer::Analysis;
+use crate::analyzer::VariableRef;
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
@@ -53,6 +54,12 @@ pub struct StackFrame {
     pub level: u16,
     pub source: SourceContext,
     pub context: Option<ContextGetResponse>,
+    pub vars: Vec<Variable>,
+}
+#[derive(Clone,Debug)]
+pub struct Variable {
+    pub var_ref: VariableRef,
+    pub value: Property,
 }
 impl StackFrame {
     pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
@@ -94,6 +101,7 @@ impl HistoryEntry {
                     line_no: 0,
                 },
                 context: None,
+                vars: vec![],
             }],
             eval: None,
         }
@@ -704,11 +712,27 @@ impl App {
                 }
             };
 
-            entry.push(StackFrame {
+            let analysis = self.analyzed_files.get(&filename.clone());
+
+            let mut var_refs = vec![];
+
+            let mut stack = StackFrame {
                 level: (level as u16),
                 source,
                 context,
-            });
+                vars: vec![],
+            };
+            if let Some(analysis) = analysis {
+                for (_, var) in analysis.row(line_no as usize - 1) {
+                    let property = stack.get_property(var.name.as_str());
+                    if let Some(property) = property {
+                        var_refs.push(Variable{ var_ref: var, value: property.clone() });
+                    }
+                }
+                stack.vars = var_refs;
+            }
+
+            entry.push(stack);
         }
 
         // *xdebug* only evalutes expressions on the current stack frame
