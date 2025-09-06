@@ -129,7 +129,7 @@ fn render_label(property: &Property) -> Option<String> {
         PropertyType::Object | PropertyType::Array | PropertyType::Hash => {
             format!("{}{{{}}}", property.type_name(), {
                 let mut labels: Vec<String> = Vec::new();
-                for child in &property.children {
+                for child in &property.children.defined_properties() {
                     let label = render_label(child);
                     if label.is_none() {
                         continue;

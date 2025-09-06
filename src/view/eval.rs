@@ -48,7 +48,7 @@ impl View for EvalComponent {
                     let mut lines: Vec<Line> = Vec::new();
                     draw_properties(
                         &app.theme(),
-                        &eval_entry.response.properties,
+                        eval_entry.response.properties.defined_properties(),
                         &mut lines,
                         0,
                         &mut Vec::new(),
@@ -120,7 +120,7 @@ impl View for EvalDialog {
 
 pub fn draw_properties(
     theme: &Scheme,
-    properties: &Vec<Property>,
+    properties: Vec<&Property>,
     lines: &mut Vec<Line>,
     level: usize,
     filter_path: &mut Vec<&str>,
@@ -160,7 +160,7 @@ pub fn draw_properties(
         lines.push(Line::from(spans));
 
         if !property.children.is_empty() {
-            draw_properties(theme, &property.children, lines, level + 1, filter_path);
+            draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path);
             lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
         }
     }

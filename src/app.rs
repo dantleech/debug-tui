@@ -81,7 +81,7 @@ impl DocumentVariables {
 impl StackFrame {
     pub(crate) fn get_property(&self, name: &str) -> Option<&Property> {
         match &self.context {
-            Some(c) => c.properties.iter().find(|&property| property.name == name),
+            Some(c) => c.properties.get(name),
             None => None,
         }
     }
