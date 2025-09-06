@@ -56,6 +56,7 @@ impl Theme {
                 source_line_no: Style::default().fg(Solarized::Yellow.to_color()),
                 source_line_highlight: Style::default().bg(Solarized::Base02.to_color()).fg(Solarized::Base3.to_color()),
                 source_annotation: Style::default().fg(Solarized::Magenta.to_color()),
+                source_annotation_historic: Style::default().fg(Solarized::Base01.to_color()),
                 stack_line: Style::default().fg(Solarized::Base1.to_color()),
 
                 widget_active: Style::default().fg(Solarized::Base02.to_color()).bg(Solarized::Green.to_color()),
@@ -87,7 +88,8 @@ impl Theme {
                 source_line: Style::default().fg(Color::White),
                 source_line_no: Style::default().fg(Color::Yellow),
                 source_line_highlight: Style::default().bg(Color::Blue),
-                source_annotation: Style::default().fg(Color::DarkGray),
+                source_annotation: Style::default().fg(Color::Cyan),
+                source_annotation_historic: Style::default().fg(Color::DarkGray),
 
                 stack_line: Style::default().fg(Color::White),
 
@@ -124,6 +126,7 @@ pub struct Scheme {
     pub source_line_no: Style,
     pub source_line_highlight: Style,
     pub source_annotation: Style,
+    pub source_annotation_historic: Style,
 
     pub stack_line: Style,
 

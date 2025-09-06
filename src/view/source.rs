@@ -66,11 +66,10 @@ impl View for SourceComponent {
                 },
             ]));
 
-            // record annotations to add at the end of the line
-            let mut labels = vec![Span::raw("// ")];
-
-            if is_current_line {
-                for var in stack.vars.iter() {
+            {
+                // record annotations to add at the end of the line
+                let mut labels = vec![Span::raw("// ")];
+                for var in app.document_variables.get(&stack.source.filename, line_no as u32).iter() {
                     match render_label(&var.value) {
                         Some(label) => labels.push(Span::raw(label)),
                         None => continue,
@@ -82,7 +81,12 @@ impl View for SourceComponent {
                     annotations.push((
                         line_offset,
                         line.len() + 8,
-                        Line::from(labels).style(app.theme().source_annotation),
+                        Line::from(labels).style(
+                            match is_current_line {
+                                true =>  app.theme().source_annotation,
+                                false => app.theme().source_annotation_historic,
+                            }
+                        ),
                     ));
                 }
             }
