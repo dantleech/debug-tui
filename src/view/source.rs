@@ -49,10 +49,11 @@ impl View for SourceComponent {
 
         // trunacte the hidden lines
         let truncate_until = app.session_view.source_scroll.0 as u32 + 1;
+        let truncate_from = app.session_view.source_scroll.0 as u32 + (rows[0].height as u32) + 1;
 
         for (line_offset, line) in stack.source.source.lines().enumerate() {
             let line_no = line_offset + 1;
-            if (line_no as u32) < truncate_until {
+            if (line_no as u32) < truncate_until || (line_no as u32) > truncate_from {
                 continue
             }
             let is_current_line = stack.source.line_no == line_no as u32;
