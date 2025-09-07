@@ -91,7 +91,7 @@ impl View for ContextComponent {
 
 
         frame.render_widget(
-            Paragraph::new(lines.clone()),
+            Paragraph::new(lines.clone()).scroll((0, app.session_view.context_scroll.1)),
             areas[1],
         );
     }

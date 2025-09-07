@@ -94,7 +94,7 @@ impl View for SourceComponent {
         }
 
         frame.render_widget(
-            Paragraph::new(lines.clone()),
+            Paragraph::new(lines.clone()).scroll((0, app.session_view.source_scroll.1)),
             rows[0],
         );
 
