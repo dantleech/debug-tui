@@ -161,7 +161,7 @@ pub fn draw_properties(
 
         if !property.children.is_empty() {
             draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path);
-            lines.push(Line::from(vec![Span::raw(delimiters.1)]).style(theme.syntax_brace));
+            lines.push(Line::from(vec![Span::raw(format!("{}{}", "  ".repeat(level), delimiters.1))]).style(theme.syntax_brace));
         }
     }
 }
