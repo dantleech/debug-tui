@@ -10,6 +10,7 @@ main
 - Fix position of closing braces in context view
 - Show historic inline values
 - Do not show "undefined" variables
+- Ensure context depth is in range of 1-9
 
 0.1.1
 -----
