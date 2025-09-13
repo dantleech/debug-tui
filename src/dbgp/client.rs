@@ -2,8 +2,8 @@ use anyhow::Result;
 use base64::engine::general_purpose;
 use base64::Engine;
 use core::str;
-use std::fmt::Display;
 use log::debug;
+use std::fmt::Display;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
@@ -44,8 +44,7 @@ pub struct DbgpError {
 pub struct ContextGetResponse {
     pub properties: Properties,
 }
-impl ContextGetResponse {
-}
+impl ContextGetResponse {}
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Properties {
     pub properties: Vec<Property>,
@@ -55,7 +54,7 @@ impl Properties {
         self.properties.is_empty()
     }
     pub fn none() -> Self {
-        Self{properties:vec![]}
+        Self { properties: vec![] }
     }
     pub fn defined_properties(&self) -> Vec<&Property> {
         let mut props = vec![];
@@ -71,14 +70,14 @@ impl Properties {
     pub(crate) fn get(&self, name: &str) -> Option<&Property> {
         for property in self.defined_properties() {
             if property.name == name {
-                return Some(property)
+                return Some(property);
             }
         }
         None
     }
 
     pub fn from_properties(vec: Vec<Property>) -> Properties {
-        Self{properties:vec}
+        Self { properties: vec }
     }
 }
 
@@ -286,7 +285,10 @@ impl DbgpClient {
     }
 
     pub(crate) async fn context_get(&mut self, depth: u16) -> Result<ContextGetResponse> {
-        match self.command("context_get", &mut ["-d", format!("{}", depth).as_str()]).await? {
+        match self
+            .command("context_get", &mut ["-d", format!("{}", depth).as_str()])
+            .await?
+        {
             Message::Response(r) => match r.command {
                 CommandResponse::ContextGet(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -297,7 +299,13 @@ impl DbgpClient {
 
     pub(crate) async fn eval(&mut self, expression: String, depth: u16) -> Result<EvalResponse> {
         let base64 = general_purpose::STANDARD.encode(expression.as_bytes());
-        match self.command("eval", &mut ["-d", format!("{}", depth).as_str(), "--", &base64]).await? {
+        match self
+            .command(
+                "eval",
+                &mut ["-d", format!("{}", depth).as_str(), "--", &base64],
+            )
+            .await?
+        {
             Message::Response(r) => match r.command {
                 CommandResponse::Eval(s) => Ok(s),
                 _ => anyhow::bail!("Unexpected response"),
@@ -370,7 +378,8 @@ impl DbgpClient {
         let bytes = [cmd_str.trim_end(), "\0"].concat();
         self.tid += 1;
         match self.stream.as_mut() {
-            Some(stream) => stream.write(bytes.as_bytes())
+            Some(stream) => stream
+                .write(bytes.as_bytes())
                 .await
                 .map_err(anyhow::Error::from),
             None => Err(anyhow::anyhow!("Stream was closed")),
@@ -439,38 +448,44 @@ fn parse_xml(xml: &str) -> Result<Message, anyhow::Error> {
 }
 fn parse_source(element: &Element) -> Result<String, anyhow::Error> {
     match element.children.first() {
-        Some(XMLNode::CData(e)) => {
-            Ok(String::from_utf8(general_purpose::STANDARD.decode(e)?)?)
-        }
+        Some(XMLNode::CData(e)) => Ok(String::from_utf8(general_purpose::STANDARD.decode(e)?)?),
         _ => anyhow::bail!("Expected CDATA"),
     }
 }
 
-
 fn parse_context_get(element: &mut Element) -> Result<ContextGetResponse, anyhow::Error> {
-    Ok(ContextGetResponse { properties: Properties::from_properties(parse_properties(element)?)})
+    Ok(ContextGetResponse {
+        properties: Properties::from_properties(parse_properties(element)?),
+    })
 }
 
 fn parse_eval(element: &mut Element) -> Result<EvalResponse, anyhow::Error> {
-
     let error = if let Some(mut error_el) = element.take_child("error") {
-        let code = error_el.attributes.get("code").map_or("".to_string(), |v|v.to_string());
+        let code = error_el
+            .attributes
+            .get("code")
+            .map_or("".to_string(), |v| v.to_string());
         let message = match error_el.take_child("message") {
             Some(m) => match m.children.first() {
-                Some(XMLNode::CData(e)) => {
-                    e.to_string()
-                },
+                Some(XMLNode::CData(e)) => e.to_string(),
                 _ => String::new(),
             },
-            _ => "".to_string()
+            _ => "".to_string(),
         };
-        
-        Some(DbgpError{message, code: code.to_string()})
+
+        Some(DbgpError {
+            message,
+            code: code.to_string(),
+        })
     } else {
         None
     };
 
-    Ok(EvalResponse { success: true, properties: Properties::from_properties(parse_properties(element)?), error})
+    Ok(EvalResponse {
+        success: true,
+        properties: Properties::from_properties(parse_properties(element)?),
+        error,
+    })
 }
 
 fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Error> {
@@ -478,24 +493,18 @@ fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Erro
     while let Some(mut child) = element.take_child("property") {
         let encoding = child.attributes.get("encoding").map(|s| s.to_string());
         let p = Property {
-            name: match child
-                .attributes
-                .get("name") {
-                    Some(name) => name.to_string(),
-                    None => decode_element(child.get_child("name")).unwrap_or("".to_string())
-                },
-            fullname: match child
-                .attributes
-                .get("fullname") {
-                    Some(name) => name.to_string(),
-                    None => decode_element(child.get_child("fullname")).unwrap_or("".to_string())
-                },
-            classname: match child
-                .attributes
-                .get("classname") {
-                    Some(name) => Some(name.to_string()),
-                    None => decode_element(child.get_child("classname"))
-                },
+            name: match child.attributes.get("name") {
+                Some(name) => name.to_string(),
+                None => decode_element(child.get_child("name")).unwrap_or("".to_string()),
+            },
+            fullname: match child.attributes.get("fullname") {
+                Some(name) => name.to_string(),
+                None => decode_element(child.get_child("fullname")).unwrap_or("".to_string()),
+            },
+            classname: match child.attributes.get("classname") {
+                Some(name) => Some(name.to_string()),
+                None => decode_element(child.get_child("classname")),
+            },
             page: child
                 .attributes
                 .get("page")
@@ -519,7 +528,10 @@ fn parse_properties(element: &mut Element) -> Result<Vec<Property>, anyhow::Erro
             address: child.attributes.get("address").map(|name| name.to_string()),
             encoding: encoding.clone(),
             children: Properties::from_properties(parse_properties(&mut child)?),
-            value: decode_element(Some(&child)),
+            value: match child.get_child("value") {
+                Some(v) => decode_element(Some(v)),
+                None => decode_element(Some(&child)),
+            }
         };
         properties.push(p);
     }
@@ -530,13 +542,13 @@ fn decode_element(element: Option<&Element>) -> Option<String> {
     match element {
         Some(e) => {
             let encoding = e.attributes.get("encoding");
-             match e.children.first() {
+            match e.children.first() {
                 Some(XMLNode::CData(cdata)) => match encoding {
                     Some(encoding) => match encoding.as_str() {
-                        "base64" => {
-                            Some(String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
-                                .unwrap())
-                        }
+                        "base64" => Some(
+                            String::from_utf8(general_purpose::STANDARD.decode(cdata).unwrap())
+                                .unwrap(),
+                        ),
                         _ => Some(cdata.to_string()),
                     },
                     _ => Some(cdata.to_string()),
@@ -706,23 +718,21 @@ function call_function(string $hello) {
                         let expected = EvalResponse {
                             success: true,
                             error: None,
-                            properties: Properties::from_properties(vec![
-                                Property {
-                                    name: "".to_string(),
-                                    fullname: "".to_string(),
-                                    classname: None,
-                                    page: None,
-                                    pagesize: None,
-                                    property_type: PropertyType::Int,
-                                    facet: None,
-                                    size: None,
-                                    children: Properties::none(),
-                                    key: None,
-                                    address: None,
-                                    encoding: None,
-                                    value: Some(2.to_string()),
-                                },
-                            ]),
+                            properties: Properties::from_properties(vec![Property {
+                                name: "".to_string(),
+                                fullname: "".to_string(),
+                                classname: None,
+                                page: None,
+                                pagesize: None,
+                                property_type: PropertyType::Int,
+                                facet: None,
+                                size: None,
+                                children: Properties::none(),
+                                key: None,
+                                address: None,
+                                encoding: None,
+                                value: Some(2.to_string()),
+                            }]),
                         };
                         assert_eq!(expected, response)
                     }
@@ -749,8 +759,9 @@ function call_function(string $hello) {
                         let expected = EvalResponse {
                             success: true,
                             error: Some(DbgpError {
-                                message: "error evaluating code: Undefined constant \"asda\"".to_string(),
-                                code: "206".to_string()
+                                message: "error evaluating code: Undefined constant \"asda\""
+                                    .to_string(),
+                                code: "206".to_string(),
                             }),
                             properties: Properties::none(),
                         };
@@ -901,7 +912,9 @@ function call_function(string $hello) {
                                             key: None,
                                             address: None,
                                             encoding: None,
-                                            value: Some("resource id='18' type='stream'".to_string()),
+                                            value: Some(
+                                                "resource id='18' type='stream'".to_string(),
+                                            ),
                                         },
                                     ]),
                                     key: None,
@@ -925,7 +938,7 @@ function call_function(string $hello) {
                                     value: None,
                                 },
                             ]),
-                            };
+                        };
                         assert_eq!(expected, response)
                     }
                     _ => panic!("Could not parse context_get"),
@@ -951,7 +964,7 @@ function call_function(string $hello) {
                     </property>
                 </property>
             </response>
-            "#
+            "#,
         )?;
 
         match result {
@@ -959,40 +972,36 @@ function call_function(string $hello) {
                 match r.command {
                     CommandResponse::ContextGet(response) => {
                         let expected = ContextGetResponse {
-                            properties: Properties::from_properties(vec![
-                                Property {
-                                    name: "$ar😸ray".to_string(),
-                                    fullname: "$ar😸ray".to_string(),
+                            properties: Properties::from_properties(vec![Property {
+                                name: "$ar😸ray".to_string(),
+                                fullname: "$ar😸ray".to_string(),
+                                classname: None,
+                                page: Some(0),
+                                pagesize: Some(32),
+                                property_type: PropertyType::Array,
+                                facet: None,
+                                size: None,
+                                children: Properties::from_properties(vec![Property {
+                                    name: "int".to_string(),
+                                    fullname: "$ar😸ray[\"int\"]".to_string(),
                                     classname: None,
-                                    page: Some(0),
-                                    pagesize: Some(32),
-                                    property_type: PropertyType::Array,
+                                    page: None,
+                                    pagesize: None,
+                                    property_type: PropertyType::Int,
                                     facet: None,
                                     size: None,
-                                    children: Properties::from_properties(vec![
-                                        Property {
-                                            name: "int".to_string(),
-                                            fullname: "$ar😸ray[\"int\"]".to_string(),
-                                            classname: None,
-                                            page: None,
-                                            pagesize: None,
-                                            property_type: PropertyType::Int,
-                                            facet: None,
-                                            size: None,
-                                            children: Properties::none(),
-                                            key: None,
-                                            address: None,
-                                            encoding: None,
-                                            value: Some("1".to_string()),
-                                        },
-                                    ]),
+                                    children: Properties::none(),
                                     key: None,
                                     address: None,
                                     encoding: None,
-                                    value: None,
-                                },
-                            ]),
-                            };
+                                    value: Some("123".to_string()),
+                                }]),
+                                key: None,
+                                address: None,
+                                encoding: None,
+                                value: None,
+                            }]),
+                        };
                         assert_eq!(expected, response)
                     }
                     _ => panic!("Could not parse context_get"),

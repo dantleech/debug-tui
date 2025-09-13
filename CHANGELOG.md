@@ -4,13 +4,22 @@ CHANGELOG
 main
 ----
 
-- Introduce eval feature
-- Improve scrolling performance on large files and contexts
+### Features
+
 - Add support for arrow key scrolling
-- Fix position of closing braces in context view
 - Show historic inline values
+- Introduce eval feature
+
+### Improvements
+
+- Improve scrolling performance on large files and contexts
+
+### Bug fixes
+
+- Fix position of closing braces in context view
 - Do not show "undefined" variables
 - Ensure context depth is in range of 1-9
+- Fix display of multibyte values #27
 
 0.1.1
 -----
