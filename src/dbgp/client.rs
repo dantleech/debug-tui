@@ -935,4 +935,71 @@ function call_function(string $hello) {
         };
         Ok(())
     }
+
+    #[test]
+    fn test_parse_multibyte_array() -> Result<(), anyhow::Error> {
+        let result = parse_xml(
+            r#"
+            <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="context_get" transaction_id="8" context="0">
+                <property type="array" children="1" numchildren="5" page="0" pagesize="32">
+                    <name encoding="base64"><![CDATA[JGFy8J+YuHJheQ==]]></name>
+                    <fullname encoding="base64"><![CDATA[JGFy8J+YuHJheQ==]]></fullname>
+                    <property type="int">
+                        <name encoding="base64"><![CDATA[aW50]]></name>
+                        <fullname encoding="base64"><![CDATA[JGFy8J+YuHJheVsiaW50Il0=]]></fullname>
+                        <value encoding="base64"><![CDATA[MTIz]]></value>
+                    </property>
+                </property>
+            </response>
+            "#
+        )?;
+
+        match result {
+            Message::Response(r) => {
+                match r.command {
+                    CommandResponse::ContextGet(response) => {
+                        let expected = ContextGetResponse {
+                            properties: Properties::from_properties(vec![
+                                Property {
+                                    name: "$ar😸ray".to_string(),
+                                    fullname: "$ar😸ray".to_string(),
+                                    classname: None,
+                                    page: Some(0),
+                                    pagesize: Some(32),
+                                    property_type: PropertyType::Array,
+                                    facet: None,
+                                    size: None,
+                                    children: Properties::from_properties(vec![
+                                        Property {
+                                            name: "int".to_string(),
+                                            fullname: "$ar😸ray[\"int\"]".to_string(),
+                                            classname: None,
+                                            page: None,
+                                            pagesize: None,
+                                            property_type: PropertyType::Int,
+                                            facet: None,
+                                            size: None,
+                                            children: Properties::none(),
+                                            key: None,
+                                            address: None,
+                                            encoding: None,
+                                            value: Some("1".to_string()),
+                                        },
+                                    ]),
+                                    key: None,
+                                    address: None,
+                                    encoding: None,
+                                    value: None,
+                                },
+                            ]),
+                            };
+                        assert_eq!(expected, response)
+                    }
+                    _ => panic!("Could not parse context_get"),
+                };
+            }
+            _ => panic!("Did not parse"),
+        };
+        Ok(())
+    }
 }
