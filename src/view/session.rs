@@ -12,6 +12,7 @@ use crate::app::ListenStatus;
 use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -35,11 +36,17 @@ impl View for SessionView {
             return delegate_event_to_pane(app, event);
         }
 
+        let multiplier = if KeyModifiers::SHIFT == input_event.modifiers & KeyModifiers::SHIFT { 10 } else { 1 };
+
         // handle global session events
         match input_event.code {
             KeyCode::Tab => return Some(AppEvent::NextPane),
             KeyCode::BackTab => return Some(AppEvent::PreviousPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
+            KeyCode::Left => return Some(AppEvent::Scroll((0, -1 * multiplier))),
+            KeyCode::Right => return Some(AppEvent::Scroll((0, 1 * multiplier))),
+            KeyCode::Up => return Some(AppEvent::Scroll((-1 * multiplier, 0))),
+            KeyCode::Down => return Some(AppEvent::Scroll((1 * multiplier, 0))),
             KeyCode::Char(char) => match char {
                 'e' => return Some(AppEvent::EvalStart),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
