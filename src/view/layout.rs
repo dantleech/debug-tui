@@ -73,7 +73,7 @@ fn notification_widget(app: &App) -> Paragraph<'_> {
     .alignment(ratatui::layout::Alignment::Right)])
 }
 
-fn status_widget(app: &App) -> Paragraph {
+fn status_widget<'a>(app: &'a App) -> Paragraph<'a> {
     Paragraph::new(vec![Line::from(vec![
         Span::styled(
             format!(

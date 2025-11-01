@@ -68,12 +68,7 @@ impl Properties {
     }
 
     pub(crate) fn get(&self, name: &str) -> Option<&Property> {
-        for property in self.defined_properties() {
-            if property.name == name {
-                return Some(property);
-            }
-        }
-        None
+        self.defined_properties().into_iter().find(|&property| property.name == name).map(|v| v as _)
     }
 
     pub fn from_properties(vec: Vec<Property>) -> Properties {

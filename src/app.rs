@@ -475,8 +475,8 @@ impl App {
                 self.exec_continuation(AppEvent::Run).await;
             }
             AppEvent::ContextDepth(inc) => {
-                let depth = self.context_depth.clone();
-                self.context_depth = depth.wrapping_add(inc as u16).max(1).min(9);
+                let depth = self.context_depth;
+                self.context_depth = depth.wrapping_add(inc as u16).clamp(1, 9);
                 self.client
                     .lock()
                     .await

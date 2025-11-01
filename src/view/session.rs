@@ -9,7 +9,6 @@ use super::Pane;
 use super::View;
 use crate::app::App;
 use crate::app::ListenStatus;
-use crate::app::SelectedView;
 use crate::event::input::AppEvent;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
@@ -47,10 +46,10 @@ impl View for SessionView {
             KeyCode::Tab => return Some(AppEvent::NextPane),
             KeyCode::BackTab => return Some(AppEvent::PreviousPane),
             KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
-            KeyCode::Left => return Some(AppEvent::Scroll((0, -1 * multiplier))),
-            KeyCode::Right => return Some(AppEvent::Scroll((0, 1 * multiplier))),
-            KeyCode::Up => return Some(AppEvent::Scroll((-1 * multiplier, 0))),
-            KeyCode::Down => return Some(AppEvent::Scroll((1 * multiplier, 0))),
+            KeyCode::Left => return Some(AppEvent::Scroll((0, -multiplier))),
+            KeyCode::Right => return Some(AppEvent::Scroll((0, multiplier))),
+            KeyCode::Up => return Some(AppEvent::Scroll((-multiplier, 0))),
+            KeyCode::Down => return Some(AppEvent::Scroll((multiplier, 0))),
             KeyCode::Char(char) => match char {
                 'e' => return Some(AppEvent::EvalStart),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
