@@ -742,7 +742,7 @@ impl App {
                 // populate inline variables with values
                 let mut vars = vec![];
                 if let Some(analysis) = analysis {
-                    for (_, var) in analysis.row(line_no as usize - 1) {
+                    for (_, var) in analysis.row((line_no as usize).saturating_sub(1)) {
                         let property = stack.get_property(var.name.as_str());
                         if let Some(property) = property {
                             vars.push(Variable{ var_ref: var, value: property.clone() });
