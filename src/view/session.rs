@@ -162,7 +162,7 @@ fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
 fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, index: usize) {
     let block = Block::default()
         .borders(Borders::all())
-        .title(match pane.component_type {
+        .title_bottom(match pane.component_type {
             ComponentType::Source => match app.history.current() {
                 Some(c) => c
                     .source(app.session_view.stack_depth())
