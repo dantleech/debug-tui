@@ -36,7 +36,11 @@ impl View for SessionView {
             return delegate_event_to_pane(app, event);
         }
 
-        let multiplier = if KeyModifiers::SHIFT == input_event.modifiers & KeyModifiers::SHIFT { 10 } else { 1 };
+        let multiplier = if KeyModifiers::SHIFT == input_event.modifiers & KeyModifiers::SHIFT {
+            10
+        } else {
+            1
+        };
 
         // handle global session events
         match input_event.code {
@@ -73,22 +77,18 @@ impl View for SessionView {
                     'N' => Some(AppEvent::StepOver),
                     'o' => Some(AppEvent::StepOut),
                     'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
+                    'd' => Some(AppEvent::Disconnect),
                     _ => None,
                 },
                 _ => None,
             },
             SessionViewMode::History => match input_event.code {
-                KeyCode::Esc => Some(AppEvent::ChangeView(SelectedView::Session)),
+                KeyCode::Esc => escape(app),
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
-                    'b' => {
-                        if app.listening_status == ListenStatus::Refusing {
-                            Some(AppEvent::Listen)
-                        } else {
-                            Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
-                        }
-                    }
+                    'd' => Some(AppEvent::Disconnect),
+                    'b' => escape(app),
                     _ => None,
                 },
                 _ => None,
@@ -135,6 +135,14 @@ impl View for SessionView {
             build_pane_widget(frame, app, pane, right_rows[row_index], pane_index);
             pane_index += 1;
         }
+    }
+}
+
+fn escape(app: &App) -> Option<AppEvent> {
+    if app.listening_status == ListenStatus::Refusing {
+        Some(AppEvent::Listen)
+    } else {
+        Some(AppEvent::ChangeSessionViewMode(SessionViewMode::Current))
     }
 }
 

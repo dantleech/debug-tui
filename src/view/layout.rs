@@ -112,7 +112,7 @@ fn status_widget(app: &App) -> Paragraph {
                         app.history.len()
                     ),
                     ListenStatus::Refusing => format!(
-                        "   {} / {} terminated [p] to go back [n] to go forwards [b] to listen",
+                        "   {} / {} disconnected [p] to go back [n] to go forwards [b] to listen",
                         app.history.offset + 1,
                         app.history.len()
                     ),

@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+main
+----
+
+### Improvements
+
+- Show window "titles" at bottom of window
+- Ability to disconnect from the server (via. "d")
+
 0.2.0
 -----
 

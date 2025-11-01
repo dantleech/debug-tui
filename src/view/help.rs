@@ -39,6 +39,7 @@ Key mappings (prefix with number to repeat):
 [N]     step over
 [p]     previous (switches to history mode if in current mode)
 [o]     step out
+[d]     disconnect
 [e]     enter an expression
 [j]     scroll down
 [J]     scroll down 10
