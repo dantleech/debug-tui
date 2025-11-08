@@ -49,7 +49,7 @@ impl View for EvalComponent {
             }
         }
         frame.render_widget(
-            Paragraph::new(app.console.lines.join("\n")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
+            Paragraph::new(app.console.chunks.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
             area,
         );
     }
