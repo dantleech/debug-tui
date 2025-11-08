@@ -2,6 +2,7 @@ use crate::analyzer::Analyser;
 use crate::analyzer::Analysis;
 use crate::analyzer::VariableRef;
 use crate::config::Config;
+use crate::console::Console;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
@@ -12,6 +13,7 @@ use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::theme::Scheme;
 use crate::theme::Theme;
+use crate::view::eval::draw_properties;
 use crate::view::eval::EvalDialog;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
@@ -30,16 +32,22 @@ use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncReadExt;
+use tokio::io::BufReader;
 use tokio::process::Child;
 use tokio::process::Command;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
 use std::ops::DerefMut;
+use std::process::Stdio;
+use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
@@ -130,6 +138,7 @@ impl HistoryEntry {
         match entry {
             Some(e) => e.source.clone(),
             None => SourceContext::default(),
+
         }
     }
 
@@ -237,6 +246,7 @@ pub struct App {
     sender: Sender<AppEvent>,
     php_process: Option<Child>,
 
+    pub console: Console,
     pub listening_status: ListenStatus,
     pub notification: Notification,
     pub config: Config,
@@ -268,7 +278,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
+    pub fn new<'a>(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
         App {
             tick: 0,
@@ -284,6 +294,7 @@ impl App {
             document_variables: DocumentVariables::default(),
             client: Arc::clone(&client),
             workspace: Workspace::new(Arc::clone(&client)),
+            console: Console::new(),
 
             counter: 0,
             context_depth: 4,
@@ -361,6 +372,8 @@ impl App {
                 return Ok(());
             }
 
+            self.console.unload().await;
+
             terminal.autoresize()?;
             terminal.draw(|frame| {
                 LayoutView::draw(self, frame, frame.area());
@@ -384,11 +397,7 @@ impl App {
             AppEvent::Quit => self.quit = true,
             AppEvent::Listening => {
                 if let Some(script) = &self.config.cmd {
-                    let cmd = script.first();
-                    if let Some(program) = cmd {
-                        let process = Command::new(&program).args(&script[1..]).spawn().unwrap();
-                        self.php_process = Some(process);
-                    }
+                    self.start_php_process(script.clone());
                 }
             },
             AppEvent::ChangeView(view) => {
@@ -578,7 +587,15 @@ impl App {
                         )
                         .await?;
 
-                    self.session_view.eval_state.response = Some(response);
+                    let mut lines: Vec<String> = Vec::new();
+                    draw_properties(
+                        &self.theme(),
+                        response.properties.defined_properties(),
+                        &mut lines,
+                        0,
+                        &mut Vec::new(),
+                    );
+                    self.console.buffer.lock().await.append(&mut lines);
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;
@@ -833,6 +850,30 @@ impl App {
         if let Some(entry) = entry {
             self.session_view
                 .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
+        }
+    }
+
+    fn start_php_process(&mut self, script: Vec<String>) {
+        let cmd = script.first();
+        if let Some(program) = cmd {
+            let mut process = Command::new(&program)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .args(&script[1..])
+                .spawn()
+                .unwrap();
+            let buffer = self.console.buffer.clone();
+            let mut reader = BufReader::new(process.stdout.take().unwrap());
+            self.php_process = Some(process);
+            task::spawn(async move {
+                loop {
+                    let mut buf = [0; 10];
+                    let n = reader.read(&mut buf).await.expect("nope");
+                    if n > 0 {
+                        buffer.lock().await.push(from_utf8(&buf[..n]).expect("fucl").to_string());
+                    }
+                }
+            });
         }
     }
 }

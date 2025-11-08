@@ -45,21 +45,13 @@ impl View for EvalComponent {
                         area,
                     );
                 } else {
-                    let mut lines: Vec<Line> = Vec::new();
-                    draw_properties(
-                        &app.theme(),
-                        eval_entry.response.properties.defined_properties(),
-                        &mut lines,
-                        0,
-                        &mut Vec::new(),
-                    );
-                    frame.render_widget(
-                        Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
-                        area,
-                    );
                 }
             }
         }
+        frame.render_widget(
+            Paragraph::new(app.console.lines.join("\n")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
+            area,
+        );
     }
 }
 
@@ -121,7 +113,7 @@ impl View for EvalDialog {
 pub fn draw_properties(
     theme: &Scheme,
     properties: Vec<&Property>,
-    lines: &mut Vec<Line>,
+    lines: &mut Vec<String>,
     level: usize,
     filter_path: &mut Vec<&str>,
 ) {
@@ -134,18 +126,15 @@ pub fn draw_properties(
             }
         }
         let mut spans = vec![
-            Span::raw("  ".repeat(level)),
-            Span::styled(property.name.to_string(), theme.syntax_label),
-            Span::raw(" ".to_string()),
-            Span::styled(
-                property.type_name(),
-                match property.property_type {
-                    PropertyType::Object => theme.syntax_type_object,
-                    _ => theme.syntax_type,
-                },
-            ),
-            Span::raw(" = ".to_string()),
-            render_value(theme, property),
+            "  ".repeat(level),
+            property.name.to_string(),
+            " ".to_string(),
+            property.type_name(),
+            " = ".to_string(),
+            match &property.value {
+                Some(s) => s.to_string(),
+                None => "".to_string(),
+            }
         ];
 
         let delimiters = match property.property_type {
@@ -154,14 +143,14 @@ pub fn draw_properties(
         };
 
         if !property.children.is_empty() {
-            spans.push(Span::raw(delimiters.0).style(theme.syntax_brace));
+            spans.push(delimiters.0.to_string());
         }
 
-        lines.push(Line::from(spans));
+        lines.push(spans.join(""));
 
         if !property.children.is_empty() {
             draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path);
-            lines.push(Line::from(vec![Span::raw(format!("{}{}", "  ".repeat(level), delimiters.1))]).style(theme.syntax_brace));
+            lines.push(format!("{}{}", "  ".repeat(level), delimiters.1));
         }
     }
 }
