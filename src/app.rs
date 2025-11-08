@@ -1,8 +1,8 @@
 use crate::analyzer::Analyser;
 use crate::analyzer::Analysis;
 use crate::analyzer::VariableRef;
+use crate::channel::Channels;
 use crate::config::Config;
-use crate::console::Console;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
 use crate::dbgp::client::ContinuationStatus;
@@ -246,7 +246,7 @@ pub struct App {
     sender: Sender<AppEvent>,
     php_process: Option<Child>,
 
-    pub console: Console,
+    pub channels: Channels,
     pub listening_status: ListenStatus,
     pub notification: Notification,
     pub config: Config,
@@ -294,7 +294,7 @@ impl App {
             document_variables: DocumentVariables::default(),
             client: Arc::clone(&client),
             workspace: Workspace::new(Arc::clone(&client)),
-            console: Console::new(),
+            channels: Channels::new(),
 
             counter: 0,
             context_depth: 4,
@@ -372,7 +372,7 @@ impl App {
                 return Ok(());
             }
 
-            self.console.unload().await;
+            self.channels.unload().await;
 
             terminal.autoresize()?;
             terminal.draw(|frame| {
@@ -570,6 +570,9 @@ impl App {
                     self.active_dialog = Some(ActiveDialog::Eval);
                 }
             }
+            AppEvent::NextChannel => {
+                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count()
+            },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
             }
@@ -595,7 +598,7 @@ impl App {
                         0,
                         &mut Vec::new(),
                     );
-                    self.console.buffer.lock().await.append(&mut lines);
+                    self.channels.get_mut("eval").buffer.lock().await.append(&mut lines);
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;
@@ -862,7 +865,7 @@ impl App {
                 .args(&script[1..])
                 .spawn()
                 .unwrap();
-            let buffer = self.console.buffer.clone();
+            let buffer = self.channels.get_mut("php").buffer.clone();
             let mut reader = BufReader::new(process.stdout.take().unwrap());
             self.php_process = Some(process);
             task::spawn(async move {

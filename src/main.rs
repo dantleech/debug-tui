@@ -7,7 +7,7 @@ pub mod view;
 pub mod analyzer;
 pub mod theme;
 pub mod workspace;
-pub mod console;
+pub mod channel;
 
 use app::App;
 use better_panic::Settings;

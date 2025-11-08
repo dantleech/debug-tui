@@ -1,6 +1,7 @@
 use super::centered_rect_absolute;
 use super::View;
 use crate::app::App;
+use crate::channel::Channel;
 use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
@@ -25,6 +26,7 @@ pub struct EvalDialog {}
 pub struct EvalState {
     pub response: Option<EvalResponse>,
     pub input: Input,
+    pub channel: usize,
     pub scroll: (u16, u16),
 }
 
@@ -48,8 +50,14 @@ impl View for EvalComponent {
                 }
             }
         }
+
+        ;
+        let channel = match app.channels.channel_by_offset(app.session_view.eval_state.channel) {
+            Some(c) => c,
+            None => &Channel::new(),
+        };
         frame.render_widget(
-            Paragraph::new(app.console.chunks.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
+            Paragraph::new(channel.chunks.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
             area,
         );
     }

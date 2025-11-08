@@ -56,6 +56,7 @@ pub enum AppEvent {
     EvalRefresh,
     EvalStart,
     Listening,
+    NextChannel,
 }
 
 pub type EventSender = Sender<AppEvent>;

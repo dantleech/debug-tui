@@ -18,6 +18,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
+use ratatui::widgets::Tabs;
 use ratatui::Frame;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -52,6 +53,7 @@ impl View for SessionView {
             KeyCode::Down => return Some(AppEvent::Scroll((multiplier, 0))),
             KeyCode::Char(char) => match char {
                 'e' => return Some(AppEvent::EvalStart),
+                'c' => return Some(AppEvent::NextChannel),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
                 'k' => return Some(AppEvent::Scroll((-1, 0))),
                 'J' => return Some(AppEvent::Scroll((10, 0))),
@@ -225,6 +227,8 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             StackComponent::draw(app, frame, block.inner(area));
         }
         ComponentType::Eval => {
+            let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
+            frame.render_widget(tabs, area);
             EvalComponent::draw(app, frame, block.inner(area));
         }
     };
