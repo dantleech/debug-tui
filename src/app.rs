@@ -34,6 +34,8 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
+use tokio::process::Child;
+use tokio::process::Command;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -233,6 +235,7 @@ pub struct App {
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
+    php_process: Option<Child>,
 
     pub listening_status: ListenStatus,
     pub notification: Notification,
@@ -275,6 +278,7 @@ impl App {
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
+            php_process: None,
             quit: false,
             history: History::default(),
             document_variables: DocumentVariables::default(),
@@ -322,6 +326,8 @@ impl App {
                     return;
                 }
             };
+
+            sender.send(AppEvent::Listening).await.unwrap();
 
             loop {
                 match listener.accept().await {
@@ -376,6 +382,15 @@ impl App {
         match event {
             AppEvent::Tick => (),
             AppEvent::Quit => self.quit = true,
+            AppEvent::Listening => {
+                if let Some(script) = &self.config.cmd {
+                    let cmd = script.first();
+                    if let Some(program) = cmd {
+                        let process = Command::new(&program).args(&script[1..]).spawn().unwrap();
+                        self.php_process = Some(process);
+                    }
+                }
+            },
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
             }
