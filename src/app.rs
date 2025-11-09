@@ -595,10 +595,9 @@ impl App {
                         &self.theme(),
                         response.properties.defined_properties(),
                         &mut lines,
-                        0,
-                        &mut Vec::new(),
+                        0
                     );
-                    self.channels.get_mut("eval").buffer.lock().await.append(&mut lines);
+                    self.channels.get_mut("eval").writeln(lines.join("\n")).await;
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;

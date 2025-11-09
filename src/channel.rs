@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 
 pub struct Channel {
     pub buffer: Arc<Mutex<Vec<String>>>,
-    pub chunks: Vec<String>,
+    pub lines: Vec<String>,
 }
 
 pub struct Channels {
@@ -56,19 +56,48 @@ impl Channels {
 
 impl Channel {
     pub async fn unload(&mut self) {
-        self.chunks.append(&mut self.buffer.lock().await.drain(0..).collect());
+        let chunks = &mut self.buffer.lock().await.drain(0..).collect();
+        self.lines.append(chunks);
     }
 
     pub fn new() -> Self {
         Self {
             buffer: Arc::new(Mutex::new(vec![])),
-            chunks: vec![]
+            lines: vec![]
         }
+    }
+
+    pub(crate) async fn write(&self, join: String) {
+        self.buffer.lock().await.push(join);
+    }
+
+    pub(crate) async fn writeln(&self, join: String) {
+        self.write(join).await;
+        self.buffer.lock().await.push("\n".to_string());
     }
 }
 
 impl Default for Channel {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    pub async fn test_channel_lines() {
+        let mut channel = Channel::new();
+        channel.write("foobar".to_string()).await;
+        channel.write("\nbarfoo\nbaz\none\ntwo".to_string()).await;
+        channel.write("baf\nbaz\n".to_string()).await;
+        
+        assert_eq!(0, channel.lines.len());
+        channel.unload().await;
+
+        assert_eq!(7, channel.lines.len());
+
     }
 }

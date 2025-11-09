@@ -57,7 +57,7 @@ impl View for EvalComponent {
             None => &Channel::new(),
         };
         frame.render_widget(
-            Paragraph::new(channel.chunks.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
+            Paragraph::new(channel.lines.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
             area,
         );
     }
@@ -123,16 +123,8 @@ pub fn draw_properties(
     properties: Vec<&Property>,
     lines: &mut Vec<String>,
     level: usize,
-    filter_path: &mut Vec<&str>,
 ) {
-    let filter = filter_path.pop();
-
     for property in properties {
-        if let Some(filter) = filter {
-            if !property.name.starts_with(filter) {
-                continue;
-            }
-        }
         let mut spans = vec![
             "  ".repeat(level),
             property.name.to_string(),
@@ -157,7 +149,7 @@ pub fn draw_properties(
         lines.push(spans.join(""));
 
         if !property.children.is_empty() {
-            draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path);
+            draw_properties(theme, property.children.defined_properties(), lines, level + 1);
             lines.push(format!("{}{}", "  ".repeat(level), delimiters.1));
         }
     }
@@ -194,7 +186,6 @@ mod test {
             Vec::new(),
             &mut lines,
             0,
-            &mut Vec::new(),
         );
         assert_eq!(0, lines.len());
         Ok(())
@@ -214,7 +205,6 @@ mod test {
             vec![&prop1],
             &mut lines,
             0,
-            &mut Vec::new(),
         );
         assert_eq!(
             vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
@@ -226,36 +216,4 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_filter_property_multiple_level() -> Result<()> {
-        let mut lines = vec![];
-        let mut prop1 = Property::default();
-        let mut prop2 = Property::default();
-        let prop3 = Property::default();
-
-        prop2.name = "bar".to_string();
-        prop1.children = Properties::from_properties(vec![prop2]);
-        prop1.name = "foo".to_string();
-
-        // segments are reversed
-        let filter = &mut vec!["bar", "foo"];
-
-        draw_properties(
-            &Theme::SolarizedDark.scheme(),
-            vec![&prop1, &prop3],
-            &mut lines,
-            0,
-            filter,
-        );
-
-        assert_eq!(
-            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
-            lines
-                .iter()
-                .map(|l| { l.to_string() })
-                .collect::<Vec<String>>()
-        );
-
-        Ok(())
-    }
 }
