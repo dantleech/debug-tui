@@ -11,6 +11,7 @@ use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
+use crate::php_process;
 use crate::theme::Scheme;
 use crate::theme::Theme;
 use crate::view::eval::draw_properties;
@@ -395,7 +396,7 @@ impl App {
             AppEvent::Quit => self.quit = true,
             AppEvent::Listening => {
                 if let Some(script) = &self.config.cmd {
-                    self.start_php_process(script.clone());
+                    self.php_process = php_process::start(&mut self.channels, script, self.sender.clone());
                 }
             },
             AppEvent::ChangeView(view) => {
@@ -854,69 +855,6 @@ impl App {
         if let Some(entry) = entry {
             self.session_view
                 .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
-        }
-    }
-
-    fn start_php_process(&mut self, script: Vec<String>) {
-        let cmd = script.first();
-        if let Some(program) = cmd {
-            let mut process = Command::new(&program)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .args(&script[1..])
-                .spawn()
-                .unwrap();
-
-            let buffer = self.channels.get_mut("php").buffer.clone();
-            let sender = self.sender.clone();
-
-            let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
-            let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
-
-            task::spawn(async move {
-                loop {
-                    let mut buf = [0; 255];
-                    let read = stdoutreader.read(&mut buf).await.expect(
-                        "TODO: handle this error"
-                    );
-
-                    if read == 0 {
-                        continue;
-                    }
-                    buffer.lock().await.push(
-                        from_utf8(&buf[..read]).expect(
-                            "TODO: handle this error"
-                        ).to_string()
-                    );
-                    sender.send(
-                        AppEvent::FocusChannel("php".to_string())
-                    ).await.unwrap();
-                }
-            });
-            let sender = self.sender.clone();
-            let buffer = self.channels.get_mut("php").buffer.clone();
-            task::spawn(async move {
-                loop {
-                    let mut buf = [0; 255];
-                    let read = stderrreader.read(&mut buf).await.expect(
-                        "TODO: handle this error"
-                    );
-
-                    if read == 0 {
-                        continue;
-                    }
-                    buffer.lock().await.push(
-                        from_utf8(&buf[..read]).expect(
-                            "TODO: handle this error"
-                        ).to_string()
-                    );
-                    sender.send(
-                        AppEvent::FocusChannel("php".to_string())
-                    ).await.unwrap();
-                }
-            });
-
-            self.php_process = Some(process);
         }
     }
 }
