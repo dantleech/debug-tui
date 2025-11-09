@@ -11,6 +11,12 @@ pub struct Channels {
     channel_by_offset: Vec<String>,
 }
 
+impl Default for Channels {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Channels {
     pub fn names(&self) -> Vec<&str>
     {
@@ -72,11 +78,11 @@ impl Channel {
             }
         }
 
-        if lines.len() == 0 {
+        if lines.is_empty() {
             return;
         }
         if let Some(l) = &mut self.lines.last_mut() {
-            let first = lines.get(0).unwrap();
+            let first = lines.first().unwrap();
             l.push_str(first.as_str());
             self.lines.append(&mut lines[1..].to_vec());
             return;

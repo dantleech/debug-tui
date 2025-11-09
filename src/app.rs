@@ -37,16 +37,11 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
-use tokio::io::AsyncReadExt;
-use tokio::io::BufReader;
 use tokio::process::Child;
-use tokio::process::Command;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
 use std::ops::DerefMut;
-use std::process::Stdio;
-use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Receiver;
@@ -277,7 +272,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new<'a>(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
+    pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
         App {
             tick: 0,
@@ -601,7 +596,6 @@ impl App {
                         },
                         None => {
                             draw_properties(
-                                &self.theme(),
                                 response.properties.defined_properties(),
                                 &mut lines,
                                 0

@@ -128,7 +128,6 @@ impl View for EvalDialog {
 }
 
 pub fn draw_properties(
-    theme: &Scheme,
     properties: Vec<&Property>,
     lines: &mut Vec<String>,
     level: usize,
@@ -137,7 +136,7 @@ pub fn draw_properties(
         let mut spans = vec![
             "  ".repeat(level),
             property.name.to_string(),
-            if property.name.len() > 0 { " ".to_string() } else {"".to_string()},
+            if !property.name.is_empty() { " ".to_string() } else {"".to_string()},
             property.type_name(),
             " = ".to_string(),
             match &property.value {
@@ -158,7 +157,7 @@ pub fn draw_properties(
         lines.push(spans.join(""));
 
         if !property.children.is_empty() {
-            draw_properties(theme, property.children.defined_properties(), lines, level + 1);
+            draw_properties(property.children.defined_properties(), lines, level + 1);
             lines.push(format!("{}{}", "  ".repeat(level), delimiters.1));
         }
     }
@@ -191,7 +190,6 @@ mod test {
     fn test_draw_properties_empty() -> Result<()> {
         let mut lines = vec![];
         draw_properties(
-            &Theme::SolarizedDark.scheme(),
             Vec::new(),
             &mut lines,
             0,
@@ -210,7 +208,6 @@ mod test {
         prop1.name = "foo".to_string();
 
         draw_properties(
-            &Theme::SolarizedDark.scheme(),
             vec![&prop1],
             &mut lines,
             0,

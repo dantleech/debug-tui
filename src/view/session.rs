@@ -16,7 +16,6 @@ use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Offset;
 use ratatui::layout::Rect;
-use ratatui::widgets::block::Title;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
