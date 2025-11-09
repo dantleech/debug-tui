@@ -60,6 +60,7 @@ pub enum AppEvent {
     FocusChannel(String),
     ChannelLog(String,String),
     RestartProcess,
+    NotifyError(String),
 }
 
 pub type EventSender = Sender<AppEvent>;

@@ -75,9 +75,26 @@ pub fn process_manager_start(
                 }
             });
 
+            let sender = parent_sender.clone();
             loop {
                 select! {
-                    _ = process.wait() => {
+                    exit_code = process.wait() => {
+                        match exit_code {
+                            Ok(exit_code) => {
+                                if exit_code.code().unwrap_or_default() != 0 {
+                                    let _ = sender.send(
+                                        AppEvent::NotifyError(
+                                            format!(
+                                                "Process '{:?}' exited with code {}",
+                                                args,
+                                                exit_code.code().unwrap_or_default()
+                                            )
+                                        )
+                                    ).await;
+                                }
+                            },
+                            Err(e) => (),
+                        }
                         break;
                     },
                     cmd = receiver.recv() => {

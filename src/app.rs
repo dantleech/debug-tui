@@ -573,6 +573,9 @@ impl App {
             AppEvent::FocusChannel(name) => {
                 self.session_view.eval_state.focus(&self.channels, name);
             },
+            AppEvent::NotifyError(message) => {
+                self.notification = Notification::error(message);
+            },
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
                 buffer.lock().await.push(chunk.to_string());
@@ -585,8 +588,12 @@ impl App {
                 self.sender.send(AppEvent::Disconnect).await?;
                 self.sender.send(AppEvent::Listen).await?;
                 self.php_tx.send(ProcessEvent::Stop).await?;
-                let cmd = self.config.clone().cmd;
-                self.php_tx.send(ProcessEvent::Start(cmd.unwrap())).await?;
+                match self.config.clone().cmd {
+                    Some(cmd) => {
+                        self.php_tx.send(ProcessEvent::Start(cmd)).await?;
+                    }
+                    None => (),
+                };
             },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
