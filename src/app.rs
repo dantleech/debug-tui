@@ -571,6 +571,9 @@ impl App {
             AppEvent::NextChannel => {
                 self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count()
             },
+            AppEvent::FocusChannel(name) => {
+                self.session_view.eval_state.focus(&self.channels, name);
+            },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
             }
@@ -596,6 +599,7 @@ impl App {
                         0
                     );
                     self.channels.get_mut("eval").writeln(lines.join("\n")).await;
+                    self.sender.send(AppEvent::FocusChannel("eval".to_string())).await.unwrap();
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;
@@ -862,22 +866,57 @@ impl App {
                 .args(&script[1..])
                 .spawn()
                 .unwrap();
+
             let buffer = self.channels.get_mut("php").buffer.clone();
-            let mut reader = BufReader::new(process.stdout.take().unwrap());
-            self.php_process = Some(process);
+            let sender = self.sender.clone();
+
+            let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
+            let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
+
             task::spawn(async move {
                 loop {
-                    let mut buf = [0; 10];
-                    let n = reader.read(&mut buf).await.expect("TODO: handle this error");
-                    if n > 0 {
-                        buffer.lock().await.push(
-                            from_utf8(&buf[..n]).expect(
-                                "TODO: handle this error"
-                            ).to_string()
-                        );
+                    let mut buf = [0; 255];
+                    let read = stdoutreader.read(&mut buf).await.expect(
+                        "TODO: handle this error"
+                    );
+
+                    if read == 0 {
+                        continue;
                     }
+                    buffer.lock().await.push(
+                        from_utf8(&buf[..read]).expect(
+                            "TODO: handle this error"
+                        ).to_string()
+                    );
+                    sender.send(
+                        AppEvent::FocusChannel("php".to_string())
+                    ).await.unwrap();
                 }
             });
+            let sender = self.sender.clone();
+            let buffer = self.channels.get_mut("php").buffer.clone();
+            task::spawn(async move {
+                loop {
+                    let mut buf = [0; 255];
+                    let read = stderrreader.read(&mut buf).await.expect(
+                        "TODO: handle this error"
+                    );
+
+                    if read == 0 {
+                        continue;
+                    }
+                    buffer.lock().await.push(
+                        from_utf8(&buf[..read]).expect(
+                            "TODO: handle this error"
+                        ).to_string()
+                    );
+                    sender.send(
+                        AppEvent::FocusChannel("php".to_string())
+                    ).await.unwrap();
+                }
+            });
+
+            self.php_process = Some(process);
         }
     }
 }

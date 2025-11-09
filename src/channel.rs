@@ -51,6 +51,10 @@ impl Channels {
             None => None,
         }
     }
+
+    pub(crate) fn offset_by_name(&self, name: String) -> Option<usize> {
+        self.channel_by_offset.iter().position(|n|*n==name)
+    }
 }
 
 

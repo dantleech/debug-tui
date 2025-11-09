@@ -1,7 +1,10 @@
+use std::cell::Cell;
+
 use super::centered_rect_absolute;
 use super::View;
 use crate::app::App;
 use crate::channel::Channel;
+use crate::channel::Channels;
 use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
@@ -25,9 +28,19 @@ pub struct EvalDialog {}
 #[derive(Default)]
 pub struct EvalState {
     pub response: Option<EvalResponse>,
+    pub eval_area: Cell<Rect>,
     pub input: Input,
     pub channel: usize,
     pub scroll: (u16, u16),
+}
+impl EvalState {
+    pub(crate) fn focus(&mut self, channels: &Channels, name: String) {
+        self.channel = channels.offset_by_name(name).unwrap_or(0);
+        let channel = channels.channel_by_offset(self.channel).expect("channel does not exist!");
+        self.scroll.1 = 0;
+        let area = self.eval_area.get();
+        self.scroll.0 = (channel.lines.len() as i16 - area.height as i16).max(0) as u16;
+    }
 }
 
 impl View for ChannelsComponent {
@@ -57,6 +70,10 @@ impl View for ChannelsComponent {
             Some(c) => c,
             None => &Channel::new(),
         };
+
+        // make the app aware of the channel area so we can
+        // scroll it correctly when its updated
+        app.session_view.eval_state.eval_area.set(area);
 
         frame.render_widget(
             Paragraph::new(channel.lines.join("\n")).scroll(
