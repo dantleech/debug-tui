@@ -588,11 +588,8 @@ impl App {
                 self.sender.send(AppEvent::Disconnect).await?;
                 self.sender.send(AppEvent::Listen).await?;
                 self.php_tx.send(ProcessEvent::Stop).await?;
-                match self.config.clone().cmd {
-                    Some(cmd) => {
-                        self.php_tx.send(ProcessEvent::Start(cmd)).await?;
-                    }
-                    None => (),
+                if let Some(cmd) = self.config.clone().cmd {
+                    self.php_tx.send(ProcessEvent::Start(cmd)).await?;
                 };
             },
             AppEvent::EvalCancel => {

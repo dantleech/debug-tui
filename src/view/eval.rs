@@ -213,7 +213,11 @@ mod test {
             0,
         );
         assert_eq!(
-            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
+            vec![
+                "foo string = \"{", 
+                "  bar string = \"\"", 
+                "}",
+            ],
             lines
                 .iter()
                 .map(|l| { l.to_string() })

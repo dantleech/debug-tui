@@ -93,7 +93,7 @@ pub fn process_manager_start(
                                     ).await;
                                 }
                             },
-                            Err(e) => (),
+                            Err(_) => (),
                         }
                         break;
                     },
