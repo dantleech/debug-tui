@@ -56,8 +56,10 @@ impl Channels {
 
 impl Channel {
     pub async fn unload(&mut self) {
-        let chunks = &mut self.buffer.lock().await.drain(0..).collect();
-        self.lines.append(chunks);
+        let chunks: Vec<String> = self.buffer.lock().await.drain(0..).collect();
+        let content = chunks.join("");
+        let mut lines: Vec<String> = content.lines().map(|s|s.to_string()).collect();
+        self.lines.append(&mut lines);
     }
 
     pub fn new() -> Self {
@@ -97,7 +99,6 @@ mod test {
         assert_eq!(0, channel.lines.len());
         channel.unload().await;
 
-        assert_eq!(7, channel.lines.len());
-
+        assert_eq!(6, channel.lines.len());
     }
 }
