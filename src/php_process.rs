@@ -2,69 +2,107 @@ use std::{process::Stdio, str::from_utf8};
 use tokio::io::AsyncReadExt;
 
 use tokio::process::Child;
+use tokio::select;
+use tokio::sync::mpsc::Receiver;
 use tokio::{io::BufReader, process::Command, sync::mpsc::Sender, task};
 
 use crate::{channel::Channels, event::input::AppEvent};
 
-pub fn start(
-    channels: &mut Channels,
-    script: &[String],
-    parent_sender: Sender<AppEvent>,
-) -> Option<Child> {
-    let program = script.first()?;
-
-    let mut process = Command::new(program)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .args(&script[1..])
-        .spawn()
-        .unwrap();
-
-    let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
-    let buffer = channels.get_mut("stdout").buffer.clone();
-    let sender = parent_sender.clone();
-
-    task::spawn(async move {
-        loop {
-            let mut buf = [0; 255];
-            if let Ok(read) = stdoutreader
-                .read(&mut buf)
-                .await { handle_read(buffer.clone(), sender.clone(), read, "stdout".to_string(), buf).await }
-
-            ;
-        }
-    });
-
-    let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
-    let buffer = channels.get_mut("stderr").buffer.clone();
-    let sender = parent_sender.clone();
-    task::spawn(async move {
-        loop {
-            let mut buf = [0; 255];
-            if let Ok(read) = stderrreader
-                .read(&mut buf)
-                .await { handle_read(buffer.clone(), sender.clone(), read, "stderr".to_string(), buf).await }
-        }
-    });
-
-    Some(process)
+#[derive(Debug)]
+pub enum ProcessEvent {
+    Start(Vec<String>),
+    Stop,
+    Restart,
 }
 
-async fn handle_read(
-    buffer: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
-    sender: Sender<AppEvent>,
-    read: usize,
-    channel: String,
-    buf: [u8; 255]
+pub fn process_manager_start(
+    mut receiver: Receiver<ProcessEvent>,
+    parent_sender: Sender<AppEvent>,
 ) {
-    if read == 0 {
-        return;
-    }
-    if let Ok(s) = from_utf8(&buf[..read]) {
-        buffer.lock().await.push(s.to_string());
-        sender
-            .send(AppEvent::FocusChannel(channel))
-            .await
-            .unwrap_or_default();
-    };
+    task::spawn(async move {
+        loop {
+            let cmd = receiver.recv().await;
+            let event = match cmd {
+                Some(event) => event,
+                None => continue,
+            };
+            let args = match event {
+                ProcessEvent::Start(args) => args,
+                ProcessEvent::Stop => continue,
+                ProcessEvent::Restart => continue,
+            };
+
+            let program = match args.first() {
+                Some(arg) => arg,
+                None => continue,
+            };
+
+            let mut process = Command::new(program)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .args(&args[1..])
+                .spawn()
+                .unwrap();
+
+            let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
+            let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
+            let sender = parent_sender.clone();
+
+            task::spawn(async move {
+                loop {
+                    let mut stdout_buff = [0; 255];
+                    let mut stderr_buff = [0; 255];
+
+                    select! {
+                        read = stdoutreader.read(&mut stdout_buff) => {
+                            if let Ok(s) = from_utf8(&stdout_buff[..read.unwrap()]) {
+                                if s.len() > 0 {
+                                    sender
+                                        .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
+                                        .await
+                                        .unwrap_or_default();
+                                }
+                            };
+                        },
+                        read = stderrreader.read(&mut stderr_buff) => {
+                            if let Ok(s) = from_utf8(&stderr_buff[..read.unwrap()]) {
+                                if s.len() > 0 {
+                                    sender
+                                        .send(AppEvent::ChannelLog("stderr".to_string(), s.to_string()))
+                                        .await
+                                        .unwrap_or_default();
+                                }
+                            };
+                        },
+                    };
+                }
+            });
+
+            loop {
+                select! {
+                    _ = process.wait() => {
+                        return;
+                    },
+                    cmd = receiver.recv() => {
+                        let event = match cmd {
+                            Some(event) => event,
+                            None => continue,
+                        };
+                        match event {
+                            ProcessEvent::Start(_) => continue,
+                            ProcessEvent::Stop => {
+                                process.kill().await.unwrap_or_default();
+                                break;
+                            },
+                            ProcessEvent::Restart => {
+                                // TODO: restart
+                                process.kill().await.unwrap_or_default();
+                                break;
+                            },
+                        };
+                    },
+                };
+            }
+        }
+    });
 }

@@ -12,6 +12,7 @@ use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crate::php_process;
+use crate::php_process::ProcessEvent;
 use crate::theme::Scheme;
 use crate::theme::Theme;
 use crate::view::eval::draw_properties;
@@ -38,6 +39,7 @@ use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::process::Child;
+use tokio::sync::mpsc;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -238,7 +240,6 @@ pub struct App {
     receiver: Receiver<AppEvent>,
     quit: bool,
     sender: Sender<AppEvent>,
-    php_process: Option<Child>,
 
     pub channels: Channels,
     pub listening_status: ListenStatus,
@@ -269,11 +270,14 @@ pub struct App {
     pub analyzed_files: AnalyzedFiles,
 
     pub stack_max_context_fetch: u16,
+    php_tx: Sender<ProcessEvent>,
 }
 
 impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
+        let (php_tx, php_rx) = mpsc::channel::<ProcessEvent>(1024);
+        php_process::process_manager_start(php_rx, sender.clone());
         App {
             tick: 0,
             listening_status: ListenStatus::Listening,
@@ -282,7 +286,7 @@ impl App {
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
-            php_process: None,
+            php_tx,
             quit: false,
             history: History::default(),
             document_variables: DocumentVariables::default(),
@@ -315,7 +319,7 @@ impl App {
     ) -> Result<()> {
         let sender = self.sender.clone();
         let config = self.config.clone();
-
+        
         // spawn connection listener co-routine
         task::spawn(async move {
             let listener = match TcpListener::bind(config.listen.clone()).await {
@@ -391,7 +395,7 @@ impl App {
             AppEvent::Quit => self.quit = true,
             AppEvent::Listening => {
                 if let Some(script) = &self.config.cmd {
-                    self.php_process = php_process::start(&mut self.channels, script, self.sender.clone());
+                    self.php_tx.send(ProcessEvent::Start(script.to_vec())).await?;
                 }
             },
             AppEvent::ChangeView(view) => {
@@ -569,6 +573,14 @@ impl App {
             },
             AppEvent::FocusChannel(name) => {
                 self.session_view.eval_state.focus(&self.channels, name);
+            },
+            AppEvent::ChannelLog(channel, chunk) => {
+                let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
+                buffer.lock().await.push(chunk.to_string());
+                self.sender
+                    .send(AppEvent::FocusChannel(channel))
+                    .await
+                    .unwrap_or_default();
             },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
