@@ -868,9 +868,13 @@ impl App {
             task::spawn(async move {
                 loop {
                     let mut buf = [0; 10];
-                    let n = reader.read(&mut buf).await.expect("nope");
+                    let n = reader.read(&mut buf).await.expect("TODO: handle this error");
                     if n > 0 {
-                        buffer.lock().await.push(from_utf8(&buf[..n]).expect("fucl").to_string());
+                        buffer.lock().await.push(
+                            from_utf8(&buf[..n]).expect(
+                                "TODO: handle this error"
+                            ).to_string()
+                        );
                     }
                 }
             });

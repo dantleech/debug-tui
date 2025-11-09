@@ -1,5 +1,5 @@
 use super::context::ContextComponent;
-use super::eval::EvalComponent;
+use super::eval::ChannelsComponent;
 use super::eval::EvalState;
 use super::source::SourceComponent;
 use super::stack::StackComponent;
@@ -164,7 +164,7 @@ fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         ComponentType::Source => SourceComponent::handle(app, event),
         ComponentType::Context => ContextComponent::handle(app, event),
         ComponentType::Stack => StackComponent::handle(app, event),
-        ComponentType::Eval => EvalComponent::handle(app, event),
+        ComponentType::Eval => ChannelsComponent::handle(app, event),
     }
 }
 
@@ -229,7 +229,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         ComponentType::Eval => {
             let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
             frame.render_widget(tabs, area);
-            EvalComponent::draw(app, frame, block.inner(area));
+            ChannelsComponent::draw(app, frame, block.inner(area));
         }
     };
 }

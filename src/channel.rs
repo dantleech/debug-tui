@@ -59,6 +59,24 @@ impl Channel {
         let chunks: Vec<String> = self.buffer.lock().await.drain(0..).collect();
         let content = chunks.join("");
         let mut lines: Vec<String> = content.lines().map(|s|s.to_string()).collect();
+
+        // content.lines() will ignore trailing new lines. we explicitly
+        // add a new line if the last character was a new line.
+        if let Some(char) = content.chars().last() {
+            if char == '\n' {
+                lines.push("".to_string());
+            }
+        }
+
+        if lines.len() == 0 {
+            return;
+        }
+        if let Some(l) = &mut self.lines.last_mut() {
+            let first = lines.get(0).unwrap();
+            l.push_str(first.as_str());
+            self.lines.append(&mut lines[1..].to_vec());
+            return;
+        }
         self.lines.append(&mut lines);
     }
 
@@ -99,6 +117,31 @@ mod test {
         assert_eq!(0, channel.lines.len());
         channel.unload().await;
 
-        assert_eq!(6, channel.lines.len());
+        assert_eq!(7, channel.lines.len());
+    }
+
+    #[tokio::test]
+    pub async fn test_channel_lines_with_unterminated_previous() {
+        let mut channel = Channel::new();
+        channel.write("foobar".to_string()).await;
+        channel.unload().await;
+        assert_eq!(1, channel.lines.len());
+        channel.write("barfoo".to_string()).await;
+        channel.unload().await;
+        assert_eq!(1, channel.lines.len());
+        channel.write("barfoo\n".to_string()).await;
+        channel.unload().await;
+        assert_eq!(2, channel.lines.len());
+    }
+
+    #[tokio::test]
+    pub async fn test_channel_lines_with_nothing() {
+        let mut channel = Channel::new();
+        channel.unload().await;
+        
+        assert_eq!(0, channel.lines.len());
+        channel.write("".to_string()).await;
+        channel.unload().await;
+        assert_eq!(0, channel.lines.len());
     }
 }

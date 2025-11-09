@@ -19,7 +19,7 @@ use ratatui::Frame;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 
-pub struct EvalComponent {}
+pub struct ChannelsComponent {}
 pub struct EvalDialog {}
 
 #[derive(Default)]
@@ -30,7 +30,7 @@ pub struct EvalState {
     pub scroll: (u16, u16),
 }
 
-impl View for EvalComponent {
+impl View for ChannelsComponent {
     fn handle(_app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollEval(scroll)),
@@ -51,13 +51,17 @@ impl View for EvalComponent {
             }
         }
 
-        ;
-        let channel = match app.channels.channel_by_offset(app.session_view.eval_state.channel) {
+        let channel = match app.channels.channel_by_offset(
+            app.session_view.eval_state.channel
+        ) {
             Some(c) => c,
             None => &Channel::new(),
         };
+
         frame.render_widget(
-            Paragraph::new(channel.lines.join("")).scroll(app.session_view.eval_state.scroll).style(app.theme().source_line),
+            Paragraph::new(channel.lines.join("\n")).scroll(
+                app.session_view.eval_state.scroll
+            ).style(app.theme().source_line),
             area,
         );
     }
