@@ -20,34 +20,36 @@ pub fn start(
             .spawn()
             .unwrap();
 
-        let buffer = channels.get_mut("php").buffer.clone();
-        let sender = parent_sender.clone();
-
         let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
-        let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
+        let buffer = channels.get_mut("stdout").buffer.clone();
+        let sender = parent_sender.clone();
 
         task::spawn(async move {
             loop {
                 let mut buf = [0; 255];
-                let read = stdoutreader
+                match stdoutreader
                     .read(&mut buf)
-                    .await
-                    .expect("TODO: handle this error");
+                    .await {
+                        Ok(read) => handle_read(buffer.clone(), sender.clone(), read, "stdout".to_string(), buf).await,
+                        Err(_) => (),
+                    }
 
-                handle_read(buffer.clone(), sender.clone(), read, buf).await;
+                ;
             }
         });
 
-        let buffer = channels.get_mut("php").buffer.clone();
+        let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
+        let buffer = channels.get_mut("stderr").buffer.clone();
         let sender = parent_sender.clone();
         task::spawn(async move {
             loop {
                 let mut buf = [0; 255];
-                let read = stderrreader
+                match stderrreader
                     .read(&mut buf)
-                    .await
-                    .expect("TODO: handle this error");
-                handle_read(buffer.clone(), sender.clone(), read, buf).await;
+                    .await {
+                        Ok(read) => handle_read(buffer.clone(), sender.clone(), read, "stderr".to_string(), buf).await,
+                        Err(_) => (),
+                    }
             }
         });
 
@@ -60,18 +62,20 @@ async fn handle_read(
     buffer: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
     sender: Sender<AppEvent>,
     read: usize,
+    channel: String,
     buf: [u8; 255]
 ) {
     if read == 0 {
         return;
     }
-    buffer.lock().await.push(
-        from_utf8(&buf[..read])
-            .expect("TODO: handle this error")
-            .to_string(),
-    );
-    sender
-        .send(AppEvent::FocusChannel("php".to_string()))
-        .await
-        .unwrap();
+    match from_utf8(&buf[..read]) {
+        Ok(s) => {
+            buffer.lock().await.push(s.to_string());
+            sender
+                .send(AppEvent::FocusChannel(channel))
+                .await
+                .unwrap_or_default();
+        },
+        Err(_) => (),
+    };
 }

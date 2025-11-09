@@ -14,7 +14,9 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
+use ratatui::layout::Offset;
 use ratatui::layout::Rect;
+use ratatui::widgets::block::Title;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
@@ -198,12 +200,13 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             ),
             ComponentType::Eval => match app.history.current() {
                 Some(entry) => format!(
-                    "Eval: {}",
+                    "Eval: {} {}",
                     if let Some(eval) = &entry.eval {
                         eval.expr.clone()
                     } else {
                         "Press 'e' to enter an expression".to_string()
-                    }
+                    },
+                    ", 'c' to change channel",
                 ),
                 None => "".to_string(),
             },
@@ -228,7 +231,7 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
         }
         ComponentType::Eval => {
             let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
-            frame.render_widget(tabs, area);
+            frame.render_widget(tabs, area.offset(Offset{x: 1, y: 0}));
             ChannelsComponent::draw(app, frame, block.inner(area));
         }
     };

@@ -52,18 +52,6 @@ impl View for ChannelsComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        if let Some(entry) = &app.history.current() {
-            if let Some(eval_entry) = &entry.eval {
-                if let Some(error) = &eval_entry.response.error {
-                    frame.render_widget(
-                        Paragraph::new(error.message.clone()).style(app.theme().notification_error),
-                        area,
-                    );
-                } else {
-                }
-            }
-        }
-
         let channel = match app.channels.channel_by_offset(
             app.session_view.eval_state.channel
         ) {
@@ -149,7 +137,7 @@ pub fn draw_properties(
         let mut spans = vec![
             "  ".repeat(level),
             property.name.to_string(),
-            " ".to_string(),
+            if property.name.len() > 0 { " ".to_string() } else {"".to_string()},
             property.type_name(),
             " = ".to_string(),
             match &property.value {

@@ -593,15 +593,23 @@ impl App {
                         .await?;
 
                     let mut lines: Vec<String> = Vec::new();
-                    draw_properties(
-                        &self.theme(),
-                        response.properties.defined_properties(),
-                        &mut lines,
-                        0
-                    );
-                    self.channels.get_mut("eval").writeln(lines.join("\n")).await;
+                    match response.error {
+                        Some(e) => {
+                            self.channels.get_mut("eval").writeln(
+                                format!("[{}] {}", e.code, e.message),
+                            ).await;
+                        },
+                        None => {
+                            draw_properties(
+                                &self.theme(),
+                                response.properties.defined_properties(),
+                                &mut lines,
+                                0
+                            );
+                            self.channels.get_mut("eval").writeln(lines.join("\n")).await;
+                        }
+                    };
                     self.sender.send(AppEvent::FocusChannel("eval".to_string())).await.unwrap();
-                    self.sender.send(AppEvent::Snapshot()).await.unwrap();
                 }
                 self.active_dialog = None;
             }
