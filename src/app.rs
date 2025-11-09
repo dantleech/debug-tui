@@ -38,7 +38,6 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
-use tokio::process::Child;
 use tokio::sync::mpsc;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -581,6 +580,13 @@ impl App {
                     .send(AppEvent::FocusChannel(channel))
                     .await
                     .unwrap_or_default();
+            },
+            AppEvent::RestartProcess => {
+                self.sender.send(AppEvent::Disconnect).await?;
+                self.sender.send(AppEvent::Listen).await?;
+                self.php_tx.send(ProcessEvent::Stop).await?;
+                let cmd = self.config.clone().cmd;
+                self.php_tx.send(ProcessEvent::Start(cmd.unwrap())).await?;
             },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;

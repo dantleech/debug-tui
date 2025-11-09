@@ -59,6 +59,7 @@ pub enum AppEvent {
     NextChannel,
     FocusChannel(String),
     ChannelLog(String,String),
+    RestartProcess,
 }
 
 pub type EventSender = Sender<AppEvent>;
