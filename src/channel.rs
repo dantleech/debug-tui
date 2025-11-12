@@ -20,7 +20,7 @@ impl Default for Channels {
 impl Channels {
     pub fn names(&self) -> Vec<&str>
     {
-        self.channels.keys().map(|t|t.as_str()).collect()
+        self.channel_by_offset.iter().map(|s|s.as_str()).collect()
     }
 
     pub fn get(&self, name: &str) -> Option<&Channel> {

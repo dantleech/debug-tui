@@ -339,6 +339,7 @@ dependencies = [
  "clap",
  "crossterm",
  "log",
+ "ordered_hash_map",
  "pretty_assertions",
  "ratatui",
  "serde",
@@ -607,6 +608,15 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+
+[[package]]
+name = "ordered_hash_map"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6c699f8a30f345785be969deed7eee4c73a5de58c7faf61d6a3251ef798ff61"
+dependencies = [
+ "hashbrown",
+]
 
 [[package]]
 name = "parking_lot"
