@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use super::centered_rect_absolute;
 use super::View;
+use ansi_to_tui::IntoText;
 use crate::app::App;
 use crate::channel::Channel;
 use crate::channel::Channels;
@@ -63,9 +64,13 @@ impl View for ChannelsComponent {
         // scroll it correctly when its updated
         app.session_view.eval_state.eval_area.set(area);
 
+        // TODO: handle the error here
         frame.render_widget(
             Paragraph::new(
-                channel.viewport(area.height, app.session_view.eval_state.scroll.0).join("\n")
+                channel.viewport(
+                    area.height,
+                    app.session_view.eval_state.scroll.0
+                ).join("\n").as_bytes().to_text().unwrap()
             ).scroll(
                 (0, app.session_view.eval_state.scroll.1)
             ).style(app.theme().source_line),
