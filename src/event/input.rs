@@ -1,11 +1,17 @@
 use crossterm::event::poll;
 use crossterm::event::Event;
+use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 use crossterm::event::{
     self,
 };
+use futures::FutureExt;
+use futures::StreamExt;
+use log::info;
+use tokio::select;
+use tokio::task;
 use std::thread;
 use std::time::Duration;
 use tokio::net::TcpStream;
@@ -66,27 +72,45 @@ pub enum AppEvent {
 pub type EventSender = Sender<AppEvent>;
 
 pub fn start(event_sender: EventSender) {
-    thread::spawn(move || {
-        event_sender.blocking_send(AppEvent::Startup).unwrap();
+    let sender = event_sender.clone();
+    task::spawn(async move {
+        sender.send(AppEvent::Startup).await.unwrap();
+        let mut reader = EventStream::new();
+        let mut tick_interval = tokio::time::interval(Duration::from_millis(1000));
         loop {
-            if poll(Duration::from_millis(1000)).unwrap() {
-                // handle global keys
-                if let Event::Key(key) = event::read().unwrap() {
-                    let action: Option<AppEvent> = match key.modifiers {
-                        KeyModifiers::CONTROL => match key.code {
-                            KeyCode::Char('c') => Some(AppEvent::Quit),
-                            _ => None,
-                        },
-                        _ => None,
-                    };
+            let tick = tick_interval.tick().fuse();
+            let event = reader.next().fuse();
 
-                    match action {
-                        Some(a) => event_sender.blocking_send(a).unwrap(),
-                        None => event_sender.blocking_send(AppEvent::Input(key)).unwrap(),
+            select! {
+                _ = tick => {
+                    sender.send(AppEvent::Tick).await.unwrap();
+                },
+                maybe_event = event => {
+                    match maybe_event {
+                        Some(Ok(e)) => {
+                            if let Event::Key(key) = e {
+                                info!("{:?}", key);
+                                let action: Option<AppEvent> = match key.modifiers {
+                                    KeyModifiers::CONTROL => match key.code {
+                                        KeyCode::Char('c') => Some(AppEvent::Quit),
+                                        _ => None,
+                                    },
+                                    _ => None,
+                                };
+
+                                match action {
+                                    Some(a) => event_sender.send(a).await.unwrap(),
+                                    None => event_sender.send(AppEvent::Input(key)).await.unwrap(),
+                                }
+                            }
+                        }
+                        Some(Err(e)) => {
+                            event_sender.send(AppEvent::NotifyError(e.to_string())).await.unwrap()
+                        },
+                        None => {},
                     }
                 }
             }
-            event_sender.blocking_send(AppEvent::Tick).unwrap();
         }
     });
 }
