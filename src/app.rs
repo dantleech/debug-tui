@@ -1,6 +1,7 @@
 use crate::analyzer::Analyser;
 use crate::analyzer::Analysis;
 use crate::analyzer::VariableRef;
+use crate::channel::Channels;
 use crate::config::Config;
 use crate::dbgp::client::ContextGetResponse;
 use crate::dbgp::client::ContinuationResponse;
@@ -10,8 +11,11 @@ use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
+use crate::php_process;
+use crate::php_process::ProcessEvent;
 use crate::theme::Scheme;
 use crate::theme::Theme;
+use crate::view::eval::draw_properties;
 use crate::view::eval::EvalDialog;
 use crate::view::help::HelpView;
 use crate::view::layout::LayoutView;
@@ -34,6 +38,7 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
+use tokio::sync::mpsc;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -128,6 +133,7 @@ impl HistoryEntry {
         match entry {
             Some(e) => e.source.clone(),
             None => SourceContext::default(),
+
         }
     }
 
@@ -234,6 +240,7 @@ pub struct App {
     quit: bool,
     sender: Sender<AppEvent>,
 
+    pub channels: Channels,
     pub listening_status: ListenStatus,
     pub notification: Notification,
     pub config: Config,
@@ -262,11 +269,14 @@ pub struct App {
     pub analyzed_files: AnalyzedFiles,
 
     pub stack_max_context_fetch: u16,
+    php_tx: Sender<ProcessEvent>,
 }
 
 impl App {
     pub fn new(config: Config, receiver: Receiver<AppEvent>, sender: Sender<AppEvent>) -> App {
         let client = Arc::new(Mutex::new(DbgpClient::new(None)));
+        let (php_tx, php_rx) = mpsc::channel::<ProcessEvent>(1024);
+        php_process::process_manager_start(php_rx, sender.clone());
         App {
             tick: 0,
             listening_status: ListenStatus::Listening,
@@ -275,11 +285,13 @@ impl App {
             notification: Notification::none(),
             receiver,
             sender: sender.clone(),
+            php_tx,
             quit: false,
             history: History::default(),
             document_variables: DocumentVariables::default(),
             client: Arc::clone(&client),
             workspace: Workspace::new(Arc::clone(&client)),
+            channels: Channels::new(),
 
             counter: 0,
             context_depth: 4,
@@ -306,7 +318,7 @@ impl App {
     ) -> Result<()> {
         let sender = self.sender.clone();
         let config = self.config.clone();
-
+        
         // spawn connection listener co-routine
         task::spawn(async move {
             let listener = match TcpListener::bind(config.listen.clone()).await {
@@ -322,6 +334,8 @@ impl App {
                     return;
                 }
             };
+
+            sender.send(AppEvent::Listening).await.unwrap();
 
             loop {
                 match listener.accept().await {
@@ -355,6 +369,8 @@ impl App {
                 return Ok(());
             }
 
+            self.channels.unload().await;
+
             terminal.autoresize()?;
             terminal.draw(|frame| {
                 LayoutView::draw(self, frame, frame.area());
@@ -376,6 +392,11 @@ impl App {
         match event {
             AppEvent::Tick => (),
             AppEvent::Quit => self.quit = true,
+            AppEvent::Listening => {
+                if let Some(script) = &self.config.cmd {
+                    self.php_tx.send(ProcessEvent::Start(script.to_vec())).await?;
+                }
+            },
             AppEvent::ChangeView(view) => {
                 self.view_current = view;
             }
@@ -546,6 +567,31 @@ impl App {
                     self.active_dialog = Some(ActiveDialog::Eval);
                 }
             }
+            AppEvent::NextChannel => {
+                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count()
+            },
+            AppEvent::FocusChannel(name) => {
+                self.session_view.eval_state.focus(&self.channels, name);
+            },
+            AppEvent::NotifyError(message) => {
+                self.notification = Notification::error(message);
+            },
+            AppEvent::ChannelLog(channel, chunk) => {
+                let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
+                buffer.lock().await.push(chunk.to_string());
+                self.sender
+                    .send(AppEvent::FocusChannel(channel))
+                    .await
+                    .unwrap_or_default();
+            },
+            AppEvent::RestartProcess => {
+                self.sender.send(AppEvent::Disconnect).await?;
+                self.sender.send(AppEvent::Listen).await?;
+                self.php_tx.send(ProcessEvent::Stop).await?;
+                if let Some(cmd) = self.config.clone().cmd {
+                    self.php_tx.send(ProcessEvent::Start(cmd)).await?;
+                };
+            },
             AppEvent::EvalCancel => {
                 self.active_dialog = None;
             }
@@ -563,8 +609,23 @@ impl App {
                         )
                         .await?;
 
-                    self.session_view.eval_state.response = Some(response);
-                    self.sender.send(AppEvent::Snapshot()).await.unwrap();
+                    let mut lines: Vec<String> = Vec::new();
+                    match response.error {
+                        Some(e) => {
+                            self.channels.get_mut("eval").writeln(
+                                format!("[{}] {}", e.code, e.message),
+                            ).await;
+                        },
+                        None => {
+                            draw_properties(
+                                response.properties.defined_properties(),
+                                &mut lines,
+                                0
+                            );
+                            self.channels.get_mut("eval").writeln(lines.join("\n")).await;
+                        }
+                    };
+                    self.sender.send(AppEvent::FocusChannel("eval".to_string())).await.unwrap();
                 }
                 self.active_dialog = None;
             }

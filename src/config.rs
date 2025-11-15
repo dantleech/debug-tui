@@ -3,6 +3,8 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    #[arg(last = true)]
+    pub php_script: Option<Vec<String>>,
     #[arg(short, long)]
     pub listen: Option<String>,
     #[arg(long)]
@@ -14,6 +16,7 @@ pub fn load_config() -> Config {
     Config {
         listen: args.listen.unwrap_or("0.0.0.0:9003".to_string()),
         log_path: args.log,
+        cmd: args.php_script,
     }
 }
 
@@ -21,6 +24,7 @@ pub fn load_config() -> Config {
 pub struct Config {
     pub listen: String,
     pub log_path: Option<String>,
+    pub cmd: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -31,7 +35,7 @@ impl Default for Config {
 
 impl Config {
     pub fn new(listen: String) -> Config {
-        Config { listen , log_path: None}
+        Config { listen , log_path: None, cmd: None}
     }
 }
 

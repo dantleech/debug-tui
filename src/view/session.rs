@@ -1,5 +1,5 @@
 use super::context::ContextComponent;
-use super::eval::EvalComponent;
+use super::eval::ChannelsComponent;
 use super::eval::EvalState;
 use super::source::SourceComponent;
 use super::stack::StackComponent;
@@ -14,10 +14,12 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
+use ratatui::layout::Offset;
 use ratatui::layout::Rect;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Clear;
+use ratatui::widgets::Tabs;
 use ratatui::Frame;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -52,6 +54,7 @@ impl View for SessionView {
             KeyCode::Down => return Some(AppEvent::Scroll((multiplier, 0))),
             KeyCode::Char(char) => match char {
                 'e' => return Some(AppEvent::EvalStart),
+                'c' => return Some(AppEvent::NextChannel),
                 'j' => return Some(AppEvent::Scroll((1, 0))),
                 'k' => return Some(AppEvent::Scroll((-1, 0))),
                 'J' => return Some(AppEvent::Scroll((10, 0))),
@@ -72,6 +75,7 @@ impl View for SessionView {
                     '+' => Some(AppEvent::ContextDepth(1)),
                     '-' => Some(AppEvent::ContextDepth(-1)),
                     'r' => Some(AppEvent::Run),
+                    'R' => Some(AppEvent::RestartProcess),
                     'n' => Some(AppEvent::StepInto),
                     'N' => Some(AppEvent::StepOver),
                     'o' => Some(AppEvent::StepOut),
@@ -87,6 +91,7 @@ impl View for SessionView {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
                     'd' => Some(AppEvent::Disconnect),
+                    'R' => Some(AppEvent::RestartProcess),
                     'b' => escape(app),
                     _ => None,
                 },
@@ -162,7 +167,7 @@ fn delegate_event_to_pane(app: &mut App, event: AppEvent) -> Option<AppEvent> {
         ComponentType::Source => SourceComponent::handle(app, event),
         ComponentType::Context => ContextComponent::handle(app, event),
         ComponentType::Stack => StackComponent::handle(app, event),
-        ComponentType::Eval => EvalComponent::handle(app, event),
+        ComponentType::Eval => ChannelsComponent::handle(app, event),
     }
 }
 
@@ -196,12 +201,13 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             ),
             ComponentType::Eval => match app.history.current() {
                 Some(entry) => format!(
-                    "Eval: {}",
+                    "Eval: {} {}",
                     if let Some(eval) = &entry.eval {
                         eval.expr.clone()
                     } else {
                         "Press 'e' to enter an expression".to_string()
-                    }
+                    },
+                    ", 'c' to change channel",
                 ),
                 None => "".to_string(),
             },
@@ -225,7 +231,9 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
             StackComponent::draw(app, frame, block.inner(area));
         }
         ComponentType::Eval => {
-            EvalComponent::draw(app, frame, block.inner(area));
+            let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
+            frame.render_widget(tabs, area.offset(Offset{x: 1, y: 0}));
+            ChannelsComponent::draw(app, frame, block.inner(area));
         }
     };
 }

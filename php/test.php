@@ -21,8 +21,11 @@ $bar = $foo;
 
 (new Foo(true, "foo"))->method3();
 call_function("hello");
-
-
+for ($i = 0; $i < 100; $i++) {
+    fwrite(STDOUT, $i . ": Hello World!".PHP_EOL);
+    fwrite(STDERR, $i . ': Goodbye Cruiel World!'.PHP_EOL);
+}
+echo "Bar";
 
 function call_function(string $hello) {
     $var = 123;

@@ -1,6 +1,11 @@
+use std::cell::Cell;
+
 use super::centered_rect_absolute;
 use super::View;
+use ansi_to_tui::IntoText;
 use crate::app::App;
+use crate::channel::Channel;
+use crate::channel::Channels;
 use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::dbgp::client::PropertyType;
@@ -18,17 +23,28 @@ use ratatui::Frame;
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 
-pub struct EvalComponent {}
+pub struct ChannelsComponent {}
 pub struct EvalDialog {}
 
 #[derive(Default)]
 pub struct EvalState {
     pub response: Option<EvalResponse>,
+    pub eval_area: Cell<Rect>,
     pub input: Input,
+    pub channel: usize,
     pub scroll: (u16, u16),
 }
+impl EvalState {
+    pub(crate) fn focus(&mut self, channels: &Channels, name: String) {
+        self.channel = channels.offset_by_name(name).unwrap_or(0);
+        self.scroll.1 = 0;
+        let channel = channels.channel_by_offset(self.channel).expect("channel does not exist!");
+        let area = self.eval_area.get();
+        self.scroll.0 = (channel.lines.len() as i16 - area.height as i16).max(0) as u16;
+    }
+}
 
-impl View for EvalComponent {
+impl View for ChannelsComponent {
     fn handle(_app: &mut App, event: AppEvent) -> Option<AppEvent> {
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollEval(scroll)),
@@ -37,29 +53,29 @@ impl View for EvalComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, area: Rect) {
-        if let Some(entry) = &app.history.current() {
-            if let Some(eval_entry) = &entry.eval {
-                if let Some(error) = &eval_entry.response.error {
-                    frame.render_widget(
-                        Paragraph::new(error.message.clone()).style(app.theme().notification_error),
-                        area,
-                    );
-                } else {
-                    let mut lines: Vec<Line> = Vec::new();
-                    draw_properties(
-                        &app.theme(),
-                        eval_entry.response.properties.defined_properties(),
-                        &mut lines,
-                        0,
-                        &mut Vec::new(),
-                    );
-                    frame.render_widget(
-                        Paragraph::new(lines).scroll(app.session_view.eval_state.scroll),
-                        area,
-                    );
-                }
-            }
-        }
+        let channel = match app.channels.channel_by_offset(
+            app.session_view.eval_state.channel
+        ) {
+            Some(c) => c,
+            None => &Channel::new(),
+        };
+
+        // make the app aware of the channel area so we can
+        // scroll it correctly when its updated
+        app.session_view.eval_state.eval_area.set(area);
+
+        // TODO: handle the error here
+        frame.render_widget(
+            Paragraph::new(
+                channel.viewport(
+                    area.height,
+                    app.session_view.eval_state.scroll.0
+                ).join("\n").as_bytes().to_text().unwrap()
+            ).scroll(
+                (0, app.session_view.eval_state.scroll.1)
+            ).style(app.theme().source_line),
+            area,
+        );
     }
 }
 
@@ -119,33 +135,21 @@ impl View for EvalDialog {
 }
 
 pub fn draw_properties(
-    theme: &Scheme,
     properties: Vec<&Property>,
-    lines: &mut Vec<Line>,
+    lines: &mut Vec<String>,
     level: usize,
-    filter_path: &mut Vec<&str>,
 ) {
-    let filter = filter_path.pop();
-
     for property in properties {
-        if let Some(filter) = filter {
-            if !property.name.starts_with(filter) {
-                continue;
-            }
-        }
         let mut spans = vec![
-            Span::raw("  ".repeat(level)),
-            Span::styled(property.name.to_string(), theme.syntax_label),
-            Span::raw(" ".to_string()),
-            Span::styled(
-                property.type_name(),
-                match property.property_type {
-                    PropertyType::Object => theme.syntax_type_object,
-                    _ => theme.syntax_type,
-                },
-            ),
-            Span::raw(" = ".to_string()),
-            render_value(theme, property),
+            "  ".repeat(level),
+            property.name.to_string(),
+            if !property.name.is_empty() { " ".to_string() } else {"".to_string()},
+            property.type_name(),
+            " = ".to_string(),
+            match &property.value {
+                Some(s) => s.to_string(),
+                None => "".to_string(),
+            }
         ];
 
         let delimiters = match property.property_type {
@@ -154,14 +158,14 @@ pub fn draw_properties(
         };
 
         if !property.children.is_empty() {
-            spans.push(Span::raw(delimiters.0).style(theme.syntax_brace));
+            spans.push(delimiters.0.to_string());
         }
 
-        lines.push(Line::from(spans));
+        lines.push(spans.join(""));
 
         if !property.children.is_empty() {
-            draw_properties(theme, property.children.defined_properties(), lines, level + 1, filter_path);
-            lines.push(Line::from(vec![Span::raw(format!("{}{}", "  ".repeat(level), delimiters.1))]).style(theme.syntax_brace));
+            draw_properties(property.children.defined_properties(), lines, level + 1);
+            lines.push(format!("{}{}", "  ".repeat(level), delimiters.1));
         }
     }
 }
@@ -193,11 +197,9 @@ mod test {
     fn test_draw_properties_empty() -> Result<()> {
         let mut lines = vec![];
         draw_properties(
-            &Theme::SolarizedDark.scheme(),
             Vec::new(),
             &mut lines,
             0,
-            &mut Vec::new(),
         );
         assert_eq!(0, lines.len());
         Ok(())
@@ -213,14 +215,16 @@ mod test {
         prop1.name = "foo".to_string();
 
         draw_properties(
-            &Theme::SolarizedDark.scheme(),
             vec![&prop1],
             &mut lines,
             0,
-            &mut Vec::new(),
         );
         assert_eq!(
-            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
+            vec![
+                "foo string = \"{", 
+                "  bar string = \"\"", 
+                "}",
+            ],
             lines
                 .iter()
                 .map(|l| { l.to_string() })
@@ -229,36 +233,4 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_filter_property_multiple_level() -> Result<()> {
-        let mut lines = vec![];
-        let mut prop1 = Property::default();
-        let mut prop2 = Property::default();
-        let prop3 = Property::default();
-
-        prop2.name = "bar".to_string();
-        prop1.children = Properties::from_properties(vec![prop2]);
-        prop1.name = "foo".to_string();
-
-        // segments are reversed
-        let filter = &mut vec!["bar", "foo"];
-
-        draw_properties(
-            &Theme::SolarizedDark.scheme(),
-            vec![&prop1, &prop3],
-            &mut lines,
-            0,
-            filter,
-        );
-
-        assert_eq!(
-            vec!["foo string = \"\"{", "  bar string = \"\"", "}",],
-            lines
-                .iter()
-                .map(|l| { l.to_string() })
-                .collect::<Vec<String>>()
-        );
-
-        Ok(())
-    }
 }

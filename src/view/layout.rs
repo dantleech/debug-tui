@@ -53,7 +53,7 @@ impl View for LayoutView {
     }
 }
 
-fn notification_widget(app: &App) -> Paragraph<'_> {
+fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
     Paragraph::new(vec![Line::from(Span::styled(
         match app.notification.is_visible() {
             true => format!(
