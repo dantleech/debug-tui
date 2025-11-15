@@ -34,9 +34,11 @@ pub fn process_manager_start(
                 None => continue,
             };
 
+            // start the PHP process - detatching stdin for now but capturing stdout/stderr
             let mut process = Command::new(program)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
+                .stdin(Stdio::null())
                 .args(&args[1..])
                 .spawn()
                 .unwrap();
