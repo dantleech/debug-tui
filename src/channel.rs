@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task::coop::has_budget_remaining};
 
 pub struct Channel {
     pub buffer: Arc<Mutex<Vec<String>>>,
@@ -105,6 +105,15 @@ impl Channel {
         self.write(join).await;
         self.buffer.lock().await.push("\n".to_string());
     }
+
+    pub(crate) fn viewport(&self, height: u16, scroll: u16) -> &[String] {
+        let y1 = scroll.min(self.lines.len() as u16);
+        let y2 = (scroll + height).min(self.lines.len() as u16);
+
+        &self.lines[
+            (y1 as usize)..(y2 as usize)
+        ]
+    }
 }
 
 impl Default for Channel {
@@ -153,5 +162,33 @@ mod test {
         channel.write("".to_string()).await;
         channel.unload().await;
         assert_eq!(0, channel.lines.len());
+    }
+
+    #[test]
+    pub fn test_viewport() {
+        let mut channel = Channel::new();
+        channel.lines.push("one".to_string());
+        channel.lines.push("two".to_string());
+        channel.lines.push("three".to_string());
+        channel.lines.push("four".to_string());
+        channel.lines.push("five".to_string());
+
+        assert_eq!(vec![
+            "one",
+            "two",
+        ], channel.viewport(2, 0));
+
+        assert_eq!(vec![
+            "two",
+            "three",
+        ], channel.viewport(2, 1));
+
+        assert_eq!(vec![
+            "five",
+        ], channel.viewport(2, 4));
+
+        assert_eq!(Vec::<String>::new(), channel.viewport(2, 5));
+        assert_eq!(Vec::<String>::new(), channel.viewport(2, 6));
+
     }
 }

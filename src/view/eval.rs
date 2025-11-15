@@ -36,8 +36,8 @@ pub struct EvalState {
 impl EvalState {
     pub(crate) fn focus(&mut self, channels: &Channels, name: String) {
         self.channel = channels.offset_by_name(name).unwrap_or(0);
-        let channel = channels.channel_by_offset(self.channel).expect("channel does not exist!");
         self.scroll.1 = 0;
+        let channel = channels.channel_by_offset(self.channel).expect("channel does not exist!");
         let area = self.eval_area.get();
         self.scroll.0 = (channel.lines.len() as i16 - area.height as i16).max(0) as u16;
     }
@@ -64,8 +64,10 @@ impl View for ChannelsComponent {
         app.session_view.eval_state.eval_area.set(area);
 
         frame.render_widget(
-            Paragraph::new(channel.lines.join("\n")).scroll(
-                app.session_view.eval_state.scroll
+            Paragraph::new(
+                channel.viewport(area.height, app.session_view.eval_state.scroll.0).join("\n")
+            ).scroll(
+                (0, app.session_view.eval_state.scroll.1)
             ).style(app.theme().source_line),
             area,
         );
