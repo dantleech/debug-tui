@@ -81,21 +81,18 @@ pub fn process_manager_start(
             loop {
                 select! {
                     exit_code = process.wait() => {
-                        match exit_code {
-                            Ok(exit_code) => {
-                                if exit_code.code().unwrap_or_default() != 0 {
-                                    let _ = sender.send(
-                                        AppEvent::NotifyError(
-                                            format!(
-                                                "Process '{:?}' exited with code {}",
-                                                args,
-                                                exit_code.code().unwrap_or_default()
-                                            )
+                        if let Ok(exit_code) = exit_code {
+                            if exit_code.code().unwrap_or_default() != 0 {
+                                let _ = sender.send(
+                                    AppEvent::NotifyError(
+                                        format!(
+                                            "Process '{:?}' exited with code {}",
+                                            args,
+                                            exit_code.code().unwrap_or_default()
                                         )
-                                    ).await;
-                                }
-                            },
-                            Err(_) => (),
+                                    )
+                                ).await;
+                            }
                         }
                         break;
                     },

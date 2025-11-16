@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use tokio::{sync::Mutex, task::coop::has_budget_remaining};
+use tokio::sync::Mutex;
 
 pub struct Channel {
     pub buffer: Arc<Mutex<Vec<String>>>,

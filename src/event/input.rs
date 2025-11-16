@@ -1,21 +1,16 @@
-use crossterm::event::poll;
 use crossterm::event::Event;
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
-use crossterm::event::{
-    self,
-};
 use futures::FutureExt;
 use futures::StreamExt;
 use log::info;
-use tokio::select;
-use tokio::task;
-use std::thread;
 use std::time::Duration;
 use tokio::net::TcpStream;
+use tokio::select;
 use tokio::sync::mpsc::Sender;
+use tokio::task;
 
 use crate::app::SelectedView;
 use crate::dbgp::client::ContinuationStatus;
@@ -64,7 +59,7 @@ pub enum AppEvent {
     Listening,
     NextChannel,
     FocusChannel(String),
-    ChannelLog(String,String),
+    ChannelLog(String, String),
     RestartProcess,
     NotifyError(String),
 }
@@ -87,27 +82,25 @@ pub fn start(event_sender: EventSender) {
                 },
                 maybe_event = event => {
                     match maybe_event {
-                        Some(Ok(e)) => {
-                            if let Event::Key(key) = e {
-                                info!("{:?}", key);
-                                let action: Option<AppEvent> = match key.modifiers {
-                                    KeyModifiers::CONTROL => match key.code {
-                                        KeyCode::Char('c') => Some(AppEvent::Quit),
-                                        _ => None,
-                                    },
+                        Some(Ok(Event::Key(key))) => {
+                            info!("{:?}", key);
+                            let action: Option<AppEvent> = match key.modifiers {
+                                KeyModifiers::CONTROL => match key.code {
+                                    KeyCode::Char('c') => Some(AppEvent::Quit),
                                     _ => None,
-                                };
+                                },
+                                _ => None,
+                            };
 
-                                match action {
-                                    Some(a) => event_sender.send(a).await.unwrap(),
-                                    None => event_sender.send(AppEvent::Input(key)).await.unwrap(),
-                                }
+                            match action {
+                                Some(a) => event_sender.send(a).await.unwrap(),
+                                None => event_sender.send(AppEvent::Input(key)).await.unwrap(),
                             }
                         }
                         Some(Err(e)) => {
                             event_sender.send(AppEvent::NotifyError(e.to_string())).await.unwrap()
                         },
-                        None => {},
+                        _ => {},
                     }
                 }
             }
