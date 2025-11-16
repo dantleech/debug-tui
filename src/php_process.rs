@@ -47,7 +47,7 @@ pub fn process_manager_start(
             let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
             let sender = parent_sender.clone();
 
-            task::spawn(async move {
+            let io_task = task::spawn(async move {
                 loop {
                     let mut stdout_buff = [0; 255];
                     let mut stderr_buff = [0; 255];
@@ -108,6 +108,7 @@ pub fn process_manager_start(
                             ProcessEvent::Start(_) => continue,
                             ProcessEvent::Stop => {
                                 process.kill().await.unwrap_or_default();
+                                io_task.abort();
                                 break;
                             },
                         };
