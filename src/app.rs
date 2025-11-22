@@ -570,19 +570,13 @@ impl App {
             AppEvent::NextChannel => {
                 self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count()
             },
-            AppEvent::FocusChannel(name) => {
-                self.session_view.eval_state.focus(&self.channels, name);
-            },
             AppEvent::NotifyError(message) => {
                 self.notification = Notification::error(message);
             },
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
                 buffer.lock().await.push_str(&chunk);
-                self.sender
-                    .send(AppEvent::FocusChannel(channel))
-                    .await
-                    .unwrap_or_default();
+                self.focus_channel(channel);
             },
             AppEvent::RestartProcess => {
                 self.sender.send(AppEvent::Disconnect).await?;
@@ -626,7 +620,7 @@ impl App {
                         }
                     };
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
-                    self.sender.send(AppEvent::FocusChannel("eval".to_string())).await.unwrap();
+                    self.focus_channel("eval".to_string());
                 }
                 self.active_dialog = None;
             }
@@ -874,6 +868,7 @@ impl App {
         self.session_view.mode = SessionViewMode::Current;
         self.analyzed_files = HashMap::new();
         self.workspace.reset();
+        self.channels.reset();
     }
 
     fn recenter(&mut self) {
@@ -882,6 +877,14 @@ impl App {
             self.session_view
                 .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
         }
+        match self.channels.channel_by_offset(self.session_view.eval_state.channel) {
+            Some(c) => self.focus_channel(c.name.clone()),
+            None => (),
+        }
+    }
+
+    fn focus_channel(&mut self, channel: String) {
+        self.session_view.eval_state.focus(&self.channels, channel);
     }
 }
 

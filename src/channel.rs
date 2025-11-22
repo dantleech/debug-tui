@@ -26,7 +26,7 @@ impl Channels {
     pub fn get_mut(&mut self, name: &str) -> &Channel {
         self.channels.entry(name.to_string()).or_insert_with(|| {
             self.channel_by_offset.push(name.to_string());
-            Channel::new()
+            Channel::new(name.to_string())
         })
     }
 
@@ -63,13 +63,19 @@ impl Channels {
             channel.savepoint(savepoint).await;
         }
     }
+
+    pub(crate) fn reset(&mut self) {
+        self.channels = HashMap::new();
+        self.channel_by_offset = Vec::new();
+    }
 }
 
 pub struct Channel {
+    pub name: String,
     pub buffer: Arc<Mutex<String>>,
     pub lines: Vec<String>,
     pub savepoints: HashMap<usize,usize>,
-    pub offset: Option<usize>
+    pub current_offset: Option<usize>
 }
 
 impl Channel {
@@ -82,16 +88,19 @@ impl Channel {
     pub async fn unload(&mut self, savepoint: usize) {
         let content  = self.buffer.lock().await.clone();
 
-        let mut lines: Vec<String> = match self.savepoints.entry(savepoint) {
+        self.lines = match self.savepoints.entry(savepoint) {
+            // if there is a savepoint return the content buffer up until that
+            // savepoint
             Entry::Occupied(occupied_entry) => {
                 let offset = occupied_entry.get();
-                self.offset = Some(*offset);
+                self.current_offset = Some(*offset);
                 content[0..*offset].lines().map(|s|s.to_string()).collect()
             }
             Entry::Vacant(_) => {
-                match self.offset {
-                    Some(offset) => {
-                        content[0..offset].lines().map(|s|s.to_string()).collect()
+                match self.current_offset {
+                    // if we previously resolved a snapshot then use that
+                    Some(current_offset) => {
+                        content[0..current_offset].lines().map(|s|s.to_string()).collect()
                     },
                     None => {
                         content.lines().map(|s|s.to_string()).collect()
@@ -99,28 +108,15 @@ impl Channel {
                 }
             }
         };
-
-        // content.lines() will ignore trailing new lines. we explicitly
-        // add a new line if the last character was a new line.
-        if let Some(char) = content.chars().last() {
-            if char == '\n' {
-                lines.push("".to_string());
-            }
-        }
-
-        if lines.is_empty() {
-            return;
-        }
-
-        self.lines = lines;
     }
 
-    pub fn new() -> Self {
+    pub fn new(name: String) -> Self {
         Self {
+            name,
             buffer: Arc::new(Mutex::new(String::new())),
             lines: vec![],
             savepoints: HashMap::new(),
-            offset: None,
+            current_offset: None,
         }
     }
 
@@ -145,7 +141,7 @@ impl Channel {
 
 impl Default for Channel {
     fn default() -> Self {
-        Self::new()
+        Self::new("default".to_string())
     }
 }
 
@@ -155,7 +151,7 @@ mod test {
 
     #[tokio::test]
     pub async fn test_channel_lines() {
-        let mut channel = Channel::new();
+        let mut channel = Channel::new("test".to_string());
         channel.write("foobar".to_string()).await;
         channel.write("\nbarfoo\nbaz\none\ntwo".to_string()).await;
         channel.write("baf\nbaz\n".to_string()).await;
@@ -168,7 +164,7 @@ mod test {
 
     #[tokio::test]
     pub async fn test_channel_lines_with_unterminated_previous() {
-        let mut channel = Channel::new();
+        let mut channel = Channel::default();
         channel.write("foobar".to_string()).await;
         channel.unload(100).await;
         assert_eq!(1, channel.lines.len());
@@ -182,7 +178,7 @@ mod test {
 
     #[tokio::test]
     pub async fn test_channel_lines_with_nothing() {
-        let mut channel = Channel::new();
+        let mut channel = Channel::default();
         channel.unload(100).await;
         
         assert_eq!(0, channel.lines.len());
@@ -193,7 +189,7 @@ mod test {
 
     #[test]
     pub fn test_viewport() {
-        let mut channel = Channel::new();
+        let mut channel = Channel::default();
         channel.lines.push("one".to_string());
         channel.lines.push("two".to_string());
         channel.lines.push("three".to_string());

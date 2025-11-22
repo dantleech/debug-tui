@@ -57,7 +57,7 @@ impl View for ChannelsComponent {
             app.session_view.eval_state.channel
         ) {
             Some(c) => c,
-            None => &Channel::new(),
+            None => &Channel::default(),
         };
 
         // make the app aware of the channel area so we can

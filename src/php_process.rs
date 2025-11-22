@@ -45,6 +45,7 @@ pub fn process_manager_start(
 
             let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
             let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
+
             let sender = parent_sender.clone();
 
             let io_task = task::spawn(async move {
@@ -60,7 +61,7 @@ pub fn process_manager_start(
                                 }
                                 sender
                                     .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
-                                    .await.unwrap();
+                                    .await.unwrap_or_default();
                             };
                         },
                         read = stderrreader.read(&mut stderr_buff) => {
@@ -71,7 +72,7 @@ pub fn process_manager_start(
                                 sender
                                     .send(
                                         AppEvent::ChannelLog("stderr".to_string(), s.to_string())
-                                    ).await.unwrap();
+                                    ).await.unwrap_or_default();
                             };
                         },
                     };
