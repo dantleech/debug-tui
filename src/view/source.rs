@@ -22,7 +22,7 @@ impl View for SourceComponent {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
         let history_entry = match app.history.current() {
             Some(s) => s,
             None => return,

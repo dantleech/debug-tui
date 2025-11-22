@@ -373,7 +373,7 @@ impl App {
 
             terminal.autoresize()?;
             terminal.draw(|frame| {
-                LayoutView::draw(self, frame, frame.area());
+                LayoutView::draw(self, frame, frame.area(), frame.area());
             })?;
         }
     }

@@ -106,7 +106,7 @@ impl View for SessionView {
         delegate_event_to_pane(app, event)
     }
 
-    fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
+    fn draw(app: &App, frame: &mut Frame, inner_area: ratatui::prelude::Rect, area: Rect) {
         if app.session_view.full_screen {
             build_pane_widget(
                 frame,
@@ -222,18 +222,16 @@ fn build_pane_widget(frame: &mut Frame, app: &App, pane: &Pane, area: Rect, inde
 
     match pane.component_type {
         ComponentType::Source => {
-            SourceComponent::draw(app, frame, block.inner(area));
+            SourceComponent::draw(app, frame, block.inner(area), area);
         }
         ComponentType::Context => {
-            ContextComponent::draw(app, frame, block.inner(area));
+            ContextComponent::draw(app, frame, block.inner(area),  area);
         }
         ComponentType::Stack => {
-            StackComponent::draw(app, frame, block.inner(area));
+            StackComponent::draw(app, frame, block.inner(area), area);
         }
         ComponentType::Eval => {
-            let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
-            frame.render_widget(tabs, area.offset(Offset{x: 1, y: 0}));
-            ChannelsComponent::draw(app, frame, block.inner(area));
+            ChannelsComponent::draw(app, frame, block.inner(area), area);
         }
     };
 }

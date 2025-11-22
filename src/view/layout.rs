@@ -27,7 +27,7 @@ impl View for LayoutView {
         None
     }
 
-    fn draw(app: &App, f: &mut Frame, area: Rect) {
+    fn draw(app: &App, f: &mut Frame, inner_area: Rect, area: Rect) {
         let constraints = vec![Constraint::Length(1), Constraint::Min(4)];
 
         let rows = Layout::default()
@@ -40,14 +40,14 @@ impl View for LayoutView {
         f.render_widget(notification_widget(app), rows[0]);
 
         match app.view_current {
-            SelectedView::Listen => ListenView::draw(app, f, rows[1]),
-            SelectedView::Session => SessionView::draw(app, f, rows[1]),
-            SelectedView::Help => HelpView::draw(app, f, rows[1]),
+            SelectedView::Listen => ListenView::draw(app, f, rows[1], rows[1]),
+            SelectedView::Session => SessionView::draw(app, f, rows[1], rows[1]),
+            SelectedView::Help => HelpView::draw(app, f, rows[1], rows[1]),
         }
 
         if let Some(dialog) = &app.active_dialog {
             match &dialog {
-                ActiveDialog::Eval => EvalDialog::draw(app, f, area),
+                ActiveDialog::Eval => EvalDialog::draw(app, f, area, rows[1]),
             }
         }
     }

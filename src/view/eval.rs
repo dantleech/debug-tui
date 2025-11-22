@@ -3,6 +3,8 @@ use std::cell::Cell;
 use super::centered_rect_absolute;
 use super::View;
 use ansi_to_tui::IntoText;
+use ratatui::layout::Offset;
+use ratatui::widgets::Tabs;
 use crate::app::App;
 use crate::channel::Channel;
 use crate::channel::Channels;
@@ -52,7 +54,9 @@ impl View for ChannelsComponent {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
+        let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
+        frame.render_widget(tabs, area.offset(Offset{x: 1, y: 0}));
         let channel = match app.channels.channel_by_offset(
             app.session_view.eval_state.channel
         ) {
@@ -62,19 +66,18 @@ impl View for ChannelsComponent {
 
         // make the app aware of the channel area so we can
         // scroll it correctly when its updated
-        app.session_view.eval_state.eval_area.set(area);
+        app.session_view.eval_state.eval_area.set(inner_area);
 
-        // TODO: handle the error here
         frame.render_widget(
             Paragraph::new(
                 channel.viewport(
-                    area.height,
+                    inner_area.height,
                     app.session_view.eval_state.scroll.0
                 ).join("\n").as_bytes().to_text().unwrap()
             ).scroll(
                 (0, app.session_view.eval_state.scroll.1)
             ).style(app.theme().source_line),
-            area,
+            inner_area,
         );
     }
 }
@@ -99,7 +102,7 @@ impl View for EvalDialog {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
         let darea = centered_rect_absolute(area.width - 10, 3, area);
         frame.render_widget(Clear, darea);
         frame.render_widget(
