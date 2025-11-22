@@ -369,7 +369,7 @@ impl App {
                 return Ok(());
             }
 
-            self.channels.unload().await;
+            self.channels.unload(self.history.offset).await;
 
             terminal.autoresize()?;
             terminal.draw(|frame| {
@@ -625,6 +625,7 @@ impl App {
                             self.channels.get_mut("eval").writeln(lines.join("\n")).await;
                         }
                     };
+                    self.sender.send(AppEvent::Snapshot()).await.unwrap();
                     self.sender.send(AppEvent::FocusChannel("eval".to_string())).await.unwrap();
                 }
                 self.active_dialog = None;
@@ -840,6 +841,7 @@ impl App {
 
         self.session_view.reset();
         self.history.push(entry);
+        self.channels.savepoint(self.history.offset).await;
         self.recenter();
         Ok(())
     }

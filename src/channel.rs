@@ -1,4 +1,5 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::{hash_map::Entry, HashMap}, sync::Arc};
+use log::info;
 use tokio::sync::Mutex;
 
 pub struct Channels {
@@ -29,9 +30,9 @@ impl Channels {
         })
     }
 
-    pub async fn unload(&mut self) {
+    pub async fn unload(&mut self, savepoint: usize) {
         for channel in self.channels.iter_mut() {
-            channel.1.unload().await
+            channel.1.unload(savepoint).await
         }
     }
 
@@ -56,18 +57,48 @@ impl Channels {
     pub(crate) fn offset_by_name(&self, name: String) -> Option<usize> {
         self.channel_by_offset.iter().position(|n|*n==name)
     }
+
+    pub(crate) async fn savepoint(&mut self, savepoint: usize) {
+        for channel in self.channels.values_mut() {
+            channel.savepoint(savepoint).await;
+        }
+    }
 }
 
 pub struct Channel {
     pub buffer: Arc<Mutex<String>>,
     pub lines: Vec<String>,
+    pub savepoints: HashMap<usize,usize>,
+    pub offset: Option<usize>
 }
 
 impl Channel {
-    pub async fn unload(&mut self) {
+    pub async fn savepoint(&mut self, savepoint: usize) {
+        self.savepoints.insert(savepoint, self.buffer.lock().await.len());
+    }
+
+    // unload the current buffer into a variable that is readable without a mutex lock.
+    // TODO: this happens on each tick and could be more performant
+    pub async fn unload(&mut self, savepoint: usize) {
         let content  = self.buffer.lock().await.clone();
-        self.buffer.lock().await.clear();
-        let mut lines: Vec<String> = content.lines().map(|s|s.to_string()).collect();
+
+        let mut lines: Vec<String> = match self.savepoints.entry(savepoint) {
+            Entry::Occupied(occupied_entry) => {
+                let offset = occupied_entry.get();
+                self.offset = Some(*offset);
+                content[0..*offset].lines().map(|s|s.to_string()).collect()
+            }
+            Entry::Vacant(_) => {
+                match self.offset {
+                    Some(offset) => {
+                        content[0..offset].lines().map(|s|s.to_string()).collect()
+                    },
+                    None => {
+                        content.lines().map(|s|s.to_string()).collect()
+                    }
+                }
+            }
+        };
 
         // content.lines() will ignore trailing new lines. we explicitly
         // add a new line if the last character was a new line.
@@ -80,19 +111,16 @@ impl Channel {
         if lines.is_empty() {
             return;
         }
-        if let Some(l) = &mut self.lines.last_mut() {
-            let first = lines.first().unwrap();
-            l.push_str(first.as_str());
-            self.lines.append(&mut lines[1..].to_vec());
-            return;
-        }
-        self.lines.append(&mut lines);
+
+        self.lines = lines;
     }
 
     pub fn new() -> Self {
         Self {
             buffer: Arc::new(Mutex::new(String::new())),
-            lines: vec![]
+            lines: vec![],
+            savepoints: HashMap::new(),
+            offset: None,
         }
     }
 
@@ -133,7 +161,7 @@ mod test {
         channel.write("baf\nbaz\n".to_string()).await;
         
         assert_eq!(0, channel.lines.len());
-        channel.unload().await;
+        channel.unload(100).await;
 
         assert_eq!(7, channel.lines.len());
     }
@@ -142,24 +170,24 @@ mod test {
     pub async fn test_channel_lines_with_unterminated_previous() {
         let mut channel = Channel::new();
         channel.write("foobar".to_string()).await;
-        channel.unload().await;
+        channel.unload(100).await;
         assert_eq!(1, channel.lines.len());
         channel.write("barfoo".to_string()).await;
-        channel.unload().await;
+        channel.unload(100).await;
         assert_eq!(1, channel.lines.len());
         channel.write("barfoo\n".to_string()).await;
-        channel.unload().await;
+        channel.unload(100).await;
         assert_eq!(2, channel.lines.len());
     }
 
     #[tokio::test]
     pub async fn test_channel_lines_with_nothing() {
         let mut channel = Channel::new();
-        channel.unload().await;
+        channel.unload(100).await;
         
         assert_eq!(0, channel.lines.len());
         channel.write("".to_string()).await;
-        channel.unload().await;
+        channel.unload(100).await;
         assert_eq!(0, channel.lines.len());
     }
 
