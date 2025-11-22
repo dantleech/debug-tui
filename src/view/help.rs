@@ -21,7 +21,7 @@ impl View for HelpView {
         }
     }
 
-    fn draw(_app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
+    fn draw(_app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
 
         frame.render_widget(Paragraph::new(help()), area);
 

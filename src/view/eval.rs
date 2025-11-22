@@ -102,7 +102,7 @@ impl View for EvalDialog {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
         let darea = centered_rect_absolute(area.width - 10, 3, area);
         frame.render_widget(Clear, darea);
         frame.render_widget(
@@ -192,7 +192,7 @@ pub fn render_value<'a>(theme: &Scheme, property: &Property) -> Span<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{dbgp::client::Properties, theme::Theme};
+    use crate::{dbgp::client::Properties};
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
