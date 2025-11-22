@@ -877,10 +877,7 @@ impl App {
             self.session_view
                 .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
         }
-        match self.channels.channel_by_offset(self.session_view.eval_state.channel) {
-            Some(c) => self.focus_channel(c.name.clone()),
-            None => (),
-        }
+        if let Some(c) = self.channels.channel_by_offset(self.session_view.eval_state.channel) { self.focus_channel(c.name.clone()) }
     }
 
     fn focus_channel(&mut self, channel: String) {

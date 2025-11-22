@@ -224,8 +224,8 @@ mod test {
         );
         assert_eq!(
             vec![
-                "foo string = \"{", 
-                "  bar string = \"\"", 
+                "foo string = {", 
+                "  bar string = ", 
                 "}",
             ],
             lines

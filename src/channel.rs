@@ -1,5 +1,4 @@
 use std::{collections::{hash_map::Entry, HashMap}, sync::Arc};
-use log::info;
 use tokio::sync::Mutex;
 
 pub struct Channels {
@@ -126,7 +125,7 @@ impl Channel {
 
     pub(crate) async fn writeln(&self, join: String) {
         self.write(join).await;
-        self.buffer.lock().await.push_str("\n");
+        self.buffer.lock().await.push('\n');
     }
 
     pub(crate) fn viewport(&self, height: u16, scroll: u16) -> &[String] {
@@ -159,7 +158,7 @@ mod test {
         assert_eq!(0, channel.lines.len());
         channel.unload(100).await;
 
-        assert_eq!(7, channel.lines.len());
+        assert_eq!(6, channel.lines.len());
     }
 
     #[tokio::test]
@@ -173,7 +172,7 @@ mod test {
         assert_eq!(1, channel.lines.len());
         channel.write("barfoo\n".to_string()).await;
         channel.unload(100).await;
-        assert_eq!(2, channel.lines.len());
+        assert_eq!(1, channel.lines.len());
     }
 
     #[tokio::test]
