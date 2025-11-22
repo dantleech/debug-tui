@@ -1,11 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
-pub struct Channel {
-    pub buffer: Arc<Mutex<Vec<String>>>,
-    pub lines: Vec<String>,
-}
-
 pub struct Channels {
     channels: HashMap<String,Channel>,
     channel_by_offset: Vec<String>,
@@ -35,8 +30,8 @@ impl Channels {
     }
 
     pub async fn unload(&mut self) {
-        for entry in self.channels.iter_mut() {
-            entry.1.unload().await
+        for channel in self.channels.iter_mut() {
+            channel.1.unload().await
         }
     }
 
@@ -63,11 +58,15 @@ impl Channels {
     }
 }
 
+pub struct Channel {
+    pub buffer: Arc<Mutex<String>>,
+    pub lines: Vec<String>,
+}
 
 impl Channel {
     pub async fn unload(&mut self) {
-        let chunks: Vec<String> = self.buffer.lock().await.drain(0..).collect();
-        let content = chunks.join("");
+        let content  = self.buffer.lock().await.clone();
+        self.buffer.lock().await.clear();
         let mut lines: Vec<String> = content.lines().map(|s|s.to_string()).collect();
 
         // content.lines() will ignore trailing new lines. we explicitly
@@ -92,18 +91,18 @@ impl Channel {
 
     pub fn new() -> Self {
         Self {
-            buffer: Arc::new(Mutex::new(vec![])),
+            buffer: Arc::new(Mutex::new(String::new())),
             lines: vec![]
         }
     }
 
     pub(crate) async fn write(&self, join: String) {
-        self.buffer.lock().await.push(join);
+        self.buffer.lock().await.push_str(join.as_str());
     }
 
     pub(crate) async fn writeln(&self, join: String) {
         self.write(join).await;
-        self.buffer.lock().await.push("\n".to_string());
+        self.buffer.lock().await.push_str("\n");
     }
 
     pub(crate) fn viewport(&self, height: u16, scroll: u16) -> &[String] {

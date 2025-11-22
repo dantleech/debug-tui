@@ -578,7 +578,7 @@ impl App {
             },
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
-                buffer.lock().await.push(chunk.to_string());
+                buffer.lock().await.push_str(&chunk);
                 self.sender
                     .send(AppEvent::FocusChannel(channel))
                     .await
@@ -757,23 +757,23 @@ impl App {
 
     /// capture the current status and push it onto the history stack
     pub async fn snapshot(&mut self) -> Result<()> {
-        let stack = { self.client.lock().await.deref_mut().get_stack().await? };
         let mut entry = HistoryEntry::new();
+
+        // for each stack frame fetch the context and analyse the source code
+        let stack = { self.client.lock().await.deref_mut().get_stack().await? };
         for (level, frame) in stack.entries.iter().enumerate() {
             let filename = &frame.filename;
             let line_no = frame.line;
-            let context = {
-                match (level as u16) < self.stack_max_context_fetch {
-                    true => Some(
-                        self.client
-                            .lock()
-                            .await
-                            .deref_mut()
-                            .context_get(level as u16)
-                            .await?,
-                    ),
-                    false => None,
-                }
+            let context = match (level as u16) < self.stack_max_context_fetch {
+                true => Some(
+                    self.client
+                        .lock()
+                        .await
+                        .deref_mut()
+                        .context_get(level as u16)
+                        .await?,
+                ),
+                false => None,
             };
 
             let document = self.workspace.open(filename.to_string()).await;
@@ -792,15 +792,14 @@ impl App {
             };
 
             let analysis = self.analyzed_files.get(&filename.clone());
-
             let stack = StackFrame {
                 level: (level as u16),
                 source,
                 context,
             };
 
+            // populate inline variables with values
             {
-                // populate inline variables with values
                 let mut vars = vec![];
                 if let Some(analysis) = analysis {
                     for (_, var) in analysis.row((line_no as usize).saturating_sub(1)) {
@@ -838,6 +837,7 @@ impl App {
         };
 
         entry.eval = eval;
+
         self.session_view.reset();
         self.history.push(entry);
         self.recenter();

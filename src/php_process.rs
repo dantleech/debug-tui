@@ -55,22 +55,23 @@ pub fn process_manager_start(
                     select! {
                         read = stdoutreader.read(&mut stdout_buff) => {
                             if let Ok(s) = from_utf8(&stdout_buff[..read.unwrap()]) {
-                                if !s.is_empty() {
-                                    sender
-                                        .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
-                                        .await
-                                        .unwrap_or_default();
+                                if s.is_empty() {
+                                    return;
                                 }
+                                sender
+                                    .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
+                                    .await.unwrap();
                             };
                         },
                         read = stderrreader.read(&mut stderr_buff) => {
                             if let Ok(s) = from_utf8(&stderr_buff[..read.unwrap()]) {
-                                if !s.is_empty() {
-                                    sender
-                                        .send(AppEvent::ChannelLog("stderr".to_string(), s.to_string()))
-                                        .await
-                                        .unwrap_or_default();
+                                if s.is_empty() {
+                                    return;
                                 }
+                                sender
+                                    .send(
+                                        AppEvent::ChannelLog("stderr".to_string(), s.to_string())
+                                    ).await.unwrap();
                             };
                         },
                     };
@@ -104,7 +105,7 @@ pub fn process_manager_start(
                         match event {
                             ProcessEvent::Start(_) => continue,
                             ProcessEvent::Stop => {
-                                process.kill().await.unwrap_or_default();
+                                process.kill().await.unwrap();
                                 io_task.abort();
                                 break;
                             },
