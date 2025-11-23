@@ -102,8 +102,8 @@ impl View for EvalDialog {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
-        let darea = centered_rect_absolute(area.width - 10, 3, area);
+    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, _area: Rect) {
+        let darea = centered_rect_absolute(inner_area.width - 10, 3, inner_area);
         frame.render_widget(Clear, darea);
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::raw(

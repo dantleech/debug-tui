@@ -45,7 +45,7 @@ impl View for ContextComponent {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, inner_area: Rect, _area: Rect) {
         let entry = match app.history.current() {
             Some(e) => e,
             None => return,
@@ -61,7 +61,7 @@ impl View for ContextComponent {
             .constraints([Constraint::Length(
                 if app.session_view.context_filter.show { 3 } else { 0 }
             ), Constraint::Min(1)]);
-        let areas = layout.split(area);
+        let areas = layout.split(inner_area);
 
         frame.render_widget(Paragraph::new(Line::from(vec![
             Span::raw(app.session_view.context_filter.input.value()).style(app.theme().text_input),
@@ -69,10 +69,10 @@ impl View for ContextComponent {
         ).block(Block::default().borders(Borders::all())), areas[0]);
 
         if app.session_view.context_filter.show {
-            let width = area.width.max(3);
+            let width = inner_area.width.max(3);
             let scroll = app.session_view.context_filter.input.visual_scroll(width as usize);
             let x = app.session_view.context_filter.input.visual_cursor().max(scroll) - scroll + 1;
-            frame.set_cursor_position((area.x + x as u16, area.y + 1));
+            frame.set_cursor_position((inner_area.x + x as u16, inner_area.y + 1));
         }
             
         let mut filter_path = app.session_view.context_filter.segments().clone();

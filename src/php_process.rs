@@ -1,6 +1,7 @@
 use std::{process::Stdio, str::from_utf8};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, Stdout};
 
+use tokio::process::{ChildStderr, ChildStdout};
 use tokio::select;
 use tokio::sync::mpsc::Receiver;
 use tokio::{io::BufReader, process::Command, sync::mpsc::Sender, task};
@@ -13,22 +14,16 @@ pub enum ProcessEvent {
     Stop,
 }
 
-pub fn process_manager_start(
-    receiver: Receiver<ProcessEvent>,
-    parent_sender: Sender<AppEvent>,
-) {
+pub fn process_manager_start(receiver: Receiver<ProcessEvent>, parent_sender: Sender<AppEvent>) {
     task::spawn(async move {
         match process_manager_loop(receiver, parent_sender.clone()).await {
             Ok(_) => (),
             Err(e) => {
                 parent_sender
-                    .send(AppEvent::ChannelLog(
-                        "notice".to_string(),
-                        e.to_string(),
-                    ))
+                    .send(AppEvent::ChannelLog("notice".to_string(), e.to_string()))
                     .await
                     .unwrap_or_default();
-            },
+            }
         };
     });
 }
@@ -39,10 +34,12 @@ async fn process_manager_loop(
 ) -> Result<(), anyhow::Error> {
     loop {
         let cmd = receiver.recv().await;
+
         let event = match cmd {
             Some(event) => event,
             None => continue,
         };
+
         let args = match event {
             ProcessEvent::Start(args) => args,
             ProcessEvent::Stop => continue,
@@ -61,58 +58,35 @@ async fn process_manager_loop(
             .args(&args[1..])
             .spawn()?;
 
-        let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
-        let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
 
         let sender = parent_sender.clone();
 
-        let io_task = task::spawn(async move {
-            loop {
-                let mut stdout_buff = [0; 255];
-                let mut stderr_buff = [0; 255];
-
-                select! {
-                    read = stdoutreader.read(&mut stdout_buff) => {
-                        if let Ok(s) = from_utf8(&stdout_buff[..read.unwrap()]) {
-                            if s.is_empty() {
-                                return;
-                            }
-                            sender
-                                .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
-                                .await.unwrap_or_default();
-                        };
-                    },
-                    read = stderrreader.read(&mut stderr_buff) => {
-                        if let Ok(s) = from_utf8(&stderr_buff[..read.unwrap()]) {
-                            if s.is_empty() {
-                                return;
-                            }
-                            sender
-                                .send(
-                                    AppEvent::ChannelLog("stderr".to_string(), s.to_string())
-                                ).await.unwrap_or_default();
-                        };
-                    },
-                };
-            }
-        });
+        let io_task = task::spawn(io_loop(
+            process.stdout.take().unwrap(),
+            process.stderr.take().unwrap(),
+            sender
+        ));
 
         let sender = parent_sender.clone();
+
         loop {
             select! {
                 exit_code = process.wait() => {
-                    if let Ok(exit_code) = exit_code {
-                        if exit_code.code().unwrap_or_default() != 0 {
-                            let _ = sender.send(
-                                AppEvent::NotifyError(
-                                    format!(
-                                        "Process '{:?}' exited with code {}",
-                                        args,
-                                        exit_code.code().unwrap_or_default()
-                                    )
+                    let exit_code = match exit_code {
+                        Ok(e) => e,
+                        // if we 
+                        Err(_) => break,
+                    };
+                    if exit_code.code().unwrap_or_default() != 0 {
+                        let _ = sender.send(
+                            AppEvent::NotifyError(
+                                format!(
+                                    "Process '{:?}' exited with code {}",
+                                    args,
+                                    exit_code.code().unwrap_or_default()
                                 )
-                            ).await;
-                        }
+                            )
+                        ).await;
                     }
                     break;
                 },
@@ -132,5 +106,43 @@ async fn process_manager_loop(
                 },
             };
         }
+    }
+}
+
+async fn io_loop(
+    stdout: ChildStdout,
+    stderr: ChildStderr,
+    sender: Sender<AppEvent>,
+) {
+
+    let mut stdoutreader = BufReader::new(stdout);
+    let mut stderrreader = BufReader::new(stderr);
+    loop {
+        let mut stdout_buff = [0; 255];
+        let mut stderr_buff = [0; 255];
+
+        select! {
+            read = stdoutreader.read(&mut stdout_buff) => {
+                if let Ok(s) = from_utf8(&stdout_buff[..read.unwrap()]) {
+                    if s.is_empty() {
+                        return;
+                    }
+                    sender
+                        .send(AppEvent::ChannelLog("stdout".to_string(), s.to_string()))
+                        .await.unwrap_or_default();
+                };
+            },
+            read = stderrreader.read(&mut stderr_buff) => {
+                if let Ok(s) = from_utf8(&stderr_buff[..read.unwrap()]) {
+                    if s.is_empty() {
+                        return;
+                    }
+                    sender
+                        .send(
+                            AppEvent::ChannelLog("stderr".to_string(), s.to_string())
+                        ).await.unwrap_or_default();
+                };
+            },
+        };
     }
 }

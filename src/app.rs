@@ -447,6 +447,7 @@ impl App {
                 }
             }
             AppEvent::Listen => {
+                self.channels.reset();
                 self.listening_status = ListenStatus::Listening;
                 self.view_current = SelectedView::Listen;
                 self.session_view.mode = SessionViewMode::Current;
@@ -554,6 +555,10 @@ impl App {
             AppEvent::Disconnect => {
                 let _ = self.client.lock().await.deref_mut().disonnect().await;
                 self.listening_status = ListenStatus::Refusing;
+
+                // capture any remaining stdout/stderr
+                self.channels.savepoint(self.history.offset).await;
+                self.focus_current_channel();
                 self.sender
                     .send(AppEvent::ChangeSessionViewMode(SessionViewMode::History))
                     .await?;
@@ -568,7 +573,8 @@ impl App {
                 }
             }
             AppEvent::NextChannel => {
-                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count()
+                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count();
+                self.focus_current_channel();
             },
             AppEvent::NotifyError(message) => {
                 self.notification = Notification::error(message);
@@ -811,28 +817,6 @@ impl App {
             entry.push(stack);
         }
 
-        // *xdebug* only evalutes expressions on the current stack frame
-        let eval = if !self.session_view.eval_state.input.to_string().is_empty() {
-            let response = self
-                .client
-                .lock()
-                .await
-                .eval(
-                    self.session_view.eval_state.input.to_string(),
-                    self.session_view.stack_depth(),
-                )
-                .await?;
-
-                Some(EvalEntry{
-                    expr: self.session_view.eval_state.input.to_string(),
-                    response
-                })
-        } else {
-            None
-        };
-
-        entry.eval = eval;
-
         self.session_view.reset();
         self.history.push(entry);
         self.channels.savepoint(self.history.offset).await;
@@ -877,6 +861,10 @@ impl App {
             self.session_view
                 .scroll_to_line(entry.source(self.session_view.stack_depth()).line_no)
         }
+        self.focus_current_channel();
+    }
+
+    fn focus_current_channel(&mut self) {
         if let Some(c) = self.channels.channel_by_offset(self.session_view.eval_state.channel) { self.focus_channel(c.name.clone()) }
     }
 

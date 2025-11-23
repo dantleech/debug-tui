@@ -13,7 +13,7 @@ impl View for ListenView {
         None
     }
 
-    fn draw(app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, area: Rect, _outer_area: Rect) {
 
         let block = Block::default()
             .borders(Borders::all())

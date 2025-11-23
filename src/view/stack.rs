@@ -17,7 +17,7 @@ impl View for StackComponent {
         }
     }
 
-    fn draw(app: &App, frame: &mut Frame, _inner_area: Rect, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, area: Rect, _outer_area: Rect) {
         let entry = match app.history.current() {
             Some(s) => s,
             None => return,

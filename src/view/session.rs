@@ -104,7 +104,7 @@ impl View for SessionView {
         delegate_event_to_pane(app, event)
     }
 
-    fn draw(app: &App, frame: &mut Frame, _inner_area: ratatui::prelude::Rect, area: Rect) {
+    fn draw(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect, _area: Rect) {
         if app.session_view.full_screen {
             build_pane_widget(
                 frame,

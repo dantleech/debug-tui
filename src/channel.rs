@@ -96,15 +96,7 @@ impl Channel {
                 content[0..*offset].lines().map(|s|s.to_string()).collect()
             }
             Entry::Vacant(_) => {
-                match self.current_offset {
-                    // if we previously resolved a snapshot then use that
-                    Some(current_offset) => {
-                        content[0..current_offset].lines().map(|s|s.to_string()).collect()
-                    },
-                    None => {
-                        content.lines().map(|s|s.to_string()).collect()
-                    }
-                }
+                vec![]
             }
         };
     }
