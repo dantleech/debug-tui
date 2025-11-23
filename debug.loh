@@ -1,0 +1,29 @@
+[00:00:00.000] (7ffa3507f440) INFO   Handling event Startup
+[00:00:00.000] (7ffa2edf66c0) TRACE  registering event source with poller: token=Token(140711450119680), interests=READABLE | WRITABLE
+[00:00:00.648] (7ffa34dff6c0) TRACE  registering event source with poller: token=Token(140712523862528), interests=READABLE | WRITABLE
+[00:00:00.648] (7ffa3507f440) INFO   Handling event ClientConnected(PollEvented { io: Some(TcpStream { addr: 127.0.0.1:9003, peer: 127.0.0.1:47680, fd: 14 }) })
+[00:00:00.648] (7ffa3507f440) DEBUG  [dbgp] << <?xml version="1.0" encoding="iso-8859-1"?>
+<init xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" fileuri="file:///home/daniel/www/dantleech/debug-tui/php/test.php" language="PHP" xdebug:language_version="8.4.3" protocol_version="1.0" appid="2532590" xdebug:ctrl_socket="xdebug-ctrl.2532590"><engine version="3.4.1"><![CDATA[Xdebug]]></engine><author><![CDATA[Derick Rethans]]></author><url><![CDATA[https://xdebug.org]]></url><copyright><![CDATA[Copyright (c) 2002-2025 by Derick Rethans]]></copyright></init>
+[00:00:00.648] (7ffa3507f440) INFO   setting feature max_depth to "4"
+[00:00:00.648] (7ffa3507f440) DEBUG  [dbgp] >> feature_set -i 0 -n max_depth -v 4
+[00:00:00.648] (7ffa3507f440) DEBUG  [dbgp] << <?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="feature_set" transaction_id="0" feature="max_depth" success="1"></response>
+[00:00:00.648] (7ffa3507f440) INFO   setting feature extended_properties to "1"
+[00:00:00.648] (7ffa3507f440) DEBUG  [dbgp] >> feature_set -i 1 -n extended_properties -v 1
+[00:00:00.648] (7ffa3507f440) DEBUG  [dbgp] << <?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="feature_set" transaction_id="1" feature="extended_properties" success="1"></response>
+[00:00:00.649] (7ffa3507f440) DEBUG  [dbgp] >> source -i 2 -f file:///home/daniel/www/dantleech/debug-tui/php/test.php
+[00:00:00.652] (7ffa3507f440) DEBUG  [dbgp] << <?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="source" transaction_id="2" encoding="base64"><![CDATA[PD9waHAKCiRhcnJheSA9IFsKICAgICdpbnQnID0+IDEyMywKICAgICdmbG9hdCcgPT4gMTIzLjQsCiAgICAnc3RyaW5nJyA9PiAic3RyaW5nIiwKICAgICdib29sJyA9PiB0cnVlLAogICAgJ21vcmUnID0+IFsKICAgICAgICAnaW50JyA9PiAxMjMsCiAgICAgICAgJ2Zsb2F0JyA9PiAxMjMuNCwKICAgICAgICAnc3RyaW5nJyA9PiAic3RyaW5nIiwKICAgICAgICAnYm9vbCcgPT4gdHJ1ZSwKICAgIF0sCl07CiRhID0gMjsKJGZvbyA9ICRhOwokZm9vID0gJGFycmF5OwoKJGJhciA9ICRmb287CgoKKG5ldyBGb28odHJ1ZSwgImZvbyIpKS0+bWV0aG9kMygpOwpjYWxsX2Z1bmN0aW9uKCJoZWxsbyIpOwoKCgpmdW5jdGlvbiBjYWxsX2Z1bmN0aW9uKHN0cmluZyAkaGVsbG8pIHsKICAgICR2YXIgPSAxMjM7CiAgICAkb2JqID0gbmV3IEZvbyhmYWxzZSwgJ2dvb2QgZGF5Jyk7CiAgICBhbm90aGVyX2Z1bmN0aW9uKCRoZWxsbyk7CiAgICBhbm90aGVyX2Z1bmN0aW9uKCRoZWxsbyk7CiAgICBhbm90aGVyX2Z1bmN0aW9uKCRoZWxsbyk7Cn0KCmZ1bmN0aW9uIGFub3RoZXJfZnVuY3Rpb24oc3RyaW5nICRnb29kYnllKSB7CiAgICBlY2hvICRnb29kYnllOwoKCiAgICBmb3JlYWNoIChbJ29uZScsICd0d28nLCAndGhyZWUnLCAnZm91ciddIGFzICRudW1iZXIpIHsKICAgICAgICBpZiAoJG51bWJlciA9PT0gJ29uZScpIHsKICAgICAgICAgICAgZWNobyAibnVtYmVyIjsKICAgICAgICB9CiAgICAgICAgZWNobyAkbnVtYmVyOwogICAgfQp9CgpjbGFzcyBGb28gewogICAgcHVibGljIGZ1bmN0aW9uIF9fY29uc3RydWN0KHB1YmxpYyBib29sICR0cnVlLCBwdWJsaWMgc3RyaW5nICRiYXIpIHt9CiAgICBwdWJsaWMgZnVuY3Rpb24gbWV0aG9kMSgpIHsKICAgIH0KICAgIHB1YmxpYyBmdW5jdGlvbiBtZXRob2QyKCkgewogICAgfQogICAgcHVibGljIGZ1bmN0aW9uIG1ldGhvZDMoKSB7CiAgICB9Cn0KCg==]]></response>
+[00:00:06.466] (7ffa3507f440) INFO   Handling event Input(KeyEvent { code: Char('r'), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) })
+[00:00:06.478] (7ffa3507f440) INFO   Handling event Run
+[00:00:06.478] (7ffa34dff6c0) INFO   Running iteration 0/1
+[00:00:06.478] (7ffa34dff6c0) DEBUG  [dbgp] >> run -i 3 
+[00:00:06.478] (7ffa2eff76c0) DEBUG  [dbgp] << <?xml version="1.0" encoding="iso-8859-1"?>
+<response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" command="run" transaction_id="3" status="stopping" reason="ok"></response>
+[00:00:06.481] (7ffa3507f440) INFO   Handling event UpdateStatus(Stopping)
+[00:00:06.484] (7ffa3507f440) INFO   Handling event Disconnect
+[00:00:06.484] (7ffa3507f440) TRACE  deregistering event source from poller
+[00:00:06.487] (7ffa3507f440) INFO   Handling event ChangeSessionViewMode(History)
+[00:00:09.778] (7ffa3507f440) INFO   Handling event Quit
+[00:00:09.779] (7ffa347fc6c0) TRACE  deregistering event source from poller
