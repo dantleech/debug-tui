@@ -1,5 +1,5 @@
 use std::{process::Stdio, str::from_utf8};
-use tokio::io::{AsyncReadExt, Stdout};
+use tokio::io::AsyncReadExt;
 
 use tokio::process::{ChildStderr, ChildStdout};
 use tokio::select;
