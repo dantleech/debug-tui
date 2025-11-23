@@ -74,7 +74,6 @@ pub struct Channel {
     pub buffer: Arc<Mutex<String>>,
     pub lines: Vec<String>,
     pub savepoints: HashMap<usize,usize>,
-    pub current_offset: Option<usize>
 }
 
 impl Channel {
@@ -92,7 +91,6 @@ impl Channel {
             // savepoint
             Entry::Occupied(occupied_entry) => {
                 let offset = occupied_entry.get();
-                self.current_offset = Some(*offset);
                 content[0..*offset].lines().map(|s|s.to_string()).collect()
             }
             Entry::Vacant(_) => {
@@ -107,7 +105,6 @@ impl Channel {
             buffer: Arc::new(Mutex::new(String::new())),
             lines: vec![],
             savepoints: HashMap::new(),
-            current_offset: None,
         }
     }
 
@@ -148,22 +145,43 @@ mod test {
         channel.write("baf\nbaz\n".to_string()).await;
         
         assert_eq!(0, channel.lines.len());
-        channel.unload(100).await;
+        channel.savepoint(0).await;
+        channel.unload(0).await;
 
         assert_eq!(6, channel.lines.len());
+    }
+
+    #[tokio::test]
+    pub async fn test_savepoint() {
+        let mut channel = Channel::new("test".to_string());
+        channel.write("foobar\nbar".to_string()).await;
+        channel.savepoint(0).await;
+        channel.write("\nbarfoo\nbaz\none\ntwo".to_string()).await;
+        channel.savepoint(1).await;
+        channel.write("baf\nbaz\n".to_string()).await;
+        
+        assert_eq!(0, channel.lines.len());
+        channel.savepoint(1).await;
+        channel.unload(1).await;
+        assert_eq!(7, channel.lines.len());
+        channel.unload(0).await;
+        assert_eq!(2, channel.lines.len());
     }
 
     #[tokio::test]
     pub async fn test_channel_lines_with_unterminated_previous() {
         let mut channel = Channel::default();
         channel.write("foobar".to_string()).await;
-        channel.unload(100).await;
+        channel.savepoint(0).await;
+        channel.unload(0).await;
         assert_eq!(1, channel.lines.len());
         channel.write("barfoo".to_string()).await;
-        channel.unload(100).await;
+        channel.savepoint(0).await;
+        channel.unload(0).await;
         assert_eq!(1, channel.lines.len());
         channel.write("barfoo\n".to_string()).await;
-        channel.unload(100).await;
+        channel.savepoint(0).await;
+        channel.unload(0).await;
         assert_eq!(1, channel.lines.len());
     }
 
