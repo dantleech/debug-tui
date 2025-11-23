@@ -35,13 +35,25 @@ pub fn process_manager_start(
             };
 
             // start the PHP process - detatching stdin for now but capturing stdout/stderr
-            let mut process = Command::new(program)
+            let mut process = match Command::new(program)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::null())
                 .args(&args[1..])
-                .spawn()
-                .unwrap();
+                .spawn() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        parent_sender.send(AppEvent::ChannelLog(
+                            "notice".to_string(),
+                            format!(
+                                "could not start process '{}': {}",
+                                args.join(" "),
+                                e.to_string()
+                            )
+                        )).await.unwrap_or_default();
+                        return;
+                    },
+                };
 
             let mut stdoutreader = BufReader::new(process.stdout.take().unwrap());
             let mut stderrreader = BufReader::new(process.stderr.take().unwrap());
