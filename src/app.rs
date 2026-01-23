@@ -390,7 +390,9 @@ impl App {
             _ => info!("Handling event {:?}", event),
         };
         match event {
-            AppEvent::Tick => (),
+            AppEvent::Tick => {
+                self.session_view.eval_state.tick();
+            },
             AppEvent::Quit => self.quit = true,
             AppEvent::Listening => {
                 if let Some(script) = &self.config.cmd {
@@ -582,7 +584,7 @@ impl App {
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
                 buffer.lock().await.push_str(&chunk);
-                self.focus_channel(channel);
+                self.session_view.eval_state.blink(&self.channels, &channel);
             },
             AppEvent::RestartProcess => {
                 self.sender.send(AppEvent::Disconnect).await?;
@@ -626,7 +628,7 @@ impl App {
                         }
                     };
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
-                    self.focus_channel("eval".to_string());
+                    self.focus_channel("eval".to_string(), true);
                 }
                 self.active_dialog = None;
             }
@@ -865,11 +867,14 @@ impl App {
     }
 
     fn focus_current_channel(&mut self) {
-        if let Some(c) = self.channels.channel_by_offset(self.session_view.eval_state.channel) { self.focus_channel(c.name.clone()) }
+        if let Some(c) = self.channels.channel_by_offset(self.session_view.eval_state.channel) { self.focus_channel(c.name.clone(), true) }
     }
 
-    fn focus_channel(&mut self, channel: String) {
-        self.session_view.eval_state.focus(&self.channels, channel);
+    fn focus_channel(&mut self, channel: String, blink: bool) {
+        self.session_view.eval_state.focus(&self.channels, &channel);
+        if blink {
+            self.session_view.eval_state.blink(&self.channels, &channel);
+        }
     }
 }
 

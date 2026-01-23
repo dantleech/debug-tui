@@ -68,6 +68,9 @@ impl Theme {
 
                 background: Style::default().bg(Color::Black),
                 cursor: Style::default().bg(Color::White),
+                tab_active: Style::default().fg(Solarized::Base2.to_color()).bg(Solarized::Base03.to_color()),
+                tab_inactive: Style::default().fg(Solarized::Base01.to_color()),
+                tab_blink: Style::default().bg(Solarized::Base0.to_color()),
             },
             Theme::Dark => Scheme {
                 syntax_variable: Style::default().fg(Color::LightBlue),
@@ -99,7 +102,11 @@ impl Theme {
                 widget_mode_history: Style::default().bg(Color::Red),
                 text_input: Style::default().fg(Solarized::Red.to_color()).bg(Solarized::Green.to_color()),
                 background: Style::default().bg(Color::Black),
-                cursor: Style::default().bg(Color::White)
+                cursor: Style::default().bg(Color::White),
+
+                tab_active: Style::default().fg(Color::Green),
+                tab_inactive: Style::default(),
+                tab_blink: Style::default().bg(Color::Red),
             },
         }
     }
@@ -136,6 +143,9 @@ pub struct Scheme {
     pub widget_mode_history: Style,
     pub text_input: Style,
     pub cursor: Style,
+    pub tab_active: Style,
+    pub tab_inactive: Style,
+    pub tab_blink: Style,
 }
 
 pub enum Role {}

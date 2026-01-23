@@ -1,9 +1,14 @@
 use std::cell::Cell;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use super::centered_rect_absolute;
 use super::View;
 use ansi_to_tui::IntoText;
 use ratatui::layout::Offset;
+use ratatui::style::Style;
 use ratatui::widgets::Tabs;
 use crate::app::App;
 use crate::channel::Channel;
@@ -34,10 +39,32 @@ pub struct EvalState {
     pub eval_area: Cell<Rect>,
     pub input: Input,
     pub channel: usize,
+    pub blink: HashMap<usize,SystemTime>,
     pub scroll: (u16, u16),
 }
 impl EvalState {
-    pub(crate) fn focus(&mut self, channels: &Channels, name: String) {
+    pub(crate) fn blink(&mut self, channels: &Channels, name: &String) {
+        let channel = channels.offset_by_name(name).unwrap_or(0);
+        self.blink.insert(
+            channel,
+            SystemTime::now().checked_add(Duration::from_millis(100)).unwrap_or(SystemTime::UNIX_EPOCH)
+        );
+    }
+
+    pub(crate) fn tick(&mut self) {
+        for (channel, timeout) in self.blink.clone().iter() {
+            if &SystemTime::now() > timeout {
+                self.blink.remove(&channel);
+            }
+        }
+    }
+
+    pub(crate) fn is_blunk(&self, channels: &Channels, name: &String) -> bool {
+        let channel = channels.offset_by_name(name).unwrap_or(0);
+        self.blink.contains_key(&channel)
+    }
+
+    pub(crate) fn focus(&mut self, channels: &Channels, name: &String) {
         self.channel = channels.offset_by_name(name).unwrap_or(0);
         self.scroll.1 = 0;
         let channel = channels.channel_by_offset(self.channel).expect("channel does not exist!");
@@ -55,8 +82,29 @@ impl View for ChannelsComponent {
     }
 
     fn draw(app: &App, frame: &mut Frame, inner_area: Rect, area: Rect) {
-        let tabs = Tabs::new(app.channels.names()).select(app.session_view.eval_state.channel);
-        frame.render_widget(tabs, area.offset(Offset{x: 1, y: 0}));
+        let mut tabs = Vec::new();
+
+        for (i, channel_name) in app.channels.names().iter().enumerate() {
+            let mut tab_style = app.theme().tab_inactive;
+            if app.session_view.eval_state.channel == i {
+                tab_style = tab_style.patch(app.theme().tab_active);
+            }
+
+            if app.session_view.eval_state.is_blunk(&app.channels, &channel_name.to_string()) {
+                tab_style = tab_style.patch(app.theme().tab_blink);
+            };
+
+            tabs.push(Span::raw(format!(" {} ", *channel_name)).style(tab_style));
+            tabs.push(Span::raw(" | "));
+        }
+
+        // pop off the last delimiter
+        if tabs.len() > 0 {
+            tabs.pop();
+        }
+
+        frame.render_widget(Line::from(tabs), area.offset(Offset{x: 1, y: 0}));
+
         let channel = match app.channels.channel_by_offset(
             app.session_view.eval_state.channel
         ) {
@@ -104,6 +152,7 @@ impl View for EvalDialog {
 
     fn draw(app: &App, frame: &mut Frame, inner_area: Rect, _area: Rect) {
         let darea = centered_rect_absolute(inner_area.width - 10, 3, inner_area);
+
         frame.render_widget(Clear, darea);
         frame.render_widget(
             Paragraph::new(Line::from(vec![Span::raw(
