@@ -79,6 +79,7 @@ impl View for SessionView {
                     'o' => Some(AppEvent::StepOut),
                     'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
                     'd' => Some(AppEvent::Disconnect),
+                    'f' => Some(AppEvent::ContextFilterOpen),
                     _ => None,
                 },
                 _ => None,
@@ -304,6 +305,14 @@ impl SessionViewState {
 
     fn panes(&self, col: Col) -> Vec<&Pane> {
         self.panes.iter().filter(|p| p.col == col).collect()
+    }
+
+    pub fn goto_component_pane(&mut self, type_: ComponentType) {
+        for (i, pane) in self.panes.iter().enumerate() {
+            if type_ == pane.component_type {
+                self.current_pane = i;
+            }
+        }
     }
 
     pub fn next_pane(&mut self) {

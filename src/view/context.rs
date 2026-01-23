@@ -35,12 +35,6 @@ impl View for ContextComponent {
         }
         match event {
             AppEvent::Scroll(scroll) => Some(AppEvent::ScrollContext(scroll)),
-            AppEvent::Input(e) => {
-                match e.code {
-                    KeyCode::Char('f') => Some(AppEvent::ContextFilterOpen),
-                    _ => None,
-                }
-            },
             _ => None,
         }
     }

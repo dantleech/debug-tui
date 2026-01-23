@@ -20,7 +20,7 @@ pub trait View {
     fn draw(app: &App, frame: &mut Frame, area: Rect, outer_area: Rect);
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ComponentType {
     Source,
     Context,

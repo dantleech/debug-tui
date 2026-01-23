@@ -509,6 +509,7 @@ impl App {
             }
             AppEvent::ContextFilterOpen => {
                 self.session_view.context_filter.show = true;
+                self.session_view.goto_component_pane(crate::view::ComponentType::Context);
                 self.focus_view = true;
             }
             AppEvent::ContextSearchClose => {

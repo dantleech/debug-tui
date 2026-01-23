@@ -53,7 +53,7 @@ Key mappings (prefix with number to repeat):
 [+]     increase context depth
 [-]     decrease context depth
 [t]     rotate the theme
-[f]     Filter (context pane) - use dot notation to filter on multiple levels.
+[f]     Filter the context - use dot notation to filter on multiple levels.
 [enter] toggle pane focus (full screen)
 
 Legend:
