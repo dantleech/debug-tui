@@ -40,6 +40,8 @@ use ratatui::widgets::Padding;
 use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
+use tokio::task::AbortHandle;
+use std::cell::Cell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -270,6 +272,8 @@ pub struct App {
     pub analyzed_files: AnalyzedFiles,
 
     pub stack_max_context_fetch: u16,
+
+    pub run_abort: Option<AbortHandle>,
     php_tx: Sender<ProcessEvent>,
 }
 
@@ -286,6 +290,7 @@ impl App {
             notifications: Notifications::new(),
             receiver,
             sender: sender.clone(),
+            run_abort: None,
             php_tx,
             quit: false,
             history: History::default(),
@@ -321,7 +326,7 @@ impl App {
         let config = self.config.clone();
         
         // spawn connection listener co-routine
-        task::spawn(async move {
+        let handle = task::spawn(async move {
             let listener = match TcpListener::bind(config.listen.clone()).await {
                 Ok(l) => l,
                 Err(_) => {
@@ -335,6 +340,7 @@ impl App {
                     return;
                 }
             };
+            
 
             sender.send(AppEvent::Listening).await.unwrap();
 
@@ -678,18 +684,27 @@ impl App {
         let sender = self.sender.clone();
         let count = self.take_motion();
 
+        // avoid bombing the spawned task and creating a deadlock
+        if let Some(run_abort) = &self.run_abort {
+            if !run_abort.is_finished() {
+                run_abort.abort();
+                self.run_abort = None;
+                return;
+            }
+        }
+
         let snapshot_notify = Arc::clone(&self.snapshot_notify);
         snapshot_notify.notify_one();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let mut last_response: Option<ContinuationResponse> = None;
-            let mut instance = client.lock().await;
             for i in 0..count {
                 // we need to wait for the snapshot to complete before running a further
                 // continuation.
                 snapshot_notify.notified().await;
 
                 info!("Running iteration {}/{}", i, count);
+                let mut instance = client.lock().await;
                 let response = {
                     match event {
                         AppEvent::Run => instance.deref_mut().run().await,
@@ -719,6 +734,7 @@ impl App {
                     }
                 };
             }
+
             if let Some(last_response) = last_response {
                 sender
                     .send(AppEvent::UpdateStatus(last_response.status))
@@ -726,6 +742,8 @@ impl App {
                     .unwrap();
             }
         });
+
+        self.run_abort = Some(handle.abort_handle());
     }
 
     async fn send_event_to_current_dialog(&mut self, event: AppEvent) {
