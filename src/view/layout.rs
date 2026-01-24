@@ -27,7 +27,7 @@ impl View for LayoutView {
         None
     }
 
-    fn draw(app: &App, f: &mut Frame, area: Rect, _outer_area: Rect) {
+    fn draw(app: &App, f: &mut Frame, area: Rect, outer_area: Rect) {
         let constraints = vec![Constraint::Length(1), Constraint::Min(4)];
 
         let rows = Layout::default()
@@ -53,7 +53,7 @@ impl View for LayoutView {
             x:rows[0].x,
             y:rows[0].y,
             width:rows[0].width,
-            height:rows[0].height + app.notifications.len() as u16,
+            height: (rows[0].height + app.notifications.len() as u16).min(outer_area.height),
         });
     }
 }
@@ -66,7 +66,7 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
         lines.push(Line::from(Span::styled(
             match notification.is_visible() {
                 true => format!(
-                    "{} {}",
+                    " {} {} ",
                     notification.message.clone(),
                     notification.countdown_char()
                 ),

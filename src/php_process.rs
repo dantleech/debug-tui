@@ -63,7 +63,7 @@ async fn process_manager_loop(
 
         let _ = sender
             .send(AppEvent::Notify(Notification::info(format!(
-                "Started process '{:?}' (pid: {:?})",
+                "Started process '{:?}' with pid: {}",
                 args,
                 process.id().unwrap_or(0)
             ))))
