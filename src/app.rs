@@ -683,6 +683,7 @@ impl App {
 
         tokio::spawn(async move {
             let mut last_response: Option<ContinuationResponse> = None;
+            let mut instance = client.lock().await;
             for i in 0..count {
                 // we need to wait for the snapshot to complete before running a further
                 // continuation.
@@ -690,7 +691,6 @@ impl App {
 
                 info!("Running iteration {}/{}", i, count);
                 let response = {
-                    let mut instance = client.lock().await;
                     match event {
                         AppEvent::Run => instance.deref_mut().run().await,
                         AppEvent::StepOut => instance.deref_mut().step_out().await,

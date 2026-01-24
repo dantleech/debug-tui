@@ -49,10 +49,12 @@ impl View for LayoutView {
                 ActiveDialog::Eval => EvalDialog::draw(app, f, area, rows[1]),
             }
         }
+
+        let notification_width = rows[0].width.div_ceil(2);
         f.render_widget(notification_widget(app), Rect{
-            x:rows[0].x,
+            x:rows[0].x + notification_width,
             y:rows[0].y,
-            width:rows[0].width,
+            width:notification_width,
             height: (rows[0].height + app.notifications.len() as u16).min(outer_area.height),
         });
     }
@@ -83,7 +85,8 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
         )));
     }
 
-    Paragraph::new(lines).alignment(ratatui::layout::Alignment::Right)
+    Paragraph::new(lines)
+        .alignment(ratatui::layout::Alignment::Right)
 }
 
 fn status_widget<'a>(app: &'a App) -> Paragraph<'a> {
