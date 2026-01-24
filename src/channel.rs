@@ -91,7 +91,7 @@ impl Channel {
             // savepoint
             Entry::Occupied(occupied_entry) => {
                 let offset = occupied_entry.get();
-                content[0..*offset].lines().map(|s|s.to_string()).collect()
+                content[0..*offset.min(&content.len())].lines().map(|s|s.to_string()).collect()
             }
             Entry::Vacant(_) => {
                 vec![]
@@ -110,6 +110,10 @@ impl Channel {
 
     pub(crate) async fn write(&self, join: String) {
         self.buffer.lock().await.push_str(join.as_str());
+    }
+
+    pub(crate) async fn clear(&self) {
+        self.buffer.lock().await.clear();
     }
 
     pub(crate) async fn writeln(&self, join: String) {

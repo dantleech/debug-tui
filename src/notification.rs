@@ -1,6 +1,31 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
+pub struct Notifications {
+    notification: Notification,
+}
+
+impl Notifications {
+    pub fn notify(&mut self, notification: Notification) -> () {
+        self.notification = notification;
+    }
+
+    pub(crate) fn latest(&self) -> &Notification {
+        &self.notification
+    }
+
+    pub fn current(&self) -> Vec<&Notification> {
+        vec![&self.notification]
+    }
+
+
+    pub(crate) fn new() -> Self {
+        Self {
+            notification: Notification::none(),
+        }
+    }
+}
+
 pub enum NotificationLevel {
     Error,
     None,

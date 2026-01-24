@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -8,8 +7,6 @@ use super::centered_rect_absolute;
 use super::View;
 use ansi_to_tui::IntoText;
 use ratatui::layout::Offset;
-use ratatui::style::Style;
-use ratatui::widgets::Tabs;
 use crate::app::App;
 use crate::channel::Channel;
 use crate::channel::Channels;

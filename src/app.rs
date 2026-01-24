@@ -11,6 +11,7 @@ use crate::dbgp::client::EvalResponse;
 use crate::dbgp::client::Property;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
+use crate::notification::Notifications;
 use crate::php_process;
 use crate::php_process::ProcessEvent;
 use crate::theme::Scheme;
@@ -242,7 +243,7 @@ pub struct App {
 
     pub channels: Channels,
     pub listening_status: ListenStatus,
-    pub notification: Notification,
+    pub notifications: Notifications,
     pub config: Config,
 
     pub server_status: Option<ContinuationStatus>,
@@ -282,7 +283,7 @@ impl App {
             listening_status: ListenStatus::Listening,
             config,
             input_plurality: vec![],
-            notification: Notification::none(),
+            notifications: Notifications::new(),
             receiver,
             sender: sender.clone(),
             php_tx,
@@ -348,7 +349,7 @@ impl App {
             }
         });
 
-        self.notification = Notification::info("Welcome to debug-tui press ? for help".to_string());
+        self.notifications.notify(Notification::info("Welcome to debug-tui press ? for help".to_string()));
 
         loop {
             let event = self.receiver.recv().await;
@@ -361,7 +362,7 @@ impl App {
 
             if let Err(e) = self.handle_event(terminal, event).await {
                 self.active_dialog = None;
-                self.notification = Notification::error(e.to_string());
+                self.notifications.notify(Notification::error(e.to_string()));
                 continue;
             };
 
@@ -453,14 +454,14 @@ impl App {
                 self.listening_status = ListenStatus::Listening;
                 self.view_current = SelectedView::Listen;
                 self.session_view.mode = SessionViewMode::Current;
-                self.notification = Notification::info("listening for next connection".to_string())
+                self.notifications.notify(Notification::info("listening for next connection".to_string()))
             }
             AppEvent::ClientConnected(s) => {
                 if self.listening_status != ListenStatus::Listening {
-                    self.notification =
-                        Notification::warning("refused incoming connection".to_string());
+                    self.notifications.notify(Notification::warning("refused incoming connection".to_string())
+                    );
                 } else {
-                    self.notification = Notification::info("connected".to_string());
+                    self.notifications.notify(Notification::info("connected".to_string()));
                     let filepath = {
                         let mut client = self.client.lock().await;
                         let response = client.deref_mut().connect(s).await?;
@@ -569,18 +570,19 @@ impl App {
             AppEvent::PushInputPlurality(char) => self.input_plurality.push(char),
             AppEvent::EvalStart => {
                 if !self.history.is_current() {
-                    self.notification =
-                        Notification::warning("Cannot eval in history mode".to_string());
+                    self.notifications.notify(
+                        Notification::warning("Cannot eval in history mode".to_string())
+                    );
                 } else {
                     self.active_dialog = Some(ActiveDialog::Eval);
                 }
             }
             AppEvent::NextChannel => {
-                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count();
+                self.session_view.eval_state.channel = (self.session_view.eval_state.channel + 1) % self.channels.count().max(1);
                 self.focus_current_channel();
             },
             AppEvent::NotifyError(message) => {
-                self.notification = Notification::error(message);
+                self.notifications.notify(Notification::error(message));
             },
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();
@@ -625,11 +627,13 @@ impl App {
                                 &mut lines,
                                 0
                             );
+                            self.channels.get_mut("eval").clear().await;
                             self.channels.get_mut("eval").writeln(lines.join("\n")).await;
                         }
                     };
                     self.sender.send(AppEvent::Snapshot()).await.unwrap();
                     self.focus_channel("eval".to_string(), true);
+                    self.session_view.goto_component_pane(crate::view::ComponentType::Eval);
                 }
                 self.active_dialog = None;
             }
@@ -644,8 +648,9 @@ impl App {
                     match key_event.code {
                         KeyCode::Char('t') => {
                             self.theme = self.theme.next();
-                            self.notification =
-                                Notification::info(format!("Switched to theme: {:?}", self.theme));
+                            self.notifications.notify(
+                                Notification::info(format!("Switched to theme: {:?}", self.theme))
+                            );
                         }
                         KeyCode::Char('?') => {
                             self.sender

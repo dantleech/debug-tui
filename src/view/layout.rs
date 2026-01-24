@@ -54,23 +54,29 @@ impl View for LayoutView {
 }
 
 fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
-    Paragraph::new(vec![Line::from(Span::styled(
-        match app.notification.is_visible() {
-            true => format!(
-                "{} {}",
-                app.notification.message.clone(),
-                app.notification.countdown_char()
-            ),
-            false => "".to_string(),
-        },
-        match app.notification.level {
-            NotificationLevel::Error => app.theme().notification_error,
-            NotificationLevel::Warning => app.theme().notification_warning,
-            NotificationLevel::Info => app.theme().notification_info,
-            NotificationLevel::None => Style::default(),
-        },
-    ))
-    .alignment(ratatui::layout::Alignment::Right)])
+    let notifications = app.notifications.current();
+    let mut lines = Vec::new();
+
+    for notification in notifications {
+        lines.push(Line::from(Span::styled(
+            match notification.is_visible() {
+                true => format!(
+                    "{} {}",
+                    notification.message.clone(),
+                    notification.countdown_char()
+                ),
+                false => "".to_string(),
+            },
+            match notification.level {
+                NotificationLevel::Error => app.theme().notification_error,
+                NotificationLevel::Warning => app.theme().notification_warning,
+                NotificationLevel::Info => app.theme().notification_info,
+                NotificationLevel::None => Style::default(),
+            },
+        )));
+    }
+
+    Paragraph::new(lines).alignment(ratatui::layout::Alignment::Right)
 }
 
 fn status_widget<'a>(app: &'a App) -> Paragraph<'a> {
@@ -124,6 +130,6 @@ fn status_widget<'a>(app: &'a App) -> Paragraph<'a> {
                 SessionViewMode::Current => app.theme().widget_mode_debug,
                 SessionViewMode::History => app.theme().widget_mode_history,
             },
-        ),
+        )
     ])])
 }
