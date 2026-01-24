@@ -10,6 +10,7 @@ use super::View;
 use crate::app::App;
 use crate::app::ListenStatus;
 use crate::event::input::AppEvent;
+use crate::notification::Notification;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
@@ -68,21 +69,39 @@ impl View for SessionView {
         };
 
         let next_event: Option<AppEvent> = match app.session_view.mode {
-            SessionViewMode::Current => match input_event.code {
-                KeyCode::Char(char) => match char {
-                    '+' => Some(AppEvent::ContextDepth(1)),
-                    '-' => Some(AppEvent::ContextDepth(-1)),
-                    'r' => Some(AppEvent::Run),
-                    'R' => Some(AppEvent::RestartProcess),
-                    'n' => Some(AppEvent::StepInto),
-                    'N' => Some(AppEvent::StepOver),
-                    'o' => Some(AppEvent::StepOut),
-                    'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
-                    'd' => Some(AppEvent::Disconnect),
-                    'f' => Some(AppEvent::ContextFilterOpen),
+            SessionViewMode::Current => {
+                if let Some(opt) = match input_event.code {
+                    KeyCode::Char(char) => match char {
+                        '+' => Some(AppEvent::ContextDepth(1)),
+                        '-' => Some(AppEvent::ContextDepth(-1)),
+                        'R' => Some(AppEvent::RestartProcess),
+                        'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
+                        'f' => Some(AppEvent::ContextFilterOpen),
+                        _ => None,
+                    },
                     _ => None,
-                },
-                _ => None,
+                } {
+                    return Some(opt);
+                }
+
+                if let Err(_) = app.client.try_lock() {
+                    app.notifications.notify(Notification::error(format!(
+                        "Xdebug client is busy"
+                    )));
+                    return None;
+                };
+
+                match input_event.code {
+                    KeyCode::Char(char) => match char {
+                        'r' => Some(AppEvent::Run),
+                        'n' => Some(AppEvent::StepInto),
+                        'N' => Some(AppEvent::StepOver),
+                        'o' => Some(AppEvent::StepOut),
+                        'd' => Some(AppEvent::Disconnect),
+                        _ => None,
+                    },
+                    _ => None,
+                }
             },
             SessionViewMode::History => match input_event.code {
                 KeyCode::Esc => escape(app),
