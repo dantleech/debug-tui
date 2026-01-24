@@ -31,12 +31,17 @@ impl Notifications {
     }
 }
 
+#[derive(Debug)]
 pub enum NotificationLevel {
     Error,
+    Debug,
     None,
     Info,
     Warning,
+    Notice,
 }
+
+#[derive(Debug)]
 pub struct Notification {
     pub message: String,
     pub level: NotificationLevel,
@@ -95,6 +100,26 @@ impl Notification {
         Notification {
             message,
             level: NotificationLevel::Warning,
+            expires: SystemTime::now()
+                .checked_add(Duration::from_secs(Self::DURATION))
+                .unwrap(),
+        }
+    }
+
+    pub(crate) fn debug(message: String) -> Notification {
+        Notification {
+            message,
+            level: NotificationLevel::Debug,
+            expires: SystemTime::now()
+                .checked_add(Duration::from_secs(Self::DURATION))
+                .unwrap(),
+        }
+    }
+
+    pub(crate) fn notice(message: String) -> Notification {
+        Notification {
+            message,
+            level: NotificationLevel::Notice,
             expires: SystemTime::now()
                 .checked_add(Duration::from_secs(Self::DURATION))
                 .unwrap(),

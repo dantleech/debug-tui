@@ -47,6 +47,8 @@ impl Theme {
                 syntax_literal_string: Style::default().fg(Solarized::Green.to_color()),
                 syntax_label: Style::default().fg(Solarized::Base00.to_color()),
                 syntax_brace: Style::default().fg(Solarized::Base01.to_color()),
+                notification_debug: Style::default().fg(Solarized::Base01.to_color()),
+                notification_notice: Style::default().fg(Solarized::Cyan.to_color()),
                 notification_info: Style::default().fg(Solarized::Green.to_color()),
                 notification_error: Style::default().fg(Solarized::Red.to_color()),
                 notification_warning: Style::default().fg(Solarized::Yellow.to_color()),
@@ -81,6 +83,8 @@ impl Theme {
                 syntax_label: Style::default().fg(Color::White),
                 syntax_brace: Style::default().fg(Color::White),
 
+                notification_debug: Style::default().fg(Color::DarkGray).bg(Color::Green),
+                notification_notice: Style::default().fg(Color::Cyan).bg(Color::Green),
                 notification_info: Style::default().fg(Color::Black).bg(Color::Green),
                 notification_error: Style::default().fg(Color::Yellow),
                 notification_warning: Style::default().fg(Color::White).bg(Color::Yellow),
@@ -123,6 +127,8 @@ pub struct Scheme {
     pub syntax_brace: Style,
 
     pub notification_info: Style,
+    pub notification_debug: Style,
+    pub notification_notice: Style,
     pub notification_error: Style,
     pub notification_warning: Style,
 

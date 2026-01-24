@@ -349,7 +349,7 @@ impl App {
             }
         });
 
-        self.notifications.notify(Notification::info("Welcome to debug-tui press ? for help".to_string()));
+        self.notifications.notify(Notification::notice("Welcome to debug-tui press ? for help".to_string()));
 
         loop {
             let event = self.receiver.recv().await;
@@ -455,14 +455,13 @@ impl App {
                 self.listening_status = ListenStatus::Listening;
                 self.view_current = SelectedView::Listen;
                 self.session_view.mode = SessionViewMode::Current;
-                self.notifications.notify(Notification::info("listening for next connection".to_string()))
             }
             AppEvent::ClientConnected(s) => {
                 if self.listening_status != ListenStatus::Listening {
                     self.notifications.notify(Notification::warning("refused incoming connection".to_string())
                     );
                 } else {
-                    self.notifications.notify(Notification::info("connected".to_string()));
+                    self.notifications.notify(Notification::info("Connected".to_string()));
                     let filepath = {
                         let mut client = self.client.lock().await;
                         let response = client.deref_mut().connect(s).await?;
@@ -584,6 +583,9 @@ impl App {
             },
             AppEvent::NotifyError(message) => {
                 self.notifications.notify(Notification::error(message));
+            },
+            AppEvent::Notify(notification) => {
+                self.notifications.notify(notification);
             },
             AppEvent::ChannelLog(channel, chunk) => {
                 let buffer = self.channels.get_mut(channel.as_str()).buffer.clone();

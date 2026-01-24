@@ -14,6 +14,7 @@ use tokio::task;
 
 use crate::app::SelectedView;
 use crate::dbgp::client::ContinuationStatus;
+use crate::notification::Notification;
 use crate::view::session::SessionViewMode;
 use crate::view::Scroll;
 
@@ -62,6 +63,7 @@ pub enum AppEvent {
     ChannelLog(String, String),
     RestartProcess,
     NotifyError(String),
+    Notify(Notification),
 }
 
 pub type EventSender = Sender<AppEvent>;

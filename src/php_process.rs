@@ -7,6 +7,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::{io::BufReader, process::Command, sync::mpsc::Sender, task};
 
 use crate::event::input::AppEvent;
+use crate::notification::Notification;
 
 #[derive(Debug)]
 pub enum ProcessEvent {
@@ -58,22 +59,20 @@ async fn process_manager_loop(
             .args(&args[1..])
             .spawn()?;
 
-
         let sender = parent_sender.clone();
 
-                    let _ = sender.send(
-                    AppEvent::NotifyError(
-                        format!(
-                            "Started process '{:?}'",
-                            args,
-                        )
-                    )
-                    ).await;
+        let _ = sender
+            .send(AppEvent::Notify(Notification::info(format!(
+                "Started process '{:?}' (pid: {:?})",
+                args,
+                process.id().unwrap_or(0)
+            ))))
+            .await;
 
         let io_task = task::spawn(io_loop(
             process.stdout.take().unwrap(),
             process.stderr.take().unwrap(),
-            sender
+            sender,
         ));
 
         let sender = parent_sender.clone();
@@ -83,7 +82,7 @@ async fn process_manager_loop(
                 exit_code = process.wait() => {
                     let exit_code = match exit_code {
                         Ok(e) => e,
-                        // if we 
+                        // if we
                         Err(_) => break,
                     };
                     if exit_code.code().unwrap_or_default() != 0 {
@@ -117,8 +116,15 @@ async fn process_manager_loop(
                     match event {
                         ProcessEvent::Start(_) => continue,
                         ProcessEvent::Stop => {
+                            let pid = process.id().unwrap_or(0);
                             process.kill().await.unwrap();
                             io_task.abort();
+                            let _ = sender
+                                .send(AppEvent::Notify(Notification::warning(format!(
+                                    "Killed process (pid: {:?})",
+                                    pid
+                                ))))
+                                .await;
                             break;
                         },
                     };
@@ -128,12 +134,7 @@ async fn process_manager_loop(
     }
 }
 
-async fn io_loop(
-    stdout: ChildStdout,
-    stderr: ChildStderr,
-    sender: Sender<AppEvent>,
-) {
-
+async fn io_loop(stdout: ChildStdout, stderr: ChildStderr, sender: Sender<AppEvent>) {
     let mut stdoutreader = BufReader::new(stdout);
     let mut stderrreader = BufReader::new(stderr);
     loop {

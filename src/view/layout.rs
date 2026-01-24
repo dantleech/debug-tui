@@ -76,6 +76,8 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
                 NotificationLevel::Error => app.theme().notification_error,
                 NotificationLevel::Warning => app.theme().notification_warning,
                 NotificationLevel::Info => app.theme().notification_info,
+                NotificationLevel::Debug => app.theme().notification_debug,
+                NotificationLevel::Notice => app.theme().notification_notice,
                 NotificationLevel::None => Style::default(),
             }.patch(app.theme().background),
         )));
