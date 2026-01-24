@@ -37,7 +37,6 @@ impl View for LayoutView {
 
         f.render_widget(Block::default().style(app.theme().background), area);
         f.render_widget(status_widget(app), rows[0]);
-        f.render_widget(notification_widget(app), rows[0]);
 
         match app.view_current {
             SelectedView::Listen => ListenView::draw(app, f, rows[1], rows[1]),
@@ -50,6 +49,12 @@ impl View for LayoutView {
                 ActiveDialog::Eval => EvalDialog::draw(app, f, area, rows[1]),
             }
         }
+        f.render_widget(notification_widget(app), Rect{
+            x:rows[0].x,
+            y:rows[0].y,
+            width:rows[0].width,
+            height:rows[0].height + app.notifications.len() as u16,
+        });
     }
 }
 
@@ -57,7 +62,7 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
     let notifications = app.notifications.current();
     let mut lines = Vec::new();
 
-    for notification in notifications {
+    for notification in notifications.iter() {
         lines.push(Line::from(Span::styled(
             match notification.is_visible() {
                 true => format!(
@@ -72,7 +77,7 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
                 NotificationLevel::Warning => app.theme().notification_warning,
                 NotificationLevel::Info => app.theme().notification_info,
                 NotificationLevel::None => Style::default(),
-            },
+            }.patch(app.theme().background),
         )));
     }
 

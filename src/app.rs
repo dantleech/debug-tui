@@ -393,6 +393,7 @@ impl App {
         match event {
             AppEvent::Tick => {
                 self.session_view.eval_state.tick();
+                self.notifications.tick();
             },
             AppEvent::Quit => self.quit = true,
             AppEvent::Listening => {

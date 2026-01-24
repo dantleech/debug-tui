@@ -61,6 +61,15 @@ async fn process_manager_loop(
 
         let sender = parent_sender.clone();
 
+                    let _ = sender.send(
+                    AppEvent::NotifyError(
+                        format!(
+                            "Started process '{:?}'",
+                            args,
+                        )
+                    )
+                    ).await;
+
         let io_task = task::spawn(io_loop(
             process.stdout.take().unwrap(),
             process.stderr.take().unwrap(),
@@ -87,7 +96,17 @@ async fn process_manager_loop(
                                 )
                             )
                         ).await;
+
+                        break;
                     }
+                    let _ = sender.send(
+                        AppEvent::NotifyError(
+                            format!(
+                                "Process '{:?}' exited successfully",
+                                args,
+                            )
+                        )
+                    ).await;
                     break;
                 },
                 cmd = receiver.recv() => {

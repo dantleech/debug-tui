@@ -2,27 +2,32 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 pub struct Notifications {
-    notification: Notification,
+    notifications: Vec<Notification>,
 }
 
 impl Notifications {
     pub fn notify(&mut self, notification: Notification) -> () {
-        self.notification = notification;
+        self.notifications.push(notification);
     }
 
-    pub(crate) fn latest(&self) -> &Notification {
-        &self.notification
+    pub fn tick(&mut self) {
+        let notifcations: Vec<Notification> = self.notifications.drain(..).filter(|n|n.is_visible()).collect();
+        self.notifications = notifcations;
     }
 
-    pub fn current(&self) -> Vec<&Notification> {
-        vec![&self.notification]
+    pub fn current(&self) -> &Vec<Notification> {
+        &self.notifications
     }
 
 
     pub(crate) fn new() -> Self {
         Self {
-            notification: Notification::none(),
+            notifications: Vec::new(),
         }
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.notifications.len()
     }
 }
 
@@ -38,7 +43,7 @@ pub struct Notification {
     expires: SystemTime,
 }
 impl Notification {
-    const DURATION: u64 = 5;
+    const DURATION: u64 = 2;
     const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
     pub(crate) fn none() -> Notification {
@@ -54,7 +59,7 @@ impl Notification {
             message,
             level: NotificationLevel::Error,
             expires: SystemTime::now()
-                .checked_add(Duration::from_secs(5))
+                .checked_add(Duration::from_secs(Self::DURATION))
                 .unwrap(),
         }
     }
