@@ -62,6 +62,7 @@ impl View for SessionView {
                 'L' => return Some(AppEvent::Scroll((0, 10))),
                 'h' => return Some(AppEvent::Scroll((0, -1))),
                 'H' => return Some(AppEvent::Scroll((0, -10))),
+                'f' => return Some(AppEvent::ContextFilterOpen),
                 '0'..='9' => return Some(AppEvent::PushInputPlurality(char)),
                 _ => (),
             },
@@ -70,13 +71,12 @@ impl View for SessionView {
 
         let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => {
+                // actions that can be executed at any time
                 if let Some(opt) = match input_event.code {
                     KeyCode::Char(char) => match char {
                         '+' => Some(AppEvent::ContextDepth(1)),
                         '-' => Some(AppEvent::ContextDepth(-1)),
-                        'R' => Some(AppEvent::RestartProcess),
                         'p' => Some(AppEvent::ChangeSessionViewMode(SessionViewMode::History)),
-                        'f' => Some(AppEvent::ContextFilterOpen),
                         _ => None,
                     },
                     _ => None,
@@ -91,6 +91,7 @@ impl View for SessionView {
                     return None;
                 };
 
+                // actions that can only be executed when xdebug client is not busy
                 match input_event.code {
                     KeyCode::Char(char) => match char {
                         'r' => Some(AppEvent::Run),
@@ -98,6 +99,7 @@ impl View for SessionView {
                         'N' => Some(AppEvent::StepOver),
                         'o' => Some(AppEvent::StepOut),
                         'd' => Some(AppEvent::Disconnect),
+                        'R' => Some(AppEvent::RestartProcess),
                         _ => None,
                     },
                     _ => None,
@@ -108,8 +110,6 @@ impl View for SessionView {
                 KeyCode::Char(c) => match c {
                     'n' => Some(AppEvent::HistoryNext),
                     'p' => Some(AppEvent::HistoryPrevious),
-                    'd' => Some(AppEvent::Disconnect),
-                    'R' => Some(AppEvent::RestartProcess),
                     'b' => escape(app),
                     _ => None,
                 },
