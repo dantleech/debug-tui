@@ -51,7 +51,7 @@ impl EvalState {
     pub(crate) fn tick(&mut self) {
         for (channel, timeout) in self.blink.clone().iter() {
             if &SystemTime::now() > timeout {
-                self.blink.remove(&channel);
+                self.blink.remove(channel);
             }
         }
     }
@@ -96,7 +96,7 @@ impl View for ChannelsComponent {
         }
 
         // pop off the last delimiter
-        if tabs.len() > 0 {
+        if !tabs.is_empty() {
             tabs.pop();
         }
 

@@ -6,7 +6,7 @@ pub struct Notifications {
 }
 
 impl Notifications {
-    pub fn notify(&mut self, notification: Notification) -> () {
+    pub fn notify(&mut self, notification: Notification) {
         self.notifications.push(notification);
     }
 
@@ -24,10 +24,6 @@ impl Notifications {
         Self {
             notifications: Vec::new(),
         }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.notifications.len()
     }
 }
 
@@ -50,14 +46,6 @@ pub struct Notification {
 impl Notification {
     const DURATION: u64 = 2;
     const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-
-    pub(crate) fn none() -> Notification {
-        Notification {
-            message: "".to_string(),
-            level: NotificationLevel::None,
-            expires: SystemTime::now(),
-        }
-    }
 
     pub(crate) fn error(message: String) -> Self {
         Notification {
@@ -100,16 +88,6 @@ impl Notification {
         Notification {
             message,
             level: NotificationLevel::Warning,
-            expires: SystemTime::now()
-                .checked_add(Duration::from_secs(Self::DURATION))
-                .unwrap(),
-        }
-    }
-
-    pub(crate) fn debug(message: String) -> Notification {
-        Notification {
-            message,
-            level: NotificationLevel::Debug,
             expires: SystemTime::now()
                 .checked_add(Duration::from_secs(Self::DURATION))
                 .unwrap(),

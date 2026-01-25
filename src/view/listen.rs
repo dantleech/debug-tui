@@ -3,7 +3,7 @@ use crate::app::App;
 use crate::event::input::AppEvent;
 use crate::view::eval::ChannelsComponent;
 use crossterm::event::KeyCode;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, Clear};
 use ratatui::Frame;
 
@@ -17,10 +17,7 @@ impl View for ListenView {
         };
 
         match input_event.code {
-            KeyCode::Char(char) => match char {
-                'R' => Some(AppEvent::RestartProcess),
-                _ => None,
-            },
+            KeyCode::Char('R') => Some(AppEvent::RestartProcess),
             _ => None,
         }
     }

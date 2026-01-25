@@ -12,7 +12,6 @@ use crate::app::ListenStatus;
 use crate::event::input::AppEvent;
 use crate::notification::Notification;
 use crossterm::event::KeyCode;
-use crossterm::event::KeyModifiers;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::layout::Rect;
@@ -51,10 +50,8 @@ impl View for SessionView {
                     return Some(opt);
                 }
 
-                if let Err(_) = app.client.try_lock() {
-                    app.notifications.notify(Notification::error(format!(
-                        "Xdebug client is busy"
-                    )));
+                if app.client.try_lock().is_err() {
+                    app.notifications.notify(Notification::error("Xdebug client is busy".to_string()));
                     return None;
                 };
 

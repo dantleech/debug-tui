@@ -42,7 +42,6 @@ use ratatui::widgets::Paragraph;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
-use std::cell::Cell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
@@ -327,7 +326,7 @@ impl App {
         let config = self.config.clone();
         
         // spawn connection listener co-routine
-        let handle = task::spawn(async move {
+        task::spawn(async move {
             let listener = match TcpListener::bind(config.listen.clone()).await {
                 Ok(l) => l,
                 Err(_) => {
