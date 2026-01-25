@@ -51,7 +51,7 @@ impl View for LayoutView {
             }
         }
 
-        let notification_width = outer_area.width.div_ceil(2);
+        let notification_width = outer_area.width / 2;
 
         f.render_widget(notification_widget(app), Rect{
             x:rows[0].x + notification_width,
