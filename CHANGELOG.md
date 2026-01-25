@@ -4,10 +4,21 @@ CHANGELOG
 main
 ----
 
+### Features
+
+- Process control - launch, restart and monitor a process.
+
 ### Improvements
 
 - Show window "titles" at bottom of window
 - Ability to disconnect from the server (via. "d")
+- Channel pane replaces eval pane.
+- Show multiple notifications.
+
+### Bug fixes
+
+- Fix order of inline variables.
+- Fixed deadlocks.
 
 0.2.0
 -----

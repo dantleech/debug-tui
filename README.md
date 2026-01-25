@@ -11,6 +11,7 @@ Interactive [Xdebug](https://xdebug.org) step-debugging client for your terminal
 - **Jump the stack**: jump up and down the stack.
 - **Vim-like motions**: Typing `100n` will repeat "step into" 100 times.
 - **Inline values**: Show variable values inline with the source code.
+- **Process control**: Launch, monitor and restart the process being debugged.
 
 ## Installation
 
@@ -22,11 +23,26 @@ Interactive [Xdebug](https://xdebug.org) step-debugging client for your terminal
 - `--log`: Debug log to file.
 - `--listen`: Listen on an alternative address (defaults to `0.0.0.0:9003`).
 
+## Usage
+
+To listen for an incoming Xdebug connection on the default port:
+
+```bash
+$ debug-tui 
+```
+
+Launch and manage the process to be debugged:
+
+```bash
+$ debug-tui -- php path/to/script.php
+```
+
 ## Key bindings
 
 Prefix with number to repeat:
 
 - `r`     run
+- `R`     restart process if one was provided
 - `n`     next / step into
 - `N`     step over
 - `p`     previous (switches to history mode if in current mode)
