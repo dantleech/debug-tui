@@ -74,11 +74,13 @@ pub struct Channel {
     pub buffer: Arc<Mutex<String>>,
     pub lines: Vec<String>,
     pub savepoints: HashMap<usize,usize>,
+    pub latest_savepoint: usize,
 }
 
 impl Channel {
     pub async fn savepoint(&mut self, savepoint: usize) {
         self.savepoints.insert(savepoint, self.buffer.lock().await.len());
+        self.latest_savepoint = savepoint;
     }
 
     // unload the current buffer into a variable that is readable without a mutex lock.
@@ -94,7 +96,11 @@ impl Channel {
                 content[0..*offset.min(&content.len())].lines().map(|s|s.to_string()).collect()
             }
             Entry::Vacant(_) => {
-                vec![]
+                if savepoint >= self.latest_savepoint {
+                    content.lines().map(|s|s.to_string()).collect()
+                } else {
+                    vec![]
+                }
             }
         };
     }
@@ -102,6 +108,7 @@ impl Channel {
     pub fn new(name: String) -> Self {
         Self {
             name,
+            latest_savepoint: 0,
             buffer: Arc::new(Mutex::new(String::new())),
             lines: vec![],
             savepoints: HashMap::new(),

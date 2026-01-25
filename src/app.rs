@@ -28,6 +28,7 @@ use crate::view::View;
 use crate::workspace::Workspace;
 use anyhow::Result;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyModifiers;
 use log::error;
 use log::info;
 use log::warn;
@@ -467,7 +468,6 @@ impl App {
                     self.notifications.notify(Notification::warning("refused incoming connection".to_string())
                     );
                 } else {
-                    self.notifications.notify(Notification::info("Connected".to_string()));
                     let filepath = {
                         let mut client = self.client.lock().await;
                         let response = client.deref_mut().connect(s).await?;
@@ -653,21 +653,52 @@ impl App {
                     // event shandled exclusively by view (e.g. input needs focus)
                     self.send_event_to_current_view(event).await;
                 } else {
-                    // global events
-                    match key_event.code {
-                        KeyCode::Char('t') => {
-                            self.theme = self.theme.next();
-                            self.notifications.notify(
-                                Notification::info(format!("Switched to theme: {:?}", self.theme))
-                            );
+                    let multiplier = if KeyModifiers::SHIFT == key_event.modifiers & KeyModifiers::SHIFT {
+                        10
+                    } else {
+                        1
+                    };
+
+                    let app_event = match key_event.code {
+                        KeyCode::Tab => Some(AppEvent::NextPane),
+                        KeyCode::BackTab => Some(AppEvent::PreviousPane),
+                        KeyCode::Enter => Some(AppEvent::ToggleFullscreen),
+                        KeyCode::Left => Some(AppEvent::Scroll((0, -multiplier))),
+                        KeyCode::Right => Some(AppEvent::Scroll((0, multiplier))),
+                        KeyCode::Up => Some(AppEvent::Scroll((-multiplier, 0))),
+                        KeyCode::Down => Some(AppEvent::Scroll((multiplier, 0))),
+                        KeyCode::Char(char) => match char {
+                            'e' => Some(AppEvent::EvalStart),
+                            'c' => Some(AppEvent::NextChannel),
+                            'j' => Some(AppEvent::Scroll((1, 0))),
+                            'k' => Some(AppEvent::Scroll((-1, 0))),
+                            'J' => Some(AppEvent::Scroll((10, 0))),
+                            'K' => Some(AppEvent::Scroll((-10, 0))),
+                            'l' => Some(AppEvent::Scroll((0, 1))),
+                            'L' => Some(AppEvent::Scroll((0, 10))),
+                            'h' => Some(AppEvent::Scroll((0, -1))),
+                            'H' => Some(AppEvent::Scroll((0, -10))),
+                            'f' => Some(AppEvent::ContextFilterOpen),
+                            '0'..='9' => Some(AppEvent::PushInputPlurality(char)),
+                            't' => {
+                                self.theme = self.theme.next();
+                                self.notifications.notify(
+                                    Notification::info(format!("Switched to theme: {:?}", self.theme))
+                                );
+                                None
+                            },
+                            '?' => Some(AppEvent::ChangeView(SelectedView::Help)),
+                            _ => None,
                         }
-                        KeyCode::Char('?') => {
-                            self.sender
-                                .send(AppEvent::ChangeView(SelectedView::Help))
-                                .await
-                                .unwrap();
-                        }
-                        _ => self.send_event_to_current_view(event).await,
+                        _ => None,
+                    };
+                    if let Some(app_event) = app_event {
+                        self.sender
+                            .send(app_event)
+                            .await
+                            .unwrap();
+                    } else {
+                        self.send_event_to_current_view(event).await;
                     }
                 }
             }

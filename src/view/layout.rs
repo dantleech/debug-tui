@@ -18,6 +18,7 @@ use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Block;
 use ratatui::widgets::Paragraph;
+use ratatui::widgets::Wrap;
 use ratatui::Frame;
 
 pub struct LayoutView {}
@@ -50,12 +51,13 @@ impl View for LayoutView {
             }
         }
 
-        let notification_width = rows[0].width.div_ceil(2);
+        let notification_width = outer_area.width.div_ceil(2);
+
         f.render_widget(notification_widget(app), Rect{
             x:rows[0].x + notification_width,
             y:rows[0].y,
             width:notification_width,
-            height: (rows[0].height + app.notifications.len() as u16).min(outer_area.height),
+            height: outer_area.height,
         });
     }
 }
@@ -85,7 +87,7 @@ fn notification_widget<'a>(app: &'a App) -> Paragraph<'a> {
         )));
     }
 
-    Paragraph::new(lines)
+    Paragraph::new(lines).wrap(Wrap{trim:false})
         .alignment(ratatui::layout::Alignment::Right)
 }
 

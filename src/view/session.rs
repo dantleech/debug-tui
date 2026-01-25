@@ -36,39 +36,6 @@ impl View for SessionView {
             return delegate_event_to_pane(app, event);
         }
 
-        let multiplier = if KeyModifiers::SHIFT == input_event.modifiers & KeyModifiers::SHIFT {
-            10
-        } else {
-            1
-        };
-
-        // handle global session events
-        match input_event.code {
-            KeyCode::Tab => return Some(AppEvent::NextPane),
-            KeyCode::BackTab => return Some(AppEvent::PreviousPane),
-            KeyCode::Enter => return Some(AppEvent::ToggleFullscreen),
-            KeyCode::Left => return Some(AppEvent::Scroll((0, -multiplier))),
-            KeyCode::Right => return Some(AppEvent::Scroll((0, multiplier))),
-            KeyCode::Up => return Some(AppEvent::Scroll((-multiplier, 0))),
-            KeyCode::Down => return Some(AppEvent::Scroll((multiplier, 0))),
-            KeyCode::Char(char) => match char {
-                'e' => return Some(AppEvent::EvalStart),
-                'c' => return Some(AppEvent::NextChannel),
-                'j' => return Some(AppEvent::Scroll((1, 0))),
-                'k' => return Some(AppEvent::Scroll((-1, 0))),
-                'J' => return Some(AppEvent::Scroll((10, 0))),
-                'K' => return Some(AppEvent::Scroll((-10, 0))),
-                'l' => return Some(AppEvent::Scroll((0, 1))),
-                'L' => return Some(AppEvent::Scroll((0, 10))),
-                'h' => return Some(AppEvent::Scroll((0, -1))),
-                'H' => return Some(AppEvent::Scroll((0, -10))),
-                'f' => return Some(AppEvent::ContextFilterOpen),
-                '0'..='9' => return Some(AppEvent::PushInputPlurality(char)),
-                _ => (),
-            },
-            _ => (),
-        };
-
         let next_event: Option<AppEvent> = match app.session_view.mode {
             SessionViewMode::Current => {
                 // actions that can be executed at any time

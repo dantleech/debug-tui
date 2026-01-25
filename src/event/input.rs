@@ -80,7 +80,7 @@ pub fn start(event_sender: EventSender) {
 
             select! {
                 _ = tick => {
-                    sender.send(AppEvent::Tick).await.unwrap();
+                    let _ = sender.send(AppEvent::Tick).await;
                 },
                 maybe_event = event => {
                     match maybe_event {
